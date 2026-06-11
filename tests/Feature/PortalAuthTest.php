@@ -21,6 +21,57 @@ it('redirects home without storing anything when the token is missing', function
     $this->get('/auth')->assertRedirect(route('home'));
 });
 
+it('stores the token from the app-link handoff and redirects home', function () {
+    SecureStorage::shouldReceive('set')
+        ->once()
+        ->with('portal_api_token', '12|secrettoken')
+        ->andReturnTrue();
+
+    $this->get('/app/auth?token='.urlencode('12|secrettoken'))
+        ->assertRedirect(route('home'));
+});
+
+it('exchanges a signed event for a token when the signer callback opens the app', function () {
+    $k1 = str_repeat('a', 64);
+    $event = ['id' => 'x', 'sig' => 'y', 'kind' => 22242];
+
+    Http::fake([
+        'portal.einundzwanzig.space/api/mobile/token' => Http::response(['token' => '13|exchanged']),
+    ]);
+    SecureStorage::shouldReceive('set')
+        ->once()
+        ->with('portal_api_token', '13|exchanged')
+        ->andReturnTrue();
+
+    $this->get('/auth/mobile/signed/'.$k1.'/'.rawurlencode(json_encode($event)))
+        ->assertRedirect(route('home'));
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://portal.einundzwanzig.space/api/mobile/token'
+        && $request['k1'] === $k1
+        && $request['event']['kind'] === 22242);
+});
+
+it('redirects home with an error flag when the token exchange fails', function () {
+    $k1 = str_repeat('b', 64);
+
+    Http::fake([
+        'portal.einundzwanzig.space/api/mobile/token' => Http::response(['status' => 'ERROR'], 400),
+    ]);
+    SecureStorage::shouldReceive('set')->never();
+
+    $this->get('/auth/mobile/signed/'.$k1.'/'.rawurlencode(json_encode(['kind' => 22242])))
+        ->assertRedirect(route('home'))
+        ->assertSessionHas('portal-connect-failed');
+});
+
+it('opens unknown portal paths in the system browser via the fallback route', function () {
+    Browser::shouldReceive('open')
+        ->once()
+        ->with('https://portal.einundzwanzig.space/de/meetup/some-meetup');
+
+    $this->get('/de/meetup/some-meetup')->assertRedirect(route('home'));
+});
+
 it('shows the connect button on home when no token is stored', function () {
     // Without the native bridge SecureStorage::get() returns null,
     // so the component renders the guest state.

@@ -57,6 +57,35 @@ final class PortalAuth
     }
 
     /**
+     * Trade a NIP-55-signed login event (received via the verified App
+     * Link callback) for a Sanctum token and store it.
+     *
+     * @param  array<string, mixed>  $signedEvent
+     */
+    public function exchangeSignedEvent(string $k1, array $signedEvent): bool
+    {
+        try {
+            $response = Http::timeout(10)
+                ->acceptJson()
+                ->post($this->baseUrl().'/api/mobile/token', [
+                    'k1' => $k1,
+                    'event' => $signedEvent,
+                    'device_name' => $this->deviceName(),
+                ]);
+        } catch (ConnectionException) {
+            return false;
+        }
+
+        $token = $response->json('token');
+
+        if (! $response->successful() || ! is_string($token) || $token === '') {
+            return false;
+        }
+
+        return $this->storeToken($token);
+    }
+
+    /**
      * Fetch the token owner's profile from the portal. Returns null when
      * offline or not authenticated; a 401 discards the stored token.
      *

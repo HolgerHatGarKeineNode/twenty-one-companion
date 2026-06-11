@@ -31,7 +31,9 @@ Arbeitsverzeichnis: `/home/user/Code/einundzwanzig-app` (eigener Branch, z. B. `
 - [x] 1.7 Token-Verwaltung existiert bereits: `resources/views/livewire/settings/api-tokens.blade.php`.
 - [x] 1.8 Pest-Tests: `tests/Feature/Auth/MobileAuthTest.php` (10 Tests: Whitelist, Callback-Verifikation, falsche Challenge, Token-Ausgabe + API-Nutzung, Token-Replacement, Confirm-Screen, /api/user). Alle 27 Auth-Tests grün.
 - [x] 1.9 Pint ok, committet auf `feature/mobile-auth` (07169df). Deployment macht der User.
-- [ ] 1.10 Manueller End-to-End-Test mit Amber auf dem Emulator (Portal muss dafür vom Emulator erreichbar sein, z. B. `adb reverse` auf den lokalen Portal-Port). ⚠️ User muss die Signatur in Amber bestätigen — vorher Bescheid geben! Lightning-Teil bleibt ungetestet (kein Wallet vorhanden).
+- [x] 1.10 End-to-End-Test mit Amber gegen das LIVE-Portal — **erfolgreich** (2026-06-11 abends): App → `Browser::inApp` → portal.../auth/mobile → Amber signiert → pfadbasierter Callback `/auth/mobile/signed/{k1}/{event}` (Commit 4aba151; Amber verwirft Query-Strings!) → Bridge-Seite erzeugt Token → Deep Link → App speichert in SecureStorage → Home zeigt Portal-Profil. Lightning bleibt ungetestet (kein Wallet).
+- [ ] 1.11 UX-Härtung des Rücksprungs: Chrome zeigt beim automatischen `einundzwanzig://`-Redirect den Bestätigungs-Toast („Seite will App öffnen"). Lösung = verifizierte **Android App Links** (https-URL + assetlinks.json) — Entscheidung des Users zu Variante (Portal-Host komplett / Subdomain / Button-Tap behalten) ausstehend. ⚠️ NativePHP claimt bei `NATIVEPHP_DEEPLINK_HOST` immer den GANZEN Host (`pathPrefix="/"`, `RunsAndroid.php:341`).
+- [ ] 1.12 Optional (User-Wunsch prüfen): Amber-Kopplung „nach Spec" — entweder `get_public_key`-Connect-Schritt mit `permissions`-Param (NIP-55) oder NIP-46/bunker über das im Portal bereits vorhandene nostr-login-Widget (`resources/js/nostrLogin.js`, „Connect with Nostr"-Button).
 
 ## Phase 2 — App: Deep Link, SecureStorage, Login-Flow
 
