@@ -16,14 +16,13 @@ new class extends Component {
     }
 
     /**
-     * Launch the NIP-55 signer (e.g. Amber) directly via an ACTION_VIEW
-     * intent. The signer signs locally and opens the portal callback, which
-     * issues the token and hands it back via the einundzwanzig:// App Link.
-     * No portal page and no relay round-trip — the fastest login path.
+     * Open the headless Nostr launcher in the in-app browser, which fires
+     * the NIP-55 signer (e.g. Amber). Signing is local (no relay), and the
+     * token comes back via the einundzwanzig:// App Link.
      */
     public function loginWithNostr(PortalAuth $portalAuth): void
     {
-        Browser::open($portalAuth->nostrSignerUri($portalAuth->newChallenge()));
+        Browser::inApp($portalAuth->nostrLoginUrl());
     }
 
     /**

@@ -37,40 +37,17 @@ final class PortalAuth
     }
 
     /**
-     * Build the NIP-55 signer URI for a fresh login challenge.
-     *
-     * Launching this via an ACTION_VIEW intent (Browser::open) opens the
-     * NIP-55 signer (e.g. Amber) directly — no portal page in between. The
-     * signer signs the kind-22242 event locally and opens the callback URL
-     * (the challenge travels in its path, the signed event is appended), so
-     * verification is stateless and needs no relay round-trip.
+     * URL of the portal's headless Nostr launcher. Opened in the in-app
+     * browser, it fires the NIP-55 signer (e.g. Amber) via window.location
+     * so the intent carries category.BROWSABLE (required for Amber's
+     * web-signing flow). The signer signs locally — no relay round-trip —
+     * and the token is handed back via the einundzwanzig:// App Link.
      */
-    public function nostrSignerUri(string $k1): string
+    public function nostrLoginUrl(): string
     {
-        $event = [
-            'kind' => 22242,
-            'created_at' => now()->timestamp,
-            'content' => '',
-            'tags' => [['challenge', $k1]],
-        ];
-
-        // Amber strips query strings when it rebuilds the callback URL, so
-        // the k1 travels in the path; the signer appends the signed event
-        // after the trailing slash.
-        $callbackUrl = $this->baseUrl().'/auth/mobile/signed/'.$k1.'/';
-
-        return 'nostrsigner:'.rawurlencode(json_encode($event)).'?'.http_build_query([
-            'compressionType' => 'none',
-            'returnType' => 'event',
-            'type' => 'sign_event',
-            'appName' => 'Einundzwanzig',
-            'callbackUrl' => $callbackUrl,
+        return $this->baseUrl().'/auth/mobile/nostr?'.http_build_query([
+            'device_name' => $this->deviceName(),
         ]);
-    }
-
-    public function newChallenge(): string
-    {
-        return bin2hex(random_bytes(32));
     }
 
     public function storeToken(string $token): bool

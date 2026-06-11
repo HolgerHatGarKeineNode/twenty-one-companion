@@ -40,12 +40,10 @@ it('shows both login buttons on home when no token is stored', function () {
         ->assertSee(__('Mit Lightning anmelden'));
 });
 
-it('launches the NIP-55 signer directly when logging in with Nostr', function () {
-    Browser::shouldReceive('open')
+it('opens the portal nostr launcher in the in-app browser when logging in with Nostr', function () {
+    Browser::shouldReceive('inApp')
         ->once()
-        ->withArgs(fn (string $uri) => str_starts_with($uri, 'nostrsigner:')
-            && str_contains($uri, 'type=sign_event')
-            && str_contains($uri, rawurlencode('https://portal.einundzwanzig.space/auth/mobile/signed/')));
+        ->with(app(PortalAuth::class)->nostrLoginUrl());
 
     Livewire\Livewire::test('portal.connect')->call('loginWithNostr');
 });
@@ -58,16 +56,11 @@ it('opens the portal lightning login in the in-app browser', function () {
     Livewire\Livewire::test('portal.connect')->call('loginWithLightning');
 });
 
-it('builds the nostr signer uri with the challenge in the event and callback path', function () {
-    $k1 = str_repeat('a', 64);
-    $uri = app(PortalAuth::class)->nostrSignerUri($k1);
+it('builds the nostr launcher url with the device name', function () {
+    $url = app(PortalAuth::class)->nostrLoginUrl();
 
-    expect($uri)->toStartWith('nostrsigner:')
-        ->and($uri)->toContain('type=sign_event')
-        ->and($uri)->toContain('returnType=event')
-        // The k1 appears in both the event challenge tag and the callback path.
-        ->and(rawurldecode($uri))->toContain('"challenge","'.$k1.'"')
-        ->and(rawurldecode($uri))->toContain('/auth/mobile/signed/'.$k1.'/');
+    expect($url)->toStartWith('https://portal.einundzwanzig.space/auth/mobile/nostr?')
+        ->and($url)->toContain('device_name=');
 });
 
 it('builds the lightning login url with the whitelisted redirect uri and device name', function () {
