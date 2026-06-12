@@ -15,8 +15,7 @@
         <section class="flex flex-col gap-3">
             <flux:heading size="lg" level="2">{{ __('Entdecken') }}</flux:heading>
 
-            <a href="{{ route('meetups') }}" wire:navigate
-               class="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors active:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:active:bg-zinc-800">
+            <x-list-link-card href="{{ route('meetups') }}">
                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
                     <flux:icon name="map-pin" class="size-6"/>
                 </span>
@@ -24,11 +23,19 @@
                     <span class="font-semibold">{{ __('Meetups') }}</span>
                     <flux:text class="truncate text-sm">{{ __('Finde Bitcoiner in deiner Nähe') }}</flux:text>
                 </span>
-                <flux:icon name="chevron-right" class="ms-auto size-5 shrink-0 text-zinc-400"/>
-            </a>
+            </x-list-link-card>
 
-            <a href="{{ route('settings') }}" wire:navigate
-               class="flex items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 transition-colors active:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:active:bg-zinc-800">
+            <x-list-link-card href="{{ route('events') }}">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
+                    <flux:icon name="calendar-days" class="size-6"/>
+                </span>
+                <span class="flex min-w-0 flex-col">
+                    <span class="font-semibold">{{ __('Termine') }}</span>
+                    <flux:text class="truncate text-sm">{{ __('Kommende Meetup-Termine im Überblick') }}</flux:text>
+                </span>
+            </x-list-link-card>
+
+            <x-list-link-card href="{{ route('settings') }}">
                 <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
                     <flux:icon name="cog-6-tooth" class="size-6"/>
                 </span>
@@ -36,8 +43,7 @@
                     <span class="font-semibold">{{ __('Einstellungen') }}</span>
                     <flux:text class="truncate text-sm">{{ __('Profil, Darstellung und Sicherheit') }}</flux:text>
                 </span>
-                <flux:icon name="chevron-right" class="ms-auto size-5 shrink-0 text-zinc-400"/>
-            </a>
+            </x-list-link-card>
         </section>
     </div>
 </x-layouts::mobile>

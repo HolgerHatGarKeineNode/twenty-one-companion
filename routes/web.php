@@ -16,7 +16,9 @@ Route::get('app/auth', PortalAuthCallbackController::class)->name('portal.handof
 Route::get('signed/{payload}', PortalSignedEventController::class)
     ->where('payload', '.*')
     ->name('portal.signed');
-Route::view('meetups', 'meetups')->name('meetups');
+Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
+Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
+Route::livewire('events', 'pages::events.index')->name('events');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

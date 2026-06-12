@@ -2,6 +2,7 @@
 
 namespace App\Data\Portal;
 
+use App\Data\Portal\Concerns\HasPortalLink;
 use Spatie\LaravelData\Data;
 
 /**
@@ -11,6 +12,8 @@ use Spatie\LaravelData\Data;
  */
 final class EventMeetupData extends Data
 {
+    use HasPortalLink;
+
     public function __construct(
         public string $name,
         public string $portalLink,

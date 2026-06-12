@@ -30,9 +30,10 @@
             </main>
 
             <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
-                <div class="grid grid-cols-3">
+                <div class="grid grid-cols-4">
                     <x-bottom-nav-item route="home" icon="home" :label="__('Start')"/>
-                    <x-bottom-nav-item route="meetups" icon="map-pin" :label="__('Meetups')"/>
+                    <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="map-pin" :label="__('Meetups')"/>
+                    <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
                     <x-bottom-nav-item route="settings" match="settings,profile.edit,appearance.edit,security.edit" icon="cog-6-tooth" :label="__('Einstellungen')"/>
                 </div>
             </nav>

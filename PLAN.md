@@ -72,12 +72,12 @@ Arbeitsverzeichnis: dieses Projekt.
 
 ## Phase 4 — App: Modul Meetups & Termine
 
-- [ ] 4.1 Bestehende `meetups`-Route/Home-View der App sichten (Commit „Add meetups route") und auf API-Daten umstellen.
-- [ ] 4.2 Meetup-Liste (Suche/Filter nach Land/Stadt) + Meetup-Detail (Beschreibung, Links, nächste Events).
-- [ ] 4.3 Event-Übersicht „Kommende Termine" (`/api/meetup-events`), Detailansicht mit Datum/Ort.
-- [ ] 4.4 iCal-/Kalender-Export oder „Teilen" via share-Plugin (Meetup-Link teilen).
-- [ ] 4.5 Eingeloggt: „Meine Meetups" (`/api/my-meetups`) als eigener Tab/Bereich.
-- [ ] 4.6 Browser-Tests/Smoke-Tests (Pest v4) für die Views.
+- [x] 4.1 Platzhalter-View `meetups.blade.php` ersetzt durch Livewire-4-SFC-Pages (`resources/views/pages/meetups/⚡index|⚡show`, `pages/events/⚡index`; `Route::livewire` + `#[Layout('layouts::mobile', […])]`). Bottom-Nav um „Termine"-Tab erweitert (grid-cols-4), Home um Termine-Karte.
+- [x] 4.2 Meetup-Liste (`/api/meetups` mit withIntro+withLogos, ein Cache-Eintrag für Liste+Detail): Suche Name/Stadt + Länderfilter (clientseitig, da API alles liefert). Detail per Slug — aus `portalLink` abgeleitet (`HasPortalLink`-Trait; API liefert keinen slug): Logo, Intro (Markdown), Links (Telegram/Website/X/Nostr/Signal/SimpleX), „Nächster Termin"-Karte, „Weitere Termine" (Monats-Events ohne next_event-Duplikat). Unbekannter Slug → freundlicher Fallback.
+- [x] 4.3 Termine-Seite mit Monatsnavigation: ⚠️ `/api/meetup-events` OHNE Datum liefert ALLE (auch vergangene) Events → immer mit Datums-Param (aktueller Monat = ab heute, andere = Monatserster; API filtert bis Monatsende). Gruppiert nach Tag, Detail als Flux-Modal (kein Event-Detail-Endpunkt/keine Event-ID in der API).
+- [x] 4.4 „Teilen" via `Share::url()` auf Meetup-Detail + im Termin-Modal. iCal-Export nicht umgesetzt (Plan sagt „oder"; bei Bedarf v2 — bräuchte file-Plugin-Export). Externe Links öffnen via `Browser::open` mit http(s)-Whitelist (`openLink`-Action).
+- [x] 4.5 „Meine Meetups" als eigener Tab (flux:tabs segmented, nur bei Token sichtbar), Quelle `/api/my-meetups`. `GET /api/meetup` (beigetretene) bleibt blockiert bis Portal-Fix (siehe Offene Fragen).
+- [x] 4.6 17 neue Pest-Tests (`MeetupsPageTest`, `EventsPageTest`): Livewire-Komponententests + HTTP-Smoke-Tests, Saloon `MockClient::global`, Share/Browser-Facade-Mocks. Geteilte Fixtures (`mapMeetupFixture` etc. mit `$overrides`) nach `tests/Pest.php` verschoben (Ladereihenfolge!). Veralteter Platzhalter-Test in `MobileShellTest` ersetzt durch stärkeren Smoke-Test in `MeetupsPageTest`. Echte Browser-Tests bräuchten `pest-plugin-browser` (nicht installiert = Dependency-Änderung → nur mit Freigabe). 91 Tests grün, Larastan + Pint sauber, `yarn run build` ok.
 
 ## Phase 5 — App: Modul Kurse & Referenten
 
@@ -122,6 +122,8 @@ Arbeitsverzeichnis: dieses Projekt.
 
 ## Entscheidungs-Log
 
+- 2026-06-12: **Simplify-Pass nach Phase 4:** Wiederverwendbare Bausteine für Phase 5/6: Blade-Komponenten `x-list-link-card` (Navigations-Karte mit Chevron, auch auf Home), `x-empty-state` (Icon+Heading+Slot, `min-height`-Prop), `x-meetup-avatar` (Logo-Fallback); Basisklasse `App\Livewire\PortalPage` mit `openLink()` (http(s)-Whitelist → `Browser::open`) für alle Modul-SFCs — als Basisklasse statt Trait, weil PHPStan Traits ohne analysierte Nutzer als unused meldet (SFC-Views liegen außerhalb der phpstan-paths). `MapMeetupData::socialLinks()` liefert die Link-Liste (Label ⇒ URL) jetzt im DTO; `slug()` ist memoisiert.
+- 2026-06-12: **Phase 4 umgesetzt** (Meetups & Termine). Entscheidungen: Markdown aus dem Portal (intro/description) wird mit `html_input=strip` + Tag-Allowlist gerendert; **Anker-Tags werden zu Text gestrippt**, weil Links sonst die WebView ohne Zurück-Navigation kapern (saubere Lösung = JS-Bridge zu `Browser::open`, Phase-7-Kandidat). Statt Tailwind-Typography-Plugin (nicht installiert, Dependency) eigene `.markdown`-Styles in app.css. `APP_LOCALE=de` in .env gesetzt, damit `translatedFormat()` deutsche Monats-/Wochentagsnamen liefert (volle l10n bleibt 7.4). Event-Identität: API liefert keine Event-IDs in `/api/meetup-events` → Modal-Auswahl über Index der sortierten Collection.
 - 2026-06-12: **Phase 3 umgesetzt** (Saloon-Connector, 12 Requests, 13 DTOs, PortalApi-Caching, 13 Tests). Erkenntnisse: `/api/my-courses` existiert nicht (Ersatz: `/api/course-events` + `/api/courses?user_id`); `/api/meetup` ist faktisch session-only (kein `auth:sanctum`) → Offene Frage für Phase 4.5; `/api/meetup-events` liefert literale Punkt-Schlüssel (`meetup.name`); Datumsformate der API sind gemischt (ISO mit Mikrosekunden, `Y-m-d H:i`) → `date_format`-Array in `config/data.php`. Cache-Design: rohes JSON zweistufig (TTL + Stale forever), kein DTO-Serialisieren in den Cache.
 - 2026-06-12: **Phase-1-Durchbruch auf echter Hardware (Pixel 8/GrapheneOS):** Nostr-Login via Amber läuft end-to-end. Root Cause aller „hängt im Custom Tab"-Symptome war `launchMode="singleTop"` der MainActivity (Wegwerf-Instanz in Ambers Task statt `onNewIntent` an die laufende App). Fix: `singleTask` im generierten Manifest (⚠️ ephemer, siehe 1.21). Emulator-Dev ist damit wieder praktikabel; Auth-E2E-Referenz bleibt das echte Gerät.
 - 2026-06-11 (spät): **NIP-46-Pairing-Blocker auf Einzelgerät** (Punkt 1.13). Der gewünschte App-Connection-Dialog mit Permissions erscheint in Amber korrekt, aber das `connect`-ACK übers Relay verpufft, weil der Browser-Tab während des Amber-Approves im Hintergrund ist. Lösungsoptionen (User wählt):

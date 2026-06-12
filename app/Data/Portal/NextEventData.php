@@ -2,6 +2,7 @@
 
 namespace App\Data\Portal;
 
+use App\Data\Portal\Concerns\RendersMarkdown;
 use Carbon\CarbonImmutable;
 use Spatie\LaravelData\Data;
 
@@ -11,6 +12,8 @@ use Spatie\LaravelData\Data;
  */
 final class NextEventData extends Data
 {
+    use RendersMarkdown;
+
     public function __construct(
         public int $id,
         public CarbonImmutable $start,
@@ -22,4 +25,9 @@ final class NextEventData extends Data
         public int $might_attendees,
         public ?string $nostr_note,
     ) {}
+
+    public function descriptionHtml(): ?string
+    {
+        return $this->markdownToHtml($this->description);
+    }
 }

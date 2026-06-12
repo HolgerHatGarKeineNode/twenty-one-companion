@@ -8,15 +8,10 @@ it('shows the start screen with the bottom navigation', function () {
     $response->assertOk()
         ->assertSee('Willkommen bei EINUNDZWANZIG')
         ->assertSee('Meetups')
+        ->assertSee('Termine')
         ->assertSee('Einstellungen')
-        ->assertSee(route('meetups'));
-});
-
-it('shows the meetups placeholder screen', function () {
-    $response = $this->get(route('meetups'));
-
-    $response->assertOk()
-        ->assertSee('Meetups kommen bald');
+        ->assertSee(route('meetups'))
+        ->assertSee(route('events'));
 });
 
 it('redirects guests from settings to the login page', function () {
