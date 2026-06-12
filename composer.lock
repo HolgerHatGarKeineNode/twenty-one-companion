@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d64175d095c24db345bb0979a529c460",
+    "content-hash": "6f11106f889a6186a3c172192c7e328c",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -239,6 +239,73 @@
                 "source": "https://github.com/DASPRiD/Enum/tree/1.0.7"
             },
             "time": "2025-09-16T12:23:56+00:00"
+        },
+        {
+            "name": "developernauts/nativephp-mobile-locales",
+            "version": "v1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/developernauts/nativephp-mobile-locales.git",
+                "reference": "567d97021110c76c2e61e95a20b73db7f5a9b096"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/developernauts/nativephp-mobile-locales/zipball/567d97021110c76c2e61e95a20b73db7f5a9b096",
+                "reference": "567d97021110c76c2e61e95a20b73db7f5a9b096",
+                "shasum": ""
+            },
+            "require": {
+                "ext-dom": "*",
+                "illuminate/support": "^12.0|^13.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "orchestra/testbench": "^10.0|^11.0",
+                "phpunit/phpunit": "^11.0|^12.0|^13.0"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "aliases": {
+                        "NativephpMobileLocales": "Developernauts\\NativephpMobileLocales\\NativephpMobileLocalesFacade"
+                    },
+                    "providers": [
+                        "Developernauts\\NativephpMobileLocales\\NativephpMobileLocalesServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Developernauts\\NativephpMobileLocales\\": "src"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Miguel Viegas",
+                    "email": "support@developernauts.com",
+                    "role": "Developer"
+                }
+            ],
+            "description": "A NativePHP plugin for managing supported locales and syncing language preferences between mobile apps and Laravel.",
+            "homepage": "https://github.com/developernauts/nativephp-mobile-locales",
+            "keywords": [
+                "laravel",
+                "locales",
+                "mobile",
+                "nativephp"
+            ],
+            "support": {
+                "issues": "https://github.com/developernauts/nativephp-mobile-locales/issues",
+                "source": "https://github.com/developernauts/nativephp-mobile-locales/tree/v1.0.1"
+            },
+            "time": "2026-05-27T10:00:05+00:00"
         },
         {
             "name": "dflydev/dot-access-data",
@@ -2997,6 +3064,57 @@
             "time": "2026-03-20T22:08:33+00:00"
         },
         {
+            "name": "nativephp/mobile-camera",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/NativePHP/mobile-camera.git",
+                "reference": "b01139ea47029b6eae695d1a16c41e00f265fd54"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/NativePHP/mobile-camera/zipball/b01139ea47029b6eae695d1a16c41e00f265fd54",
+                "reference": "b01139ea47029b6eae695d1a16c41e00f265fd54",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "*",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\CameraServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "NativePHP",
+                    "email": "info@nativephp.com"
+                }
+            ],
+            "description": "Camera plugin for NativePHP Mobile (Photo capture, Video recording, Gallery picker)",
+            "support": {
+                "issues": "https://github.com/NativePHP/mobile-camera/issues",
+                "source": "https://github.com/NativePHP/mobile-camera/tree/1.0.3"
+            },
+            "time": "2026-06-04T12:43:58+00:00"
+        },
+        {
             "name": "nativephp/mobile-dialog",
             "version": "1.0.1",
             "source": {
@@ -3044,6 +3162,57 @@
             "support": {
                 "issues": "https://github.com/NativePHP/mobile-dialog/issues",
                 "source": "https://github.com/NativePHP/mobile-dialog/tree/1.0.1"
+            },
+            "time": "2026-03-20T22:08:33+00:00"
+        },
+        {
+            "name": "nativephp/mobile-file",
+            "version": "1.0.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/NativePHP/mobile-file.git",
+                "reference": "a265884b3f639c1b62312f13674f3c0efd753761"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/NativePHP/mobile-file/zipball/a265884b3f639c1b62312f13674f3c0efd753761",
+                "reference": "a265884b3f639c1b62312f13674f3c0efd753761",
+                "shasum": ""
+            },
+            "require": {
+                "nativephp/mobile": "^3.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Native\\Mobile\\Providers\\FileServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Native\\Mobile\\Providers\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "NativePHP",
+                    "email": "support@nativephp.com"
+                }
+            ],
+            "description": "File operations plugin for NativePHP Mobile",
+            "support": {
+                "issues": "https://github.com/NativePHP/mobile-file/issues",
+                "source": "https://github.com/NativePHP/mobile-file/tree/1.0.1"
             },
             "time": "2026-03-20T22:08:33+00:00"
         },

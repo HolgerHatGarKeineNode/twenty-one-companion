@@ -44,6 +44,12 @@ class NativeServiceProvider extends ServiceProvider
             NetworkServiceProvider::class,
             ShareServiceProvider::class,
             SecureStorageServiceProvider::class,
+            \Developernauts\NativephpMobileLocales\NativephpMobileLocalesServiceProvider::class,
+            \Native\Mobile\Providers\FileServiceProvider::class,
+            \Native\Mobile\Providers\CameraServiceProvider::class,
+        
+        
+        
 
         ];
     }
