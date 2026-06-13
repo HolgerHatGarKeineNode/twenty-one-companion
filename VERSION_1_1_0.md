@@ -37,14 +37,14 @@
   - [x] `CreateCityRequest` (`POST /cities`), `UpdateCityRequest` (`PATCH /cities/{id}`)
   - [ ] ⛔ `AddMeetupToMineRequest` — **blockiert:** im Portal existiert KEINE REST-Route dafür (nur als MCP-Tool). Klärung nötig (Portal-Branch `feature/mobile-auth`), siehe Offene Fragen.
   - [ ] (später, Phase 7) `Create/UpdateLecturerRequest`, `Create/UpdateCourseRequest`, `Create/UpdateCourseEventRequest`
-- [ ] **0.2** Schreib-Fassade `app/Services/PortalWriter.php` (Gegenstück zu `PortalApi`):
-  - [ ] sendet authentifizierte Writes, mappt Erfolg/Validierungsfehler (422 → Feld-Fehler) sauber zurück
-  - [ ] invalidiert betroffene Cache-Keys nach Erfolg (z. B. `my-meetups`, `map-meetups`) und schreibt das frische DTO optimistisch in den Cache
-  - [ ] wirft typisierte Ergebnisse: `WriteResult` (success | validationErrors | networkFailure)
-- [ ] **0.3** Form-Object-Pattern: Livewire `Form`-Klassen unter `app/Livewire/Forms/` (z. B. `MeetupForm`) mit `#[Validate]`-Regeln statt Inline-Validation auf den Seiten.
-- [ ] **0.4** Offline-Outbox (entkoppelt von der UI): fehlgeschlagene Writes lokal (SQLite) puffern + Retry bei Reconnect; UI zeigt „Wird gesendet…"-Badge. *(Minimal-Variante akzeptabel: klare Fehlermeldung + manueller Retry, Outbox als Stretch markieren.)*
-- [ ] **0.5** Auth-Gate-Helper: `@can`-artiger Guard / Blade-Component `<x-requires-portal>` der unverbundene Nutzer auf einen „Mit Portal verbinden"-CTA leitet, statt Formulare zu zeigen.
-- [ ] **0.6** Tests: Saloon `MockClient`-Fakes für jeden Write-Request (Erfolg, 422, 401, Netzwerkfehler) + `PortalWriter`-Unit-Tests.
+- [x] **0.2** Schreib-Fassade `app/Services/PortalWriter.php` (Gegenstück zu `PortalApi`):
+  - [x] sendet authentifizierte Writes, mappt Erfolg/Validierungsfehler (422 → Feld-Fehler) sauber zurück
+  - [x] invalidiert betroffene Cache-Keys nach Erfolg (`my-meetups`/`map-meetups`/`meetup-events`/`venues`/`cities`) via neue `PortalApi::forget()`; Stale-Kopie bleibt als Offline-Netz. *(Optimistisches Cache-Schreiben bewusst weggelassen — siehe Log.)*
+  - [x] wirft typisierte Ergebnisse: `WriteResult` (`WriteStatus`: Success | ValidationError | Unauthorized | Forbidden | NetworkFailure) mit `errorFor()` zum Feld-Mapping
+- [x] **0.3** Form-Object-Pattern: Livewire `Form`-Klassen unter `app/Livewire/Forms/` (`MeetupForm`) mit `#[Validate]`-Regeln statt Inline-Validation auf den Seiten. (Wird in Phase 4 in eine Seite eingebunden + dort getestet.)
+- [x] **0.4** Offline-Outbox — **Minimal-Variante** umgesetzt: `WriteResult::networkFailure` liefert klare Fehlermeldung, UI kann manuell erneut senden (Muster wie `PortalPage::retry`). *(SQLite-Outbox + „Wird gesendet…"-Badge bleibt Stretch für später.)*
+- [x] **0.5** Auth-Gate-Helper: Blade-Component `<x-requires-portal>` zeigt den Inhalt nur mit Token, sonst „Konto verbinden"-CTA mit Sprung zur Profil-Seite (Login-Flow).
+- [x] **0.6** Tests: `tests/Feature/PortalWriterTest.php` (Erfolg, 422→Feldfehler, 401, 403, 500→networkFailure, kein-Token-Gate, Cache-Invalidierung, kein Write-Retry — 18 grün) + `RequiresPortalComponentTest.php` (Gate verbunden/unverbunden).
 
 **Akzeptanz:** Ein Dummy-`PortalWriter::createMeetup()` lässt sich aus tinker/Test feuern, invalidiert den Cache und liefert bei 422 strukturierte Feld-Fehler.
 
@@ -219,3 +219,6 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 | 2026-06-13 | REST-Writes erwarten **IDs** (`city_id`, `meetup_id`, `country_id`), nicht Namen | Die Namen-Auflösung macht nur das MCP-Tool-Layer; die App muss Stadt/Land/Meetup also vorab über die Such-/Listen-Endpunkte zu IDs auflösen (relevant für die Form-Flows ab Phase 4) |
 | 2026-06-13 | Write-Requests sind **body-only**, DTO-Mapping + 422-Handling zentral im `PortalWriter` (0.2) | `store/update`-Resources des Portals sind nicht deckungsgleich mit den Lese-DTOs (CityResource ohne `country`, MeetupEventResource ohne `meetup`-Objekt) → fragiles Mapping in den Requests vermieden |
 | 2026-06-13 | `add-to-mine` als Blocker dokumentiert statt kaputten Request anzulegen | Keine REST-Route im Portal vorhanden; muss serverseitig geklärt werden |
+| 2026-06-13 | `PortalWriter` invalidiert nur den **frischen** Cache-Key (Stale-Kopie bleibt), und nur den **parameterlosen** Basis-Key je Endpunkt | Cache-Driver ohne Tag-Support (kein Redis); Stale ist das Offline-Netz und darf nicht verschwinden. Varianten mit Query-Parametern (z. B. `meetup-events` nach Datum) werden in den Form-Flows ab Phase 4 bei Bedarf gezielt nachgezogen |
+| 2026-06-13 | **Optimistisches Cache-Schreiben** des frischen DTOs in 0.2 weggelassen — nur Invalidierung | Lese-DTOs (`my-meetups` im `data`-Wrapper, `map-meetups` anderes Shape) sind nicht deckungsgleich mit den Write-Resources; ein halb-korrekt gemergter Cache widerspricht dem „offline nie falsche Daten"-Prinzip. Invalidierung erzwingt sauberen Refetch |
+| 2026-06-13 | Writes laufen mit `connector->tries = 1` (kein Auto-Retry), anders als Reads | Ein wiederholter POST nach Server-/422-Fehler legt Duplikate an. Transiente Netzfehler fängt der Aufrufer über `WriteResult::networkFailure` + manuellen Retry ab |

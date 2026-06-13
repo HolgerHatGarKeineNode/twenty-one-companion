@@ -392,6 +392,30 @@ final class PortalApi
     }
 
     /**
+     * Verwirft den frischen Cache-Eintrag eines Endpunkts, damit der
+     * nächste Lesezugriff (online) frische Daten zieht — vom PortalWriter
+     * nach erfolgreichen Schreiboperationen aufgerufen. Die dauerhafte
+     * Stale-Kopie bleibt standardmäßig erhalten (Offline-Sicherheitsnetz);
+     * nur mit $includeStale wird auch sie verworfen.
+     *
+     * Hinweis: Endpunkte mit Parametern (z. B. meetup-events nach Datum)
+     * haben pro Parametersatz einen eigenen Key — invalidiert wird nur der
+     * hier übergebene Satz (Default: parameterloser Basis-Key).
+     *
+     * @param  list<mixed>  $params
+     */
+    public function forget(string $endpoint, array $params = [], bool $includeStale = false): void
+    {
+        $key = $this->cacheKey($endpoint, $params);
+
+        Cache::forget($key);
+
+        if ($includeStale) {
+            Cache::forget($key.self::STALE_SUFFIX);
+        }
+    }
+
+    /**
      * Frisch gecachte Antwort liefern oder den Endpunkt abrufen; bei
      * Netzwerk-/Serverfehlern (oder offline) fällt der Aufruf auf die
      * dauerhaft gespeicherte Stale-Kopie zurück.

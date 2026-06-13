@@ -7,6 +7,7 @@ use App\Services\AppPreferences;
 use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
+use App\Services\PortalWriter;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
@@ -46,6 +47,11 @@ class AppServiceProvider extends ServiceProvider
         // API-Aufrufe (Banner + Fehler-States) über den Render hinweg
         // aufläuft und der Network-Bridge-Call memoisiert bleibt.
         $this->app->scoped(PortalApi::class);
+
+        // Schreib-Fassade als Gegenstück zur lesenden PortalApi; scoped,
+        // damit sie dieselbe memoisierte PortalAuth/PortalApi teilt und der
+        // Connector pro Request einmal auf tries = 1 gesetzt wird.
+        $this->app->scoped(PortalWriter::class);
     }
 
     /**
