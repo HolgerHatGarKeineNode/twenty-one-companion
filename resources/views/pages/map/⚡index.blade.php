@@ -94,11 +94,7 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
 
     @if ($tab === 'karte')
         @if ($this->markers === [])
-            <x-empty-state icon="map" :heading="__('Karte nicht verfügbar')">
-                <flux:text class="max-w-xs">
-                    {{ __('Die Meetups konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
-                </flux:text>
-            </x-empty-state>
+            <x-error-state :heading="__('Karte nicht verfügbar')"/>
         @else
             <div
                 wire:key="meetup-map"
@@ -146,13 +142,9 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
 
         @if ($tab === 'staedte')
             @if ($this->cities->isEmpty())
-                <x-empty-state icon="building-office-2" :heading="__('Keine Städte gefunden')">
-                    <flux:text class="max-w-xs">
-                        {{ $search !== ''
-                            ? __('Versuche eine andere Suche.')
-                            : __('Die Städte konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
-                    </flux:text>
-                </x-empty-state>
+                <x-portal-empty-state icon="building-office-2" :heading="__('Keine Städte gefunden')" :error-heading="__('Städte nicht verfügbar')">
+                    <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+                </x-portal-empty-state>
             @else
                 <div class="flex flex-col gap-3">
                     @foreach ($this->cities as $city)
@@ -167,13 +159,9 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
             @endif
         @else
             @if ($this->venues->isEmpty())
-                <x-empty-state icon="building-storefront" :heading="__('Keine Orte gefunden')">
-                    <flux:text class="max-w-xs">
-                        {{ $search !== ''
-                            ? __('Versuche eine andere Suche.')
-                            : __('Die Orte konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
-                    </flux:text>
-                </x-empty-state>
+                <x-portal-empty-state icon="building-storefront" :heading="__('Keine Orte gefunden')" :error-heading="__('Orte nicht verfügbar')">
+                    <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+                </x-portal-empty-state>
             @else
                 <div class="flex flex-col gap-3">
                     @foreach ($this->venues as $venue)
@@ -188,4 +176,7 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
             @endif
         @endif
     @endif
+
+    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
+    <x-portal-status/>
 </div>

@@ -84,14 +84,14 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
 
 <div class="flex flex-col gap-4">
     @if ($this->meetup === null)
-        <x-empty-state icon="map-pin" :heading="__('Meetup nicht gefunden')" min-height="min-h-[60dvh]">
+        <x-portal-empty-state icon="map-pin" :heading="__('Meetup nicht gefunden')" min-height="min-h-[60dvh]">
             <flux:text class="max-w-xs">
-                {{ __('Dieses Meetup ist nicht auf der Karte gelistet oder die Daten konnten nicht geladen werden.') }}
+                {{ __('Dieses Meetup ist nicht (mehr) auf der Karte gelistet.') }}
             </flux:text>
             <flux:button :href="route('meetups')" wire:navigate icon="arrow-left" size="sm">
                 {{ __('Zu den Meetups') }}
             </flux:button>
-        </x-empty-state>
+        </x-portal-empty-state>
     @else
         <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
             <div class="flex items-start gap-4">
@@ -200,4 +200,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
             </section>
         @endif
     @endif
+
+    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
+    <x-portal-status/>
 </div>

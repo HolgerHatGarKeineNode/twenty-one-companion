@@ -164,7 +164,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     <div class="flex items-center justify-between gap-2">
         <flux:button wire:click="previousMonth" size="sm" variant="ghost" icon="chevron-left" class="cursor-pointer" :aria-label="__('Voriger Monat')"/>
         <flux:heading size="lg" level="1">
@@ -181,17 +181,17 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     </flux:select>
 
     @if ($this->events->isEmpty())
-        <x-empty-state icon="calendar-days" :heading="__('Keine Termine')">
+        <x-portal-empty-state icon="calendar-days" :heading="__('Keine Termine')" :error-heading="__('Termine nicht verfügbar')">
             <flux:text class="max-w-xs">
                 @if ($country !== '')
                     {{ __('Für diese Region sind in diesem Monat keine Termine eingetragen — wähle „Alle Länder“, um alle Termine zu sehen.') }}
                 @else
                     {{ $this->isCurrentMonth
-                        ? __('Für den Rest dieses Monats sind keine Meetup-Termine eingetragen — oder die Daten konnten nicht geladen werden.')
+                        ? __('Für den Rest dieses Monats sind keine Meetup-Termine eingetragen.')
                         : __('Für diesen Monat sind keine Meetup-Termine eingetragen.') }}
                 @endif
             </flux:text>
-        </x-empty-state>
+        </x-portal-empty-state>
     @else
         @foreach ($this->days as $day => $eventsOfDay)
             <section wire:key="day-{{ $day }}" class="flex flex-col gap-2">
@@ -274,4 +274,4 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
             </div>
         @endif
     </flux:modal>
-</div>
+</x-portal-page>

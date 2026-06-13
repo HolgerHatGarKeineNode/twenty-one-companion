@@ -98,6 +98,60 @@
     padding-right: env(safe-area-inset-right);
 }
 
+/* Leere/Fehler-Zustände: gestaffelte Entrance-Animation (Icon → Heading → Text → Action) */
+@keyframes fade-rise {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.empty-state > * {
+    animation: fade-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.empty-state > :nth-child(2) {
+    animation-delay: 0.07s;
+}
+
+.empty-state > :nth-child(3) {
+    animation-delay: 0.14s;
+}
+
+.empty-state > :nth-child(n + 4) {
+    animation-delay: 0.21s;
+}
+
+/* Verbindungs-Banner (x-portal-status): sanft von oben einschieben */
+@keyframes slide-down {
+    from {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.portal-status {
+    animation: slide-down 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .empty-state > *,
+    .portal-status {
+        animation: none;
+    }
+}
+
 /* Gerenderte Markdown-Inhalte aus dem Portal (Meetup-Intro, Termin-Beschreibungen) */
 .markdown {
     overflow-wrap: anywhere;

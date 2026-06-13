@@ -64,10 +64,54 @@ final class PortalApi
 
     private ?bool $online = null;
 
+    /** Mindestens ein Aufruf dieses Renders wurde aus der Stale-Kopie bedient. */
+    private bool $servedStale = false;
+
+    /** Mindestens ein Aufruf dieses Renders blieb ohne Daten (kein Netz/Fehler UND keine Stale-Kopie). */
+    private bool $missingData = false;
+
     public function __construct(
         private readonly PortalConnector $connector,
         private readonly PortalAuth $portalAuth,
     ) {}
+
+    /**
+     * Hat dieser Render mindestens einmal auf die dauerhafte Stale-Kopie
+     * zurückgegriffen? Die Seiten zeigen dann den „nicht aktuell“-Hinweis.
+     */
+    public function servedStaleData(): bool
+    {
+        return $this->servedStale;
+    }
+
+    /**
+     * Blieb dieser Render mindestens einmal komplett ohne Daten (Abruf
+     * fehlgeschlagen und keine Stale-Kopie)? Die Seiten zeigen dann den
+     * Fehler-State mit „Erneut versuchen“ statt eines leeren Ergebnisses.
+     */
+    public function hasMissingData(): bool
+    {
+        return $this->missingData;
+    }
+
+    public function isOffline(): bool
+    {
+        return ! $this->isOnline();
+    }
+
+    /**
+     * Status-Flags und Online-Memo auf Anfangswerte zurücksetzen — wird von
+     * PortalPage::boot() pro Livewire-Request aufgerufen, damit die scoped
+     * Instanz nie Status aus einem vorigen Render mitschleppt (relevant in
+     * Tests, in denen der Container nicht pro Interaktion geflusht wird)
+     * und Verbindungswechsel zwischen Updates erkannt werden.
+     */
+    public function resetStatus(): void
+    {
+        $this->online = null;
+        $this->servedStale = false;
+        $this->missingData = false;
+    }
 
     /**
      * @return Collection<int, MapMeetupData>
@@ -376,6 +420,12 @@ final class PortalApi
             return $this->stale($key);
         }
 
+        // 404 ist eine verbindliche Antwort („existiert nicht“), kein
+        // Verbindungsproblem — weder Stale-Kopie noch Fehler-Status.
+        if ($response->status() === 404) {
+            return null;
+        }
+
         if ($response->failed()) {
             return $this->stale($key);
         }
@@ -399,7 +449,15 @@ final class PortalApi
     {
         $stale = Cache::get($key.self::STALE_SUFFIX);
 
-        return is_array($stale) ? $stale : null;
+        if (is_array($stale)) {
+            $this->servedStale = true;
+
+            return $stale;
+        }
+
+        $this->missingData = true;
+
+        return null;
     }
 
     /**

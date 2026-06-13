@@ -337,11 +337,65 @@ it('maps the course detail including events with venue and city', function () {
     ));
 });
 
-it('returns null for an unknown course without a stale copy', function () {
+it('returns null for an unknown course without flagging missing data', function () {
     withoutPortalToken();
     MockClient::global([GetCourseRequest::class => MockResponse::make(['message' => 'Not Found'], 404)]);
 
-    expect(portalApi()->course(999))->toBeNull();
+    $api = portalApi();
+
+    // 404 ist eine verbindliche „existiert nicht“-Antwort, kein Verbindungsproblem.
+    expect($api->course(999))->toBeNull()
+        ->and($api->hasMissingData())->toBeFalse()
+        ->and($api->servedStaleData())->toBeFalse();
+});
+
+it('keeps the status flags clear for fresh responses', function () {
+    withoutPortalToken();
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([courseFixture()])]);
+
+    $api = portalApi();
+    $api->courses();
+
+    expect($api->servedStaleData())->toBeFalse()
+        ->and($api->hasMissingData())->toBeFalse();
+});
+
+it('flags served stale data after falling back to the stale copy', function () {
+    withoutPortalToken();
+    Cache::forever('portal_api:courses:stale', [courseFixture()]);
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([], 500)]);
+
+    $api = portalApi();
+
+    expect($api->courses())->toHaveCount(1)
+        ->and($api->servedStaleData())->toBeTrue()
+        ->and($api->hasMissingData())->toBeFalse();
+});
+
+it('flags missing data when a request fails without a stale copy', function () {
+    withoutPortalToken();
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([], 500)]);
+
+    $api = portalApi();
+
+    expect($api->courses())->toBeEmpty()
+        ->and($api->hasMissingData())->toBeTrue()
+        ->and($api->servedStaleData())->toBeFalse();
+});
+
+it('clears the status flags on resetStatus', function () {
+    withoutPortalToken();
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([], 500)]);
+
+    $api = portalApi();
+    $api->courses();
+
+    expect($api->hasMissingData())->toBeTrue();
+
+    $api->resetStatus();
+
+    expect($api->hasMissingData())->toBeFalse()
+        ->and($api->servedStaleData())->toBeFalse();
 });
 
 it('maps the lecturer profile with courses and social links', function () {

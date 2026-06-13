@@ -43,14 +43,14 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class
 
 <div class="flex flex-col gap-4">
     @if ($this->course === null)
-        <x-empty-state icon="academic-cap" :heading="__('Kurs nicht gefunden')" min-height="min-h-[60dvh]">
+        <x-portal-empty-state icon="academic-cap" :heading="__('Kurs nicht gefunden')" min-height="min-h-[60dvh]">
             <flux:text class="max-w-xs">
-                {{ __('Dieser Kurs existiert nicht mehr oder die Daten konnten nicht geladen werden.') }}
+                {{ __('Dieser Kurs existiert nicht mehr.') }}
             </flux:text>
             <flux:button :href="route('courses')" wire:navigate icon="arrow-left" size="sm">
                 {{ __('Zu den Kursen') }}
             </flux:button>
-        </x-empty-state>
+        </x-portal-empty-state>
     @else
         <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
             <div class="flex items-start gap-4">
@@ -124,4 +124,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class
             </section>
         @endif
     @endif
+
+    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
+    <x-portal-status/>
 </div>

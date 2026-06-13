@@ -97,7 +97,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
 };
 ?>
 
-<div class="flex flex-col gap-4">
+<x-portal-page>
     @if ($this->connected)
         <flux:tabs wire:model.live="tab" variant="segmented" class="w-full">
             <flux:tab name="alle">{{ __('Alle Meetups') }}</flux:tab>
@@ -123,13 +123,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         </div>
 
         @if ($this->meetups->isEmpty())
-            <x-empty-state icon="map-pin" :heading="__('Keine Meetups gefunden')">
+            <x-portal-empty-state icon="map-pin" :heading="__('Keine Meetups gefunden')" :error-heading="__('Meetups nicht verfügbar')">
                 <flux:text class="max-w-xs">
-                    {{ $search !== '' || $country !== ''
-                        ? __('Versuche eine andere Suche oder einen anderen Länderfilter.')
-                        : __('Die Meetups konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
+                    {{ __('Versuche eine andere Suche oder einen anderen Länderfilter.') }}
                 </flux:text>
-            </x-empty-state>
+            </x-portal-empty-state>
         @else
             <div class="flex flex-col gap-3">
                 @foreach ($this->meetups as $meetup)
@@ -153,11 +151,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         @endif
     @else
         @if ($this->myMeetups->isEmpty())
-            <x-empty-state icon="user-group" :heading="__('Keine eigenen Meetups')">
+            <x-portal-empty-state icon="user-group" :heading="__('Keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">
                 <flux:text class="max-w-xs">
                     {{ __('Du hast im Portal noch keine Meetups angelegt.') }}
                 </flux:text>
-            </x-empty-state>
+            </x-portal-empty-state>
         @else
             <div class="flex flex-col gap-3">
                 @foreach ($this->myMeetups as $meetup)
@@ -177,4 +175,4 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             </div>
         @endif
     @endif
-</div>
+</x-portal-page>

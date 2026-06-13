@@ -16,8 +16,8 @@ final class AppPreferences
 
     public const DEFAULT_COUNTRY = 'de';
 
-    /** Unterstützte App-Sprachen; v1 startet nur mit Deutsch (7.4 ergänzt en). */
-    public const SUPPORTED_LOCALES = ['de'];
+    /** Unterstützte App-Sprachen (deutsche Quell-Strings + lang/en.json). */
+    public const SUPPORTED_LOCALES = ['de', 'en'];
 
     private const KEY_ONBOARDED = 'onboarded_at';
 

@@ -53,9 +53,17 @@ it('reverts an unknown region to the stored one', function () {
     expect(app(AppPreferences::class)->country())->toBe('de');
 });
 
-it('reverts an unsupported language', function () {
+it('saves a changed language', function () {
     Livewire::test('pages::profile.index')
         ->set('locale', 'en')
+        ->assertSet('locale', 'en');
+
+    expect(app(AppPreferences::class)->locale())->toBe('en');
+});
+
+it('reverts an unsupported language', function () {
+    Livewire::test('pages::profile.index')
+        ->set('locale', 'fr')
         ->assertSet('locale', 'de');
 
     expect(app(AppPreferences::class)->locale())->toBe('de');

@@ -2,15 +2,15 @@
 
 use App\Data\Portal\CourseData;
 use App\Data\Portal\LecturerData;
+use App\Livewire\PortalPage;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
-use Livewire\Component;
 
-new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] class extends Component {
+new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] class extends PortalPage {
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -116,13 +116,9 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
 
     @if ($tab === 'referenten')
         @if ($this->lecturers->isEmpty())
-            <x-empty-state icon="user" :heading="__('Keine Referenten gefunden')">
-                <flux:text class="max-w-xs">
-                    {{ $search !== ''
-                        ? __('Versuche eine andere Suche.')
-                        : __('Die Referenten konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
-                </flux:text>
-            </x-empty-state>
+            <x-portal-empty-state icon="user" :heading="__('Keine Referenten gefunden')" :error-heading="__('Referenten nicht verfügbar')">
+                <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+            </x-portal-empty-state>
         @else
             <div class="flex flex-col gap-3">
                 @foreach ($this->lecturers as $lecturer)
@@ -150,17 +146,13 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
         @php($courses = $tab === 'meine' && $this->isLecturer ? $this->myCourses : $this->courses)
 
         @if ($courses->isEmpty())
-            <x-empty-state icon="academic-cap" :heading="$tab === 'meine' ? __('Keine eigenen Kurse') : __('Keine Kurse gefunden')">
+            <x-portal-empty-state icon="academic-cap" :heading="$tab === 'meine' ? __('Keine eigenen Kurse') : __('Keine Kurse gefunden')" :error-heading="__('Kurse nicht verfügbar')">
                 <flux:text class="max-w-xs">
-                    @if ($tab === 'meine')
-                        {{ __('Du hast im Portal noch keine Kurse angelegt.') }}
-                    @else
-                        {{ $search !== ''
-                            ? __('Versuche eine andere Suche.')
-                            : __('Die Kurse konnten nicht geladen werden. Prüfe deine Internetverbindung und versuche es erneut.') }}
-                    @endif
+                    {{ $tab === 'meine'
+                        ? __('Du hast im Portal noch keine Kurse angelegt.')
+                        : __('Versuche eine andere Suche.') }}
                 </flux:text>
-            </x-empty-state>
+            </x-portal-empty-state>
         @else
             <div class="flex flex-col gap-3">
                 @foreach ($courses as $course)
@@ -185,4 +177,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
             </div>
         @endif
     @endif
+
+    {{-- Als letztes Kind, damit der Status NACH den API-Zugriffen feststeht (order-first zeigt es oben). --}}
+    <x-portal-status/>
 </div>

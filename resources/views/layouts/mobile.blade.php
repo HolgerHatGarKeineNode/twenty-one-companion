@@ -19,7 +19,7 @@
                 <header class="pt-safe px-safe sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
                     <div class="flex h-14 items-center gap-3 px-4">
                         <x-brand-logo aria-label="EINUNDZWANZIG" class="size-8 text-zinc-900 dark:text-zinc-100"/>
-                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ?? 'EINUNDZWANZIG' }}</flux:heading>
+                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : 'EINUNDZWANZIG' }}</flux:heading>
                         <flux:spacer/>
                         {{ $actions ?? '' }}
                         <flux:modal.trigger name="main-menu">

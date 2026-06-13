@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Services\AndroidManifestPatcher;
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
+use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandFinished;
@@ -40,6 +41,11 @@ class AppServiceProvider extends ServiceProvider
         // Eine Instanz pro Request, damit Render und Validierung die
         // memoisierte Länderliste teilen (Cache-Read + DTO-Mapping).
         $this->app->scoped(CountryOptions::class);
+
+        // Eine Instanz pro Request, damit Offline-/Stale-/Fehler-Status der
+        // API-Aufrufe (Banner + Fehler-States) über den Render hinweg
+        // aufläuft und der Network-Bridge-Call memoisiert bleibt.
+        $this->app->scoped(PortalApi::class);
     }
 
     /**

@@ -177,6 +177,9 @@ return [
         '*_SECRET',
         'DB_PASSWORD',
         'DB_USERNAME',
+        // Signing-Credentials (Keystore) dürfen nie mit ins App-Bundle.
+        'ANDROID_KEYSTORE_*',
+        'ANDROID_KEY_*',
     ],
 
     /*
