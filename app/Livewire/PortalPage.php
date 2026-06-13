@@ -7,6 +7,7 @@ use App\Services\PortalApi;
 use Illuminate\Support\Str;
 use Livewire\Component;
 use Native\Mobile\Facades\Browser;
+use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Dialog;
 
 /**
@@ -55,18 +56,32 @@ abstract class PortalPage extends Component
         $portalApi = app(PortalApi::class);
 
         if ($portalApi->isOffline()) {
+            $this->vibrate();
             Dialog::alert(
                 __('Keine Verbindung'),
                 __('Du bist offline. Stelle eine Internetverbindung her und versuche es erneut.'),
             );
         } elseif ($portalApi->hasMissingData()) {
+            $this->vibrate();
             Dialog::alert(
                 __('Portal nicht erreichbar'),
                 __('Das Einundzwanzig-Portal ist gerade nicht erreichbar. Bitte versuche es später noch einmal.'),
             );
         } else {
+            $this->vibrate();
             Dialog::toast(__('Aktualisiert.'));
         }
+    }
+
+    /**
+     * Natives haptisches Feedback bei Schlüssel-Aktionen (Phase 1.3). Ergänzt
+     * das sofortige clientseitige Tap-Feedback (window.haptic) um eine
+     * bestätigende Vibration, sobald die serverseitige Aktion durch ist.
+     * Im Web-/Test-Kontext ist Device::vibrate() ein geguardeter No-op.
+     */
+    protected function vibrate(): void
+    {
+        Device::vibrate();
     }
 
     /**

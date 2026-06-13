@@ -93,7 +93,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
             </flux:button>
         </x-portal-empty-state>
     @else
-        <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+        <section class="surface-card p-6">
             <div class="flex items-start gap-4">
                 <x-meetup-avatar :logo="$this->meetup->logo" :name="$this->meetup->name" size="xl"/>
                 <div class="min-w-0 flex-1">
@@ -112,7 +112,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
         </section>
 
         @if ($this->meetup->next_event)
-            <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <section class="surface-card p-6">
                 <flux:heading size="lg" level="2">{{ __('Nächster Termin') }}</flux:heading>
                 <div class="mt-3 flex items-center gap-3">
                     <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-600 dark:text-brand-400">
@@ -133,7 +133,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
                     </div>
                 @endif
                 @if ($this->meetup->next_event->attendees > 0 || $this->meetup->next_event->might_attendees > 0)
-                    <flux:text class="mt-3 text-sm">
+                    <flux:text class="mt-3 text-sm tabular-nums">
                         {{ __(':yes Zusagen · :maybe Vielleicht', [
                             'yes' => $this->meetup->next_event->attendees,
                             'maybe' => $this->meetup->next_event->might_attendees,
@@ -149,7 +149,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
         @endif
 
         @if ($this->upcomingEvents->isNotEmpty())
-            <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <section class="surface-card p-6">
                 <flux:heading size="lg" level="2">{{ __('Weitere Termine') }}</flux:heading>
                 <div class="mt-3 flex flex-col gap-3">
                     @foreach ($this->upcomingEvents as $event)
@@ -170,7 +170,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
         @endif
 
         @if ($this->meetup->introHtml())
-            <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <section class="surface-card p-6">
                 <flux:heading size="lg" level="2">{{ __('Über das Meetup') }}</flux:heading>
                 <div class="markdown mt-3 text-sm">
                     {!! $this->meetup->introHtml() !!}
@@ -179,15 +179,16 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup'])] c
         @endif
 
         @if ($this->links !== [])
-            <section class="rounded-2xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <section class="surface-card p-6">
                 <flux:heading size="lg" level="2">{{ __('Links') }}</flux:heading>
                 <div class="mt-3 flex flex-col gap-2">
                     @foreach ($this->links as $label => $url)
                         <button
                             type="button"
                             wire:click="openLink({{ Js::from($url) }})"
+                            x-on:click="$haptic('light')"
                             wire:key="link-{{ $label }}"
-                            class="flex cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 px-4 py-3 text-start transition-colors active:bg-zinc-100 dark:border-zinc-800 dark:active:bg-zinc-800"
+                            class="pressable flex cursor-pointer items-center gap-3 rounded-tile border border-zinc-200 px-4 py-3 text-start active:bg-zinc-50 dark:border-zinc-800 dark:active:bg-zinc-800"
                         >
                             <flux:icon name="link" class="size-5 shrink-0 text-zinc-400"/>
                             <span class="flex min-w-0 flex-col">

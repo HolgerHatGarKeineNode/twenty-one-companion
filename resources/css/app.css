@@ -44,6 +44,44 @@
     --color-accent: var(--color-brand-500);
     --color-accent-content: var(--color-brand-700);
     --color-accent-foreground: var(--color-zinc-950);
+
+    /* ── AAA Design-Tokens (Source of Truth, v1.1.0 Phase 1) ───────────────
+       Radius-, Shadow- und Motion-Skala. Alle Cards/Sheets/Tiles greifen
+       darauf zu, statt rounded-2xl/shadow-sm punktuell zu streuen. */
+
+    /* Radius: Tiles (Icon-Kacheln) < Cards < Sheets */
+    --radius-tile: 0.875rem; /* rounded-tile  → Icon-Kacheln, Badges */
+    --radius-card: 1rem; /* rounded-card  → Listen-/Detail-Cards */
+    --radius-sheet: 1.5rem; /* rounded-sheet → Bottom-Sheets */
+
+    /* Elevation: bewusst weich, kein harter Material-Schatten. Im Dark-Mode
+       übernimmt der border/ring die Abgrenzung (Schatten kaum sichtbar). */
+    --shadow-card: 0 1px 2px rgb(24 24 27 / 0.04), 0 6px 16px -8px rgb(24 24 27 / 0.10);
+    --shadow-card-pressed: 0 1px 2px rgb(24 24 27 / 0.06);
+    --shadow-pop: 0 8px 30px -8px rgb(24 24 27 / 0.18);
+    --shadow-glow: 0 0 24px -4px var(--color-brand-500);
+
+    /* Motion: eine Spring (überschwingend) + eine Emphasized-Ease. */
+    --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    --duration-tap: 120ms;
+
+    /* Wiederverwendbare Keyframe-Animationen (Tailwind v4 animate-* Utilities) */
+    --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        opacity: 0.45;
+    }
+
+    50% {
+        opacity: 0.85;
+    }
+
+    100% {
+        opacity: 0.45;
+    }
 }
 
 @layer theme {
@@ -112,7 +150,7 @@
 }
 
 .empty-state > * {
-    animation: fade-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: fade-rise 0.45s var(--ease-spring) backwards;
 }
 
 .empty-state > :nth-child(2) {
@@ -141,14 +179,83 @@
 }
 
 .portal-status {
-    animation: slide-down 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+    animation: slide-down 0.35s var(--ease-spring) backwards;
+}
+
+/* ── Motion-System (Phase 1.2) ─────────────────────────────────────────────
+   Page-Enter beim (wire:)navigate, gestaffeltes Einblenden von Listen. */
+@keyframes page-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.page-enter {
+    animation: page-in 0.3s var(--ease-emphasized) backwards;
+}
+
+/* Listen-Stagger: jede Karte blendet leicht versetzt ein. Über CSS-Variable
+   --i (im Markup gesetzt) bekommt jedes Kind seine eigene Verzögerung. */
+.list-stagger > * {
+    animation: fade-rise 0.4s var(--ease-spring) backwards;
+    animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+/* Karten-Oberfläche (Phase 1.6): die gemeinsame Surface aller Cards/Sections —
+   Radius, Border, Hintergrund und weiche Elevation. Im Dark-Mode trägt der
+   Border die Abgrenzung (kein sichtbarer Schatten). Interaktions-Zustände
+   (.pressable, active:*) und Padding setzen die Aufrufer dazu. */
+@utility surface-card {
+    @apply rounded-card border border-zinc-200 bg-white shadow-card dark:border-zinc-800 dark:bg-zinc-900 dark:shadow-none;
+}
+
+/* Press-Feedback für tappbare Flächen (Cards, Buttons): kurzer Scale-Down +
+   reduzierte Elevation, fühlt sich „gedrückt“ an (AAA-Haptik-Optik). */
+.pressable {
+    transition:
+        transform var(--duration-tap) var(--ease-spring),
+        box-shadow var(--duration-tap) var(--ease-spring),
+        background-color var(--duration-tap) var(--ease-spring);
+}
+
+.pressable:active {
+    transform: scale(0.97);
+    box-shadow: var(--shadow-card-pressed);
+}
+
+/* Skeleton-Loader (Phase 1.4): sanftes Opacity-Shimmer statt Spinner. */
+.skeleton {
+    background-color: var(--color-zinc-200);
+    border-radius: var(--radius-tile);
+    animation: var(--animate-shimmer);
+}
+
+.dark .skeleton {
+    background-color: var(--color-zinc-800);
 }
 
 @media (prefers-reduced-motion: reduce) {
 
     .empty-state > *,
-    .portal-status {
+    .portal-status,
+    .page-enter,
+    .list-stagger > *,
+    .skeleton {
         animation: none;
+    }
+
+    .pressable {
+        transition: none;
+    }
+
+    .pressable:active {
+        transform: none;
     }
 }
 

@@ -12,9 +12,10 @@
 <a
     href="{{ route($route) }}"
     wire:navigate
+    x-on:click="$haptic('light')"
     @if($active) aria-current="page" @endif
     {{ $attributes->class([
-        'flex flex-col items-center justify-center gap-1 py-2.5 transition-colors',
+        'pressable flex flex-col items-center justify-center gap-1 py-2.5',
         'text-accent' => $active,
         'text-zinc-500 active:text-zinc-700 dark:text-zinc-400 dark:active:text-zinc-200' => ! $active,
     ]) }}

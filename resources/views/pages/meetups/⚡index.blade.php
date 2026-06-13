@@ -122,33 +122,39 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             </flux:select>
         </div>
 
-        @if ($this->meetups->isEmpty())
-            <x-portal-empty-state icon="map-pin" :heading="__('Keine Meetups gefunden')" :error-heading="__('Meetups nicht verfügbar')">
-                <flux:text class="max-w-xs">
-                    {{ __('Versuche eine andere Suche oder einen anderen Länderfilter.') }}
-                </flux:text>
-            </x-portal-empty-state>
-        @else
-            <div class="flex flex-col gap-3">
-                @foreach ($this->meetups as $meetup)
-                    <x-list-link-card
-                        href="{{ route('meetups.show', $meetup->slug()) }}"
-                        wire:key="meetup-{{ $meetup->slug() }}"
-                    >
-                        <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
-                        <span class="flex min-w-0 flex-col gap-0.5">
-                            <span class="truncate font-semibold">{{ $meetup->name }}</span>
-                            <flux:text class="truncate text-sm">{{ $meetup->city }} · {{ $meetup->country }}</flux:text>
-                            @if ($meetup->next_event)
-                                <flux:badge color="orange" size="sm" class="mt-1 w-fit">
-                                    {{ $meetup->next_event->start->translatedFormat('D, d. M · H:i') }}
-                                </flux:badge>
-                            @endif
-                        </span>
-                    </x-list-link-card>
-                @endforeach
-            </div>
-        @endif
+        {{-- Skeleton beim Filtern/Suchen (Phase 1.4) statt eines springenden Layouts. --}}
+        <x-skeleton-card :count="4" wire:loading.flex wire:target="search,country"/>
+
+        <div wire:loading.remove wire:target="search,country">
+            @if ($this->meetups->isEmpty())
+                <x-portal-empty-state icon="map-pin" :heading="__('Keine Meetups gefunden')" :error-heading="__('Meetups nicht verfügbar')">
+                    <flux:text class="max-w-xs">
+                        {{ __('Versuche eine andere Suche oder einen anderen Länderfilter.') }}
+                    </flux:text>
+                </x-portal-empty-state>
+            @else
+                <div class="list-stagger flex flex-col gap-3">
+                    @foreach ($this->meetups as $meetup)
+                        <x-list-link-card
+                            href="{{ route('meetups.show', $meetup->slug()) }}"
+                            wire:key="meetup-{{ $meetup->slug() }}"
+                            style="--i: {{ $loop->index }}"
+                        >
+                            <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
+                            <span class="flex min-w-0 flex-col gap-0.5">
+                                <span class="truncate font-semibold">{{ $meetup->name }}</span>
+                                <flux:text class="truncate text-sm">{{ $meetup->city }} · {{ $meetup->country }}</flux:text>
+                                @if ($meetup->next_event)
+                                    <flux:badge color="orange" size="sm" class="mt-1 w-fit">
+                                        {{ $meetup->next_event->start->translatedFormat('D, d. M · H:i') }}
+                                    </flux:badge>
+                                @endif
+                            </span>
+                        </x-list-link-card>
+                    @endforeach
+                </div>
+            @endif
+        </div>
     @else
         @if ($this->myMeetups->isEmpty())
             <x-portal-empty-state icon="user-group" :heading="__('Keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">
@@ -157,11 +163,12 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                 </flux:text>
             </x-portal-empty-state>
         @else
-            <div class="flex flex-col gap-3">
+            <div class="list-stagger flex flex-col gap-3">
                 @foreach ($this->myMeetups as $meetup)
                     <x-list-link-card
                         href="{{ route('meetups.show', $meetup->slug) }}"
                         wire:key="my-meetup-{{ $meetup->slug }}"
+                        style="--i: {{ $loop->index }}"
                     >
                         <x-meetup-avatar :name="$meetup->name"/>
                         <span class="flex min-w-0 flex-col gap-0.5">

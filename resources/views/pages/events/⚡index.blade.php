@@ -194,7 +194,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         </x-portal-empty-state>
     @else
         @foreach ($this->days as $day => $eventsOfDay)
-            <section wire:key="day-{{ $day }}" class="flex flex-col gap-2">
+            <section wire:key="day-{{ $day }}" class="list-stagger flex flex-col gap-2">
                 <flux:heading size="sm" level="2" class="text-zinc-500 dark:text-zinc-400">
                     {{ $eventsOfDay->first()->start->translatedFormat('l, d. F') }}
                 </flux:heading>
@@ -202,8 +202,9 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                     <button
                         type="button"
                         wire:click="select({{ $index }})"
+                        x-on:click="$haptic('medium')"
                         wire:key="event-{{ $index }}"
-                        class="flex cursor-pointer items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 text-start transition-colors active:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:active:bg-zinc-800"
+                        class="surface-card pressable group flex cursor-pointer items-center gap-4 p-4 text-start active:bg-zinc-50 dark:active:bg-zinc-800"
                     >
                         <x-meetup-avatar :logo="$event->meetup->logo" :name="$event->meetup->name"/>
                         <span class="flex min-w-0 flex-col gap-0.5">
@@ -219,7 +220,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         @endforeach
     @endif
 
-    <flux:modal wire:model.self="showEvent" class="w-full">
+    <x-sheet wire:model="showEvent">
         @if ($this->selectedEvent)
             <div class="flex flex-col gap-4">
                 <div class="flex items-center gap-3">
@@ -273,5 +274,5 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                 </div>
             </div>
         @endif
-    </flux:modal>
+    </x-sheet>
 </x-portal-page>

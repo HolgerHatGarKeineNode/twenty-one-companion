@@ -3,6 +3,7 @@
 use App\Http\Integrations\Portal\PortalConnector;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
+use Native\Mobile\Facades\Device;
 use Native\Mobile\Facades\Dialog;
 use Native\Mobile\Facades\Network;
 use Saloon\Http\Faking\MockClient;
@@ -120,6 +121,17 @@ it('confirms a successful retry with a native toast', function () {
         ->call('retry')
         ->assertSee('Einundzwanzig Aschaffenburg')
         ->assertDontSee('Erneut versuchen');
+});
+
+it('gives native haptic feedback when retrying (Phase 1.3)', function () {
+    withoutPortalToken();
+    withFastConnector();
+    MockClient::global([MockResponse::make([], 500), MockResponse::make([mapMeetupFixture()])]);
+
+    Dialog::shouldReceive('toast');
+    Device::shouldReceive('vibrate')->once();
+
+    Livewire::test('pages::meetups.index')->call('retry');
 });
 
 it('shows the error state on the events page when loading fails', function () {

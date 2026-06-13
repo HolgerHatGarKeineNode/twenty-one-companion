@@ -30,7 +30,7 @@
             @endif
 
             <main class="px-safe flex-1 overflow-y-auto">
-                <div @class(['p-4 pb-8' => $chrome])>
+                <div @class(['page-enter', 'p-4 pb-8' => $chrome])>
                     {{ $slot }}
                 </div>
             </main>

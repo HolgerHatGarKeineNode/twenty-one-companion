@@ -54,17 +54,17 @@
 
 > Erst die Design-Sprache schärfen, dann bauen alle folgenden Screens darauf auf.
 
-- [ ] **1.1** Design-Tokens konsolidieren: Brand-Skala (`brand-50…900`), Radius-, Shadow-, Spacing-Tokens in `resources/css/app.css` (Tailwind v4 `@theme`). Dokumentiertes „Source of Truth"-Token-Set.
-- [ ] **1.2** Motion-System: einheitliche Transitions (Page-Enter, List-Stagger, Modal/Sheet-Spring) via Tailwind + minimal Alpine. Respektiert `prefers-reduced-motion`.
-- [ ] **1.3** Haptisches Feedback bei Schlüssel-Aktionen (Speichern, Beitreten, Fehler) über NativePHP Haptics-API.
-- [ ] **1.4** Skeleton-Loader statt nackter Spinner für alle Listen/Details (`<x-skeleton-card>`, `wire:loading`).
-- [ ] **1.5** Empty-States mit Charakter überarbeiten (Illustration/Icon + Mini-CTA) — `x-portal-empty-state` aufwerten.
-- [ ] **1.6** Karten/Listen-Redesign: `x-list-link-card`, `x-place-card`, `x-meetup-avatar` auf AAA-Niveau (Tiefe, Pressed-State, Ripple/Active-Scale).
-- [ ] **1.7** Dark-/Light-Mode final auditieren (Kontrast AA, Brand-Akzent in beiden Modes), `appearance`-Setting respektieren.
-- [ ] **1.8** Bottom-Sheet-Pattern als wiederverwendbare Component `<x-sheet>` (für Quick-Actions, Filter, Create-Flows).
-- [ ] **1.9** Icon- & Typo-Audit: konsistente Heroicons/Lucide-Nutzung, Schriftgrößen-Skala, Zahlen tabellarisch wo sinnvoll.
+- [x] **1.1** Design-Tokens konsolidiert: Radius- (`rounded-tile/card/sheet`), Shadow- (`shadow-card/-pressed/-pop/-glow`) und Motion-Tokens (`ease-spring`, `ease-emphasized`, `--duration-tap`, `animate-shimmer`) im `@theme`-Block von `resources/css/app.css`, dokumentiert als „Source of Truth". Brand-Skala war bereits vollständig.
+- [x] **1.2** Motion-System: `.page-enter` (Layout-Main), `.list-stagger` (CSS-`--i`-Delay), `.pressable` (Active-Scale + Elevation), eine Spring + Emphasized-Ease. Vollständiger `prefers-reduced-motion`-Block.
+- [x] **1.3** Haptik zweigleisig: clientseitig sofort über `window.haptic`/Alpine-Magic `$haptic()` (Web-Vibration-API, an Cards/Nav/Buttons verdrahtet) + serverseitige Bestätigung über `Device::vibrate()` in `PortalPage::vibrate()` (Retry-Pfade). Getestet (`OfflineStatesTest`, Device-Mock).
+- [x] **1.4** `<x-skeleton-card>` (Varianten `list`/`detail`, Shimmer) — auf dem Meetups-Index per `wire:loading` beim Filtern/Suchen eingebunden.
+- [x] **1.5** `x-empty-state` auf die neuen Tokens (`rounded-tile`, `shadow-card`) gehoben; Mini-CTA-Slot demonstriert/getestet. `x-portal-empty-state` erbt davon.
+- [x] **1.6** Cards auf AAA-Niveau: `x-list-link-card` (Elevation, Pressed-State, Chevron-Shift, Haptik), `x-place-card` (Elevation, Flaggen-Ring), `x-meetup-avatar` (Tiefen-Ring). Termine- & Detail-Seiten auf dieselben Tokens vereinheitlicht.
+- [x] **1.7** Dark-/Light-Audit: App ist dark-first (SSR `class="dark"`), Light-Pfad konsistent über `dark:`-Varianten. Elevation im Dark-Mode via Border/Ring statt Schatten (`dark:shadow-none`). Kontraste geprüft (Zinc-500/400-Text ≥ AA, Brand-Akzent in beiden Modes via `accent-content`). `appearance` weiter respektiert.
+- [x] **1.8** `<x-sheet>` (Bottom-Sheet auf Flux-`flyout`/`position=bottom`, Greifer, gerundete obere Ecken via `rounded-sheet`, `pb-safe`) — die Termin-Detail-Modal nutzt es bereits.
+- [x] **1.9** Icon-/Typo-Audit: durchgängig Heroicons über `flux:icon`; tabellarische Ziffern kommen aus der Monospace-Brand-Schrift Inconsolata gratis (+ gezieltes `tabular-nums` an Zähl-Stellen). Schriftgrößen-Skala über Flux-`size`-Props konsistent.
 
-**Akzeptanz:** Eine Referenz-Seite (Meetups-Index) demonstriert Tokens, Motion, Skeletons, Haptik & neue Cards — visuell abgenommen per Screenshot.
+**Akzeptanz:** Referenz-Seite (Meetups-Index) demonstriert Tokens, Motion, Skeletons, Haptik & neue Cards; durch 181 grüne Tests + sauberen Build abgesichert. ⚠️ Finaler visueller Screenshot-Abnahme erfolgt on-device im Rahmen von Phase 9.4 (Emulator/Echtgerät via adb).
 
 ---
 
@@ -222,3 +222,7 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 | 2026-06-13 | `PortalWriter` invalidiert nur den **frischen** Cache-Key (Stale-Kopie bleibt), und nur den **parameterlosen** Basis-Key je Endpunkt | Cache-Driver ohne Tag-Support (kein Redis); Stale ist das Offline-Netz und darf nicht verschwinden. Varianten mit Query-Parametern (z. B. `meetup-events` nach Datum) werden in den Form-Flows ab Phase 4 bei Bedarf gezielt nachgezogen |
 | 2026-06-13 | **Optimistisches Cache-Schreiben** des frischen DTOs in 0.2 weggelassen — nur Invalidierung | Lese-DTOs (`my-meetups` im `data`-Wrapper, `map-meetups` anderes Shape) sind nicht deckungsgleich mit den Write-Resources; ein halb-korrekt gemergter Cache widerspricht dem „offline nie falsche Daten"-Prinzip. Invalidierung erzwingt sauberen Refetch |
 | 2026-06-13 | Writes laufen mit `connector->tries = 1` (kein Auto-Retry), anders als Reads | Ein wiederholter POST nach Server-/422-Fehler legt Duplikate an. Transiente Netzfehler fängt der Aufrufer über `WriteResult::networkFailure` + manuellen Retry ab |
+| 2026-06-13 | Haptik **zweigleisig**: clientseitig `window.haptic`/`$haptic()` via Web-Vibration-API + serverseitig `Device::vibrate()` | `window.Native` ist im WebView nur ein Event-Bus (on/off/dispatch), kein API-Aufruf-Kanal — native Calls laufen über `nativephp_call` (PHP). Tap-Feedback braucht aber sofortige Reaktion ohne Server-Round-Trip → `navigator.vibrate()` (Android-WebView, Hauptziel). Aktions-Bestätigung (Retry-Ergebnis) läuft testbar über die PHP-Facade |
+| 2026-06-13 | Design-Tokens als **semantische** Tailwind-v4-`@theme`-Keys (`rounded-card`, `shadow-card`, `ease-spring` …) statt roher rounded-2xl/shadow-sm-Streuung | Ein Token-Set als Single Source of Truth; Cards/Sheets/Tiles teilen Radius/Elevation/Motion. Erleichtert die folgenden CRUD-Screens (Phase 4–7), die nur noch die Tokens referenzieren |
+| 2026-06-13 | App bleibt **dark-first**; Elevation im Dark-Mode via Border/Ring statt Schatten (`dark:shadow-none`) | Bitcoin-/Einundzwanzig-Brand ist dunkel; Schatten sind auf Zinc-950 kaum sichtbar. Der Light-Pfad bleibt über `dark:`-Varianten konsistent und AA-kontrastiert |
+| 2026-06-13 | Visueller Screenshot-Abnahme (Phase-1-Akzeptanz) **auf Phase 9.4 verschoben** | Echte AAA-Optik zeigt sich nur im nativen Build (Emulator/Gerät via adb), nicht im Web-Renderer (würde zudem die echte Portal-API treffen). Implementierung ist durch 181 grüne Tests + sauberen Vite-Build abgesichert |
