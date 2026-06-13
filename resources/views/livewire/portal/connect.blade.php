@@ -10,6 +10,14 @@ new class extends Component {
     /** @var array<string, mixed>|null */
     public ?array $profile = null;
 
+    /**
+     * Gesetzt, sobald der Login-Browser geöffnet wurde: zeigt einen
+     * Warte-Indikator mit Poll, damit der Nutzer beim Zurückkehren aus dem
+     * Signer/der Lightning-Seite sieht, dass die App auf das Token wartet
+     * und es zieht (Phase 3.3) — statt einer scheinbar untätigen Seite.
+     */
+    public bool $awaitingConnection = false;
+
     public function mount(PortalAuth $portalAuth): void
     {
         $this->refreshState($portalAuth);
@@ -25,6 +33,7 @@ new class extends Component {
      */
     public function loginWithNostr(PortalAuth $portalAuth): void
     {
+        $this->awaitingConnection = true;
         Browser::inApp($portalAuth->nostrLoginUrl());
     }
 
@@ -33,6 +42,7 @@ new class extends Component {
      */
     public function loginWithLightning(PortalAuth $portalAuth): void
     {
+        $this->awaitingConnection = true;
         Browser::inApp($portalAuth->loginUrl());
     }
 
@@ -41,18 +51,28 @@ new class extends Component {
         $this->refreshState($portalAuth);
     }
 
+    public function cancelAwaiting(): void
+    {
+        $this->awaitingConnection = false;
+    }
+
     public function disconnect(PortalAuth $portalAuth): void
     {
         $portalAuth->logout();
         $this->connected = false;
         $this->profile = null;
+        $this->awaitingConnection = false;
     }
 
     protected function refreshState(PortalAuth $portalAuth): void
     {
         $this->connected = $portalAuth->hasToken();
         $this->profile = $this->connected ? $portalAuth->profile() : null;
-        $this->connected = $portalAuth->hasToken();
+
+        // Sobald das Token da ist, ist das Warten vorbei.
+        if ($this->connected) {
+            $this->awaitingConnection = false;
+        }
     }
 };
 ?>
@@ -78,6 +98,22 @@ new class extends Component {
             </flux:button>
             <flux:button wire:click="disconnect" size="sm" variant="ghost" icon="arrow-right-start-on-rectangle" class="cursor-pointer">
                 {{ __('Trennen') }}
+            </flux:button>
+        </div>
+    @elseif ($awaitingConnection)
+        {{-- Warte auf den Deep-Link-Rücksprung aus Signer/Lightning-Seite und
+             pollt das Keystore-Token. Sobald es da ist, wechselt die Karte
+             in den Verbunden-Zustand (Phase 3.3). --}}
+        <div wire:poll.2s="refresh" class="flex flex-col items-center gap-4 py-2 text-center">
+            <flux:icon.loading class="size-8 text-brand-600 dark:text-brand-400"/>
+            <div>
+                <flux:heading size="lg">{{ __('Verbinde mit dem Portal …') }}</flux:heading>
+                <flux:text class="mt-1 max-w-xs">
+                    {{ __('Schließe die Anmeldung im Signer oder im Browser ab. Sobald du zurück bist, holt die App dein Token automatisch.') }}
+                </flux:text>
+            </div>
+            <flux:button wire:click="cancelAwaiting" size="sm" variant="ghost" class="cursor-pointer">
+                {{ __('Abbrechen') }}
             </flux:button>
         </div>
     @else

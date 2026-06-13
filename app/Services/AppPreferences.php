@@ -19,11 +19,32 @@ final class AppPreferences
     /** Unterstützte App-Sprachen (deutsche Quell-Strings + lang/en.json). */
     public const SUPPORTED_LOCALES = ['de', 'en'];
 
+    /**
+     * Schritte des geführten Onboarding-Pagers (Phase 3.1). Hier zentral,
+     * weil onboardingStep() denselben Index persistiert und Seiten/Tests
+     * sich darauf beziehen.
+     */
+    public const STEP_WELCOME = 0;
+
+    public const STEP_LANGUAGE = 1;
+
+    public const STEP_REGION = 2;
+
+    public const STEP_PORTAL = 3;
+
+    public const STEP_NOTIFICATIONS = 4;
+
+    public const STEP_DONE = 5;
+
+    public const LAST_STEP = self::STEP_DONE;
+
     private const KEY_ONBOARDED = 'onboarded_at';
 
     private const KEY_LOCALE = 'locale';
 
     private const KEY_COUNTRY = 'country';
+
+    private const KEY_ONBOARDING_STEP = 'onboarding_step';
 
     /**
      * Pro Request memoisierte Tabelle (als scoped Singleton registriert),
@@ -43,6 +64,31 @@ final class AppPreferences
         $this->setLocale($locale);
         $this->setCountry($country);
         $this->set(self::KEY_ONBOARDED, now()->toIso8601String());
+    }
+
+    /**
+     * Zuletzt erreichter Onboarding-Schritt (0-basiert), damit ein App-
+     * Neustart mitten im Pager dort wieder aufsetzt (Phase 3.6/3.7).
+     * Vor dem Abschluss noch nicht gesetzt → 0 (Welcome-Step).
+     */
+    public function onboardingStep(): int
+    {
+        return (int) ($this->get(self::KEY_ONBOARDING_STEP) ?? 0);
+    }
+
+    public function setOnboardingStep(int $step): void
+    {
+        $this->set(self::KEY_ONBOARDING_STEP, (string) max(0, $step));
+    }
+
+    /**
+     * Zielroute nach einem Portal-Login-Callback: mitten im Onboarding
+     * zurück in den Pager, sonst aufs Profil (Phase 3.4). Hier zentral,
+     * weil die Onboarding-State-Logik ohnehin diesem Service gehört.
+     */
+    public function targetAfterPortalAuth(): string
+    {
+        return $this->isOnboarded() ? 'profile' : 'onboarding';
     }
 
     /**

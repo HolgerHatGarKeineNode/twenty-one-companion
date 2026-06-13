@@ -86,16 +86,16 @@
 
 > Aktuell: 1 Step (Sprache + Region). Ziel: mehrstufiger, motivierender Flow mit Permission-Priming und optionaler Portal-Verbindung.
 
-- [ ] **3.1** Mehrstufiger Pager (Swipe/Progress-Dots): Welcome → Sprache → Region → Portal verbinden (optional) → Benachrichtigungen (optional) → Fertig.
-- [ ] **3.2** Welcome-Screen mit Wertversprechen (3 Kacheln: Meetups finden · Termine im Kalender · Eigene Community pflegen).
-- [ ] **3.3** Nach connect von Nostr Amber oder Lightning kommt man zurück zur App, aber dort fehlt ein Lade Indicator, man sieht keinen Fortschritt, wie der Flow sich ein Token zieht zB.
-- [ ] **3.4** **Portal-Verbindung in den Onboarding-Flow integrieren** (Lightning/Nostr-Login per Deep-Link/Amber) — mit klarer „Überspringen"-Option (read-only weiter nutzbar).
-- [ ] **3.5** Permission-Priming für Push-Benachrichtigungen (erklärt *warum*, bevor der OS-Dialog kommt) — siehe Phase 8.6.
-- [ ] **3.6** Animierte Übergänge zwischen Steps, Skip/Back, „Fortschritt wird gespeichert" (Resume bei App-Neustart mitten im Onboarding).
-- [ ] **3.7** `AppPreferences` um `topics`, `onboardingStep` erweitern; `EnsureOnboarded`-Middleware respektiert Teilfortschritt.
-- [ ] **3.8** Tests: Onboarding-Defaults, Skip-Pfad, Portal-Verbindung-Pfad, Resume.
+- [x] **3.1** Mehrstufiger Pager (Progress-Dots): Welcome → Sprache → Region → Portal verbinden (optional) → Benachrichtigungen (optional) → Fertig. Schritt-State (`$step`) auf der Onboarding-SFC, Konstanten zentral in `AppPreferences::STEP_*`; Zurück/Weiter/Skip + Dots-Indikator oben. *(Swipe-Gesten bewusst weggelassen — siehe Log.)*
+- [x] **3.2** Welcome-Screen mit Wertversprechen (3 Kacheln: Meetups finden · Termine im Kalender · Eigene Community pflegen) als gestaffelt einblendende `surface-card`-Tiles.
+- [x] **3.3** Lade-Indikator nach dem Connect: `portal.connect` zeigt nach dem Tap auf „Mit Nostr/Lightning anmelden" einen Warte-Zustand (`flux:icon.loading` + Text) und pollt per `wire:poll.2s` das Keystore-Token, bis es da ist → wechselt automatisch in den Verbunden-Zustand. „Abbrechen" bricht das Warten ab.
+- [x] **3.4** **Portal-Verbindung in den Onboarding-Flow integriert** (eigener Portal-Step bettet `<livewire:portal.connect/>` ein) — mit klarer „Ohne Konto fortfahren"-Option (read-only weiter nutzbar). Die Deep-Link-Callbacks (`/auth`, `/app/auth`, `/signed`) leiten bei laufendem Onboarding zurück in den Pager (Portal-Step) statt aufs Profil.
+- [x] **3.5** Permission-Priming für Push-Benachrichtigungen (eigener Step erklärt das *warum*, erst danach löst „Benachrichtigungen erlauben" via `PushNotifications::enroll()` den OS-Dialog aus) — siehe Phase 8.6.
+- [x] **3.6** Animierte Übergänge zwischen Steps (`.step-enter` + `wire:key` pro Schritt, `prefers-reduced-motion`-sicher), Skip/Back, „Fortschritt wird gespeichert" (Resume bei App-Neustart über `onboardingStep()`).
+- [x] **3.7** `AppPreferences` um `onboardingStep`/`setOnboardingStep` erweitert (Step-Konstanten zentral dort); `EnsureOnboarded`-Middleware leitet bei Teilfortschritt aufs Onboarding, der Pager setzt am gespeicherten Schritt auf. *(`topics` gestrichen — kein Schritt im Flow konsumiert es, siehe Log.)*
+- [x] **3.8** Tests: `OnboardingTest` (13 grün) — Welcome-Defaults, Step-Walk + Complete, Persistenz/Resume, Back, Portal-Connected-State, Push-Priming, Region-Validierung, DACH-Offline-Fallback, Deep-Link-Rücksprung in den Pager.
 
-**Akzeptanz:** Frischer App-Start führt durch den Pager; Skip führt zu read-only-Meetups; Verbinden schaltet Schreib-Features frei.
+**Akzeptanz:** ✅ Frischer App-Start führt durch den Pager (Welcome → … → Fertig); Skip/„Ohne Konto fortfahren" führt zu read-only-Meetups; Verbinden schaltet Schreib-Features frei. 196 grüne Tests, Pint sauber, Vite-Build ok. ⚠️ Visuelle/Swipe-Abnahme on-device → Phase 9.4.
 
 ---
 
@@ -231,3 +231,8 @@ Onboarding (3) danach, weil es die Portal-Verbindung & Push aus Phase 4/8 voraus
 | 2026-06-14 | „Meine Inhalte"-Hub auf eigener Route `/mine`, Bottom-Nav-Match an **Profil** gehängt (`profile,mine`) statt neuem 5. Tab | Kein Platz für einen 5. Bottom-Tab; der Hub ist konzeptionell „mein Bereich" wie Profil. Erreichbar über Flyout-Gruppe „Meine Inhalte". Create-Einstieg liefert der kontextsensitive FAB (Kontext „Meetup" auf `/mine`) |
 | 2026-06-14 | Header-`back` als **literaler relativer Pfad** im `#[Layout]`-Attribut (`/meetups`, `/courses`, `/courses?tab=referenten`) | PHP-Attribute erlauben nur konstante Ausdrücke — kein `route()`. Konsistent mit dem ebenfalls literalen `heading`; NativePHP serviert am Root, relative Pfade + `wire:navigate` sind unkritisch |
 | 2026-06-14 | Flyout-Close-Button per CSS um den **Safe-Area-Top-Inset** versetzt (`.menu-flyout button[aria-label]{top:env(safe-area-inset-top)}`) statt NativePHP-Statusbar-Toggle | NativePHP bietet nur `status_bar_style` (Icon-Farbe), kein „nicht edge-to-edge" — Android 15+ erzwingt Edge-to-Edge. Flux' modaleigener Close-Button kennt den Inset nicht (App-Inhalt via `pt-safe` schon); gezielte CSS-Korrektur, mit Playwright (40px-Sim) verifiziert |
+| 2026-06-14 | Onboarding-`topics` **gestrichen** (nur `onboardingStep` ergänzt) | Der definierte Pager-Flow (Welcome → Sprache → Region → Portal → Push → Fertig) hat keinen Themen-/Interessen-Schritt; ein gespeichertes `topics` ohne Konsumenten wäre untestbarer Dead-Code. Auf Wunsch auch aus dem Plan entfernt |
+| 2026-06-14 | Onboarding-Step-Konstanten in **`AppPreferences::STEP_*`** statt auf der Onboarding-SFC | `onboardingStep()` persistiert denselben Index; eine zentrale Quelle macht Pager, Resume-Logik und Tests deckungsgleich (die anonyme SFC-Klasse ist aus Tests nicht adressierbar) |
+| 2026-06-14 | Schritte per `$step`-State + `wire:key`-Remount und CSS-`.step-enter`, **keine Swipe-Gesten** | Livewire-serverseitiger Step-Wechsel ist robust, testbar (`assertSet('step', …)`) und reduced-motion-sicher. Horizontales Swipen bräuchte JS-Touch-Handling mit Konflikten zum vertikalen Scroll; Wert/Aufwand zu gering, Dots + Weiter/Zurück genügen |
+| 2026-06-14 | Deep-Link-Callbacks (`/auth`, `/app/auth`, `/signed`) leiten bei **laufendem Onboarding** zurück in den Pager statt aufs Profil | Wer sich mitten im Onboarding-Portal-Step verbindet, soll im Flow bleiben (nicht auf eine Seite hinter dem Onboarding-Gate). Entscheidung über `AppPreferences::isOnboarded()`; bestehende „onboarded"-Tests bleiben grün (Default-State ist onboarded) |
+| 2026-06-14 | Lade-Indikator als **Poll-Zustand in `portal.connect`** (clientseitig kein Token-Event) | `window.Native` ist nur ein Event-Bus; das Token landet erst nach dem Deep-Link-Callback im Keystore. `wire:poll.2s` auf `hasToken()` zeigt sichtbaren Fortschritt und heilt sich selbst (Deep-Link lädt die Seite ohnehin neu) — erfüllt 3.3 ohne fragiles JS |

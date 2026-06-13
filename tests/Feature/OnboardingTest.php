@@ -3,6 +3,7 @@
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Services\AppPreferences;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Native\Mobile\Facades\SecureStorage;
 use Saloon\Http\Faking\MockClient;
@@ -10,29 +11,9 @@ use Saloon\Http\Faking\MockResponse;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
-it('redirects to the onboarding until it is completed', function () {
-    resetOnboarding();
-
-    $this->get(route('home'))->assertRedirect(route('onboarding'));
-    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
-    $this->get(route('profile'))->assertRedirect(route('onboarding'));
-});
-
-it('keeps the deep-link auth callbacks outside the onboarding gate', function () {
-    resetOnboarding();
-    SecureStorage::shouldReceive('set')
-        ->once()
-        ->with('portal_api_token', '12|secrettoken')
-        ->andReturnTrue();
-
-    // Niemals zum Onboarding umleiten — sonst ginge der Token verloren.
-    $this->get('/auth?token='.urlencode('12|secrettoken'))
-        ->assertRedirect(route('profile'));
-});
-
-it('renders the onboarding with german preselected and a region picker', function () {
-    resetOnboarding();
-    withoutPortalToken();
+/** Map-Meetups, damit die Regions-Auswahl (CountryOptions) Treffer hat. */
+function mockOnboardingMeetups(): void
+{
     MockClient::global([
         GetMapMeetupsRequest::class => MockResponse::make([
             mapMeetupFixture(),
@@ -43,38 +24,141 @@ it('renders the onboarding with german preselected and a region picker', functio
             ['id' => 2, 'name' => 'Österreich', 'code' => 'at', 'flag' => 'https://example.test/at.svg'],
         ]),
     ]);
+}
+
+it('redirects to the onboarding until it is completed', function () {
+    resetOnboarding();
+
+    $this->get(route('home'))->assertRedirect(route('onboarding'));
+    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
+    $this->get(route('profile'))->assertRedirect(route('onboarding'));
+});
+
+it('keeps the deep-link auth callbacks outside the onboarding gate and returns to the pager', function () {
+    resetOnboarding();
+    SecureStorage::shouldReceive('set')
+        ->once()
+        ->with('portal_api_token', '12|secrettoken')
+        ->andReturnTrue();
+
+    // Token wird gespeichert (nicht von der Middleware verschluckt) und der
+    // mitten im Onboarding angemeldete Nutzer landet wieder im Pager.
+    $this->get('/auth?token='.urlencode('12|secrettoken'))
+        ->assertRedirect(route('onboarding'))
+        ->assertSessionHas('portal-connected');
+});
+
+it('starts at the welcome step and shows the value proposition', function () {
+    resetOnboarding();
+    withoutPortalToken();
 
     $this->get(route('onboarding'))
         ->assertOk()
-        ->assertSee(__('Sprache'))
-        ->assertSee(__('Deutsch'))
-        ->assertSee(__('Deine Region'))
-        ->assertSee('Deutschland')
-        ->assertSee('Österreich')
-        ->assertSee(__('Alle Länder'))
+        ->assertSee('EINUNDZWANZIG')
+        ->assertSee(__('Meetups finden'))
+        ->assertSee(__('Termine im Kalender'))
+        ->assertSee(__('Eigene Community pflegen'))
         ->assertSee(__('Los geht’s'));
 });
 
-it('offers only countries that actually have meetups, with a dach fallback when offline', function () {
+it('walks through the pager and completes the onboarding', function () {
     resetOnboarding();
     withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([], 500),
+    mockOnboardingMeetups();
+
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_WELCOME)
+        ->call('next') // → Sprache
+        ->assertSet('step', AppPreferences::STEP_LANGUAGE)
+        ->assertSee(__('Deine Sprache'))
+        ->call('next') // → Region
+        ->assertSet('step', AppPreferences::STEP_REGION)
+        ->assertSee(__('Deine Region'))
+        ->set('country', 'at')
+        ->call('next') // → Portal
+        ->assertSet('step', AppPreferences::STEP_PORTAL)
+        ->assertSee(__('Ohne Konto fortfahren'))
+        ->call('skip') // Portal überspringen → Push
+        ->assertSet('step', AppPreferences::STEP_NOTIFICATIONS)
+        ->assertSee(__('Nichts mehr verpassen'))
+        ->call('skip') // Push überspringen → Fertig
+        ->assertSet('step', AppPreferences::STEP_DONE)
+        ->call('finish')
+        ->assertRedirect(route('meetups'));
+
+    $preferences = app(AppPreferences::class);
+
+    expect($preferences->isOnboarded())->toBeTrue()
+        ->and($preferences->locale())->toBe('de')
+        ->and($preferences->country())->toBe('at');
+});
+
+it('persists the reached step so a restart resumes mid-pager', function () {
+    resetOnboarding();
+    withoutPortalToken();
+    mockOnboardingMeetups();
+
+    Livewire::test('pages::onboarding.index')
+        ->call('next')
+        ->call('next');
+
+    // Schritt landet in den Preferences …
+    expect(app(AppPreferences::class)->onboardingStep())->toBe(AppPreferences::STEP_REGION);
+});
+
+it('resumes at the saved step after an app restart', function () {
+    resetOnboarding();
+    withoutPortalToken();
+    mockOnboardingMeetups();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_REGION);
+
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_REGION)
+        ->assertSee(__('Deine Region'));
+});
+
+it('can step back through the pager', function () {
+    resetOnboarding();
+    withoutPortalToken();
+
+    Livewire::test('pages::onboarding.index')
+        ->call('next')
+        ->assertSet('step', AppPreferences::STEP_LANGUAGE)
+        ->call('back')
+        ->assertSet('step', AppPreferences::STEP_WELCOME);
+});
+
+it('shows the connected state on the portal step when a token is present', function () {
+    resetOnboarding();
+    withPortalToken();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_PORTAL);
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(['id' => 7, 'name' => 'Satoshi']),
     ]);
 
-    $this->get(route('onboarding'))
-        ->assertOk()
-        ->assertSee('Deutschland')
-        ->assertSee('Österreich')
-        ->assertSee('Schweiz');
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_PORTAL)
+        ->assertSee('Satoshi')
+        ->assertSee(__('Weiter'));
+});
+
+it('advances past the notification priming when enabling notifications', function () {
+    resetOnboarding();
+    withoutPortalToken();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_NOTIFICATIONS);
+
+    // PushNotifications::enroll() ist im Test ein geguardeter No-op (kein
+    // nativephp_call) — der Flow muss trotzdem zum Fertig-Schritt weiterlaufen.
+    Livewire::test('pages::onboarding.index')
+        ->call('enableNotifications')
+        ->assertSet('step', AppPreferences::STEP_DONE);
 });
 
 it('stores the selection and redirects to the start page when finishing', function () {
     resetOnboarding();
     withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
-    ]);
+    mockOnboardingMeetups();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_DONE);
 
     Livewire::test('pages::onboarding.index')
         ->assertSet('locale', 'de')
@@ -86,23 +170,35 @@ it('stores the selection and redirects to the start page when finishing', functi
     $preferences = app(AppPreferences::class);
 
     expect($preferences->isOnboarded())->toBeTrue()
-        ->and($preferences->locale())->toBe('de')
         ->and($preferences->country())->toBe('at');
 });
 
 it('rejects an unknown region', function () {
     resetOnboarding();
     withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
-    ]);
+    mockOnboardingMeetups();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_REGION);
 
     Livewire::test('pages::onboarding.index')
         ->set('country', 'xx')
-        ->call('finish')
+        ->call('next')
         ->assertHasErrors(['country']);
 
     expect(app(AppPreferences::class)->isOnboarded())->toBeFalse();
+});
+
+it('offers only countries that actually have meetups, with a dach fallback when offline', function () {
+    resetOnboarding();
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([], 500),
+    ]);
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_REGION);
+
+    Livewire::test('pages::onboarding.index')
+        ->assertSee('Deutschland')
+        ->assertSee('Österreich')
+        ->assertSee('Schweiz');
 });
 
 it('redirects onboarded users away from the onboarding', function () {

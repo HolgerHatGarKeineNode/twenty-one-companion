@@ -248,6 +248,25 @@
     animation: nav-pill-in 0.35s var(--ease-spring) backwards;
 }
 
+/* Onboarding-Pager (Phase 3.6): jeder Schritt gleitet sanft ein. Der
+   wire:key am Step-Wrapper erzwingt bei jedem Schrittwechsel ein Remount,
+   wodurch die Animation erneut anläuft. */
+@keyframes step-in {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.step-enter {
+    animation: step-in 0.32s var(--ease-emphasized) backwards;
+}
+
 /* Create-FAB (Phase 2.1): schwebt über der Bottom-Nav und federt beim
    Erscheinen (oder Kontextwechsel) ein. */
 @keyframes fab-in {
@@ -295,6 +314,7 @@
     .list-stagger > *,
     .nav-pill,
     .fab-enter,
+    .step-enter,
     .skeleton {
         animation: none;
     }
