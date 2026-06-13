@@ -1,8 +1,8 @@
-# Einundzwanzig Mobile
+# EINUNDZWANZIG Mobile
 
-Eine mobile App der [Einundzwanzig](https://einundzwanzig.space)-Community für Android:
+Eine mobile App der [EINUNDZWANZIG](https://einundzwanzig.space)-Community für Android:
 Meetups, Termine, Kurse, Referenten und Orte aus dem
-[Einundzwanzig-Portal](https://portal.einundzwanzig.space) — direkt in deiner Tasche.
+[EINUNDZWANZIG-Portal](https://portal.einundzwanzig.space) — direkt in deiner Tasche.
 
 - 📅 Meetups & Termine mit Regions-Filter
 - 🗺️ Karte aller Meetups (OpenStreetMap)
@@ -18,7 +18,7 @@ Gebaut mit [NativePHP Mobile](https://nativephp.com/mobile), Laravel, Livewire u
 > Es gibt **keinen** Play-Store-Release. Offizielle Builds gibt es über
 > [Zapstore](https://zapstore.dev) und GitHub Releases:
 
-- **Zapstore:** In der [Zapstore](https://zapstore.dev)-App nach **Einundzwanzig** suchen.
+- **Zapstore:** In der [Zapstore](https://zapstore.dev)-App nach **EINUNDZWANZIG** suchen.
   Installation und Updates sind Nostr-signiert und werden automatisch gegen die Identität
   des Projekts geprüft (siehe unten).
 - **Obtainium:** [Obtainium](https://obtainium.imranr.dev) installiert die App direkt aus den

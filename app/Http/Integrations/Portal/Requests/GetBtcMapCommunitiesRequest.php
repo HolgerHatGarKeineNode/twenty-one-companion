@@ -9,7 +9,7 @@ use Saloon\Enums\Method;
 use Saloon\Http\Request;
 
 /**
- * GET /api/btc-map-communities — Einundzwanzig-Communities im
+ * GET /api/btc-map-communities — EINUNDZWANZIG-Communities im
  * BTC-Map-Format (GeoJSON-Tags).
  */
 class GetBtcMapCommunitiesRequest extends Request

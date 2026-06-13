@@ -9,7 +9,7 @@ use Native\Mobile\Facades\SecureStorage;
 
 /**
  * Manages the Sanctum personal access token issued by the
- * Einundzwanzig portal and stored in the device keystore.
+ * EINUNDZWANZIG portal and stored in the device keystore.
  */
 final class PortalAuth
 {

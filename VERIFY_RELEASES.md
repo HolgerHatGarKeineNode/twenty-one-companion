@@ -1,6 +1,6 @@
 # Releases verifizieren
 
-Alle offiziellen Releases von **Einundzwanzig Mobile** werden ausschließlich über
+Alle offiziellen Releases von **EINUNDZWANZIG Mobile** werden ausschließlich über
 [GitHub Releases](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/releases)
 veröffentlicht. Jedes Release enthält:
 

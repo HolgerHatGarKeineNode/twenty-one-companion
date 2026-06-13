@@ -1,7 +1,7 @@
 # Security Policy
 
-Einundzwanzig Mobile ist die offizielle App der Einundzwanzig-Community: Sie zeigt Meetups,
-Termine, Kurse und Orte aus dem [Einundzwanzig-Portal](https://portal.einundzwanzig.space)
+EINUNDZWANZIG Mobile ist die offizielle App der EINUNDZWANZIG-Community: Sie zeigt Meetups,
+Termine, Kurse und Orte aus dem [EINUNDZWANZIG-Portal](https://portal.einundzwanzig.space)
 und verbindet sich optional per Lightning- oder Nostr-Login (Sanctum-Token) mit dem Portal.
 Die App speichert den Portal-API-Token im Geräte-Keystore (SecureStorage) und verarbeitet
 Deep Links (`einundzwanzig://`, App Links auf `portal.einundzwanzig.space`).
@@ -53,7 +53,7 @@ Die Details bleiben vertraulich, bis ein Fix verfügbar ist.
 
 **Out of Scope:**
 
-- Schwachstellen im Einundzwanzig-Portal selbst (separates Repository)
+- Schwachstellen im EINUNDZWANZIG-Portal selbst (separates Repository)
 - Schwachstellen in Drittanbieter-Abhängigkeiten ohne konkreten Bezug zur App (bitte upstream melden)
 - Angriffe, die ein gerootetes/kompromittiertes Gerät voraussetzen
 - Denial-of-Service gegen das Portal oder verbundene Dienste

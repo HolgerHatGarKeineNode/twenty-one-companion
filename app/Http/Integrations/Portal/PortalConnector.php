@@ -10,7 +10,7 @@ use Saloon\Traits\Plugins\AcceptsJson;
 use Saloon\Traits\Plugins\HasTimeout;
 
 /**
- * Saloon-Connector für die Einundzwanzig-Portal-API. Authentifiziert
+ * Saloon-Connector für die EINUNDZWANZIG-Portal-API. Authentifiziert
  * Requests per Bearer-Token aus dem Geräte-Keystore, sobald die App
  * mit dem Portal verbunden ist; öffentliche Endpunkte funktionieren
  * auch ohne Token.

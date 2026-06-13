@@ -135,7 +135,7 @@ FILESYSTEM_DISK=mobile_public                     # nutzergenerierte Dateien üb
 - Fehlende neuere Keys aus `vendor/nativephp/mobile/config/nativephp.php` nachziehen (oder `php artisan vendor:publish --tag=nativephp-mobile-config --force` — Achtung: überschreibt eigene Änderungen).
 
 ### 3.3 Assets/Branding (Konvention, keine Config)
-- `public/icon.png` — PNG, **exakt 1024×1024, ohne Transparenz** (Einundzwanzig-Logo auf Vollflächen-Hintergrund).
+- `public/icon.png` — PNG, **exakt 1024×1024, ohne Transparenz** (EINUNDZWANZIG-Logo auf Vollflächen-Hintergrund).
 - `public/splash.png` + `public/splash-dark.png` — PNG, mind. **1080×1920** (Hochformat).
 
 ### 3.4 `vite.config.js`
@@ -171,7 +171,7 @@ Builds immer plattformspezifisch: `yarn build --mode=android` (auf macOS zusätz
   → z. B. `class="… keyboard-visible:translate-y-full"` auf der Bottom-Nav.
 - **EDGE-Komponenten ins Layout** (werden bei jedem Request gerendert, nativ — kein Tailwind-Styling möglich, max. 5 Bottom-Nav-Items, Pflicht-Props `id/icon/label/url`):
 ```blade
-<native:top-bar title="Einundzwanzig" show-navigation-icon="false" />
+<native:top-bar title="EINUNDZWANZIG" show-navigation-icon="false" />
 <native:bottom-nav label-visibility="labeled">
     <native:bottom-nav-item id="home"    icon="home"     label="Home"    url="/dashboard" :active="request()->is('dashboard')" />
     <native:bottom-nav-item id="meetups" icon="people"   label="Meetups" url="/meetups"   :active="request()->is('meetups*')" />

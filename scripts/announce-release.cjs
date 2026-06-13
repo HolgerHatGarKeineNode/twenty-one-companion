@@ -1,4 +1,4 @@
-// Einundzwanzig Mobile — HEADLESS Release-Ankündigung als Nostr-Note (kind 1, reines Node).
+// EINUNDZWANZIG Mobile — HEADLESS Release-Ankündigung als Nostr-Note (kind 1, reines Node).
 //
 //   node scripts/announce-release.cjs --version 1.1.0            # Preview (Dry-Run, EN)
 //   node scripts/announce-release.cjs --version 1.1.0 --lang de  # Deutsches Layout
