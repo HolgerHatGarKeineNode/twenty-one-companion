@@ -104,7 +104,7 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
             <flux:separator/>
 
             <flux:button wire:click="openPortal" size="sm" icon="globe-alt" class="cursor-pointer">
-                {{ __('Einundzwanzig-Portal öffnen') }}
+                {{ __('EINUNDZWANZIG-Portal öffnen') }}
             </flux:button>
         </div>
     </section>

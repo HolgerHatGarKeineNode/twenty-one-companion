@@ -11,7 +11,8 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Url;
 
-new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage {
+new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage
+{
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -68,7 +69,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     }
 
     /**
-     * Vom Nutzer selbst erstellte Meetups (Tab „Meine").
+     * Die im Portal-Dashboard ausgewählten Meetups des Nutzers (Tab „Meine").
      *
      * @return Collection<int, MeetupData>
      */
@@ -157,9 +158,9 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         </div>
     @else
         @if ($this->myMeetups->isEmpty())
-            <x-portal-empty-state icon="user-group" :heading="__('Keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">
+            <x-portal-empty-state icon="user-group" :heading="__('Keine ausgewählten Meetups')" :error-heading="__('Meetups nicht verfügbar')">
                 <flux:text class="max-w-xs">
-                    {{ __('Du hast im Portal noch keine Meetups angelegt.') }}
+                    {{ __('Wähle im Portal-Dashboard Meetups aus, um sie hier zu sehen.') }}
                 </flux:text>
             </x-portal-empty-state>
         @else
@@ -170,7 +171,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                         wire:key="my-meetup-{{ $meetup->slug }}"
                         style="--i: {{ $loop->index }}"
                     >
-                        <x-meetup-avatar :name="$meetup->name"/>
+                        <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
                         <span class="flex min-w-0 flex-col gap-0.5">
                             <span class="truncate font-semibold">{{ $meetup->name }}</span>
                             @unless ($meetup->is_active)

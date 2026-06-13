@@ -65,7 +65,7 @@ abstract class PortalPage extends Component
             $this->vibrate();
             Dialog::alert(
                 __('Portal nicht erreichbar'),
-                __('Das Einundzwanzig-Portal ist gerade nicht erreichbar. Bitte versuche es später noch einmal.'),
+                __('Das EINUNDZWANZIG-Portal ist gerade nicht erreichbar. Bitte versuche es später noch einmal.'),
             );
         } else {
             $this->vibrate();

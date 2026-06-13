@@ -25,7 +25,7 @@ it('renders the account, settings and about sections', function () {
         ->assertSee(__('Darstellung'))
         ->assertSee(__('Version'))
         ->assertSee(config('nativephp.version'))
-        ->assertSee(__('Einundzwanzig-Portal öffnen'));
+        ->assertSee(__('EINUNDZWANZIG-Portal öffnen'));
 });
 
 it('loads the stored preferences', function () {

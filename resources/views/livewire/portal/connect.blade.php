@@ -63,7 +63,7 @@ new class extends Component {
             @if ($profile && ($profile['avatar'] ?? null))
                 <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
             @else
-                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'Einundzwanzig' }}"/>
+                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'EINUNDZWANZIG' }}"/>
             @endif
             <div class="min-w-0">
                 <flux:heading size="lg">{{ $profile['name'] ?? __('Verbunden') }}</flux:heading>
@@ -83,7 +83,7 @@ new class extends Component {
     @else
         <flux:heading size="lg">{{ __('Dein Portal-Konto') }}</flux:heading>
         <flux:text class="mt-2">
-            {{ __('Verbinde die App mit deinem Einundzwanzig-Portal-Konto, um deine Meetups und Kurse zu sehen.') }}
+            {{ __('Verbinde die App mit deinem EINUNDZWANZIG-Portal-Konto, um deine Meetups und Kurse zu sehen.') }}
         </flux:text>
         <div class="mt-4 flex flex-col gap-2">
             <flux:button wire:click="loginWithNostr" variant="primary" icon="key" class="w-full cursor-pointer">

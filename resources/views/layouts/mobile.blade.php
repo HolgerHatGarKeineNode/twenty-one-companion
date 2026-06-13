@@ -77,7 +77,7 @@
 
                         <div class="pb-safe border-t border-zinc-200 p-4 dark:border-zinc-800">
                             <flux:text class="text-xs">
-                                {{ __('Einundzwanzig App') }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
+                                {{ __('EINUNDZWANZIG App') }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
                             </flux:text>
                         </div>
                     </div>

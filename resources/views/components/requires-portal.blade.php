@@ -21,7 +21,7 @@
         </div>
         <flux:heading size="lg">{{ $heading ?? __('Mit Portal verbinden') }}</flux:heading>
         <flux:text class="max-w-xs">
-            {{ $text ?? __('Verbinde die App mit deinem Einundzwanzig-Portal-Konto, um diese Funktion zu nutzen.') }}
+            {{ $text ?? __('Verbinde die App mit deinem EINUNDZWANZIG-Portal-Konto, um diese Funktion zu nutzen.') }}
         </flux:text>
         <flux:button :href="route('profile')" wire:navigate variant="primary" icon="key" class="mt-1 cursor-pointer">
             {{ __('Konto verbinden') }}

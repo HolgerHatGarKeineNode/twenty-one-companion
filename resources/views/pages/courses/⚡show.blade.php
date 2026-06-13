@@ -34,7 +34,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs'])] class
 
         Share::url(
             title: $course->name,
-            text: __(':name — Bitcoin-Kurs auf dem Einundzwanzig-Portal', ['name' => $course->name]),
+            text: __(':name — Bitcoin-Kurs auf dem EINUNDZWANZIG-Portal', ['name' => $course->name]),
             url: $course->portalLink,
         );
     }

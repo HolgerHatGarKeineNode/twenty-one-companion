@@ -167,6 +167,7 @@ function myMeetupFixture(array $overrides = []): array
         'community' => 'einundzwanzig',
         'visible_on_map' => true,
         'is_active' => true,
+        'logo' => 'https://portal.einundzwanzig.space/storage/meetups/21/conversions/logo-thumb.jpg',
         'last_event_at' => '2026-06-01T18:00:00.000000Z',
         'created_by' => 7,
         'created_at' => '2022-01-01T00:00:00.000000Z',

@@ -199,6 +199,7 @@ it('unwraps the data wrapper of my-meetups and casts dates and booleans', functi
     expect($meetup)->toBeInstanceOf(MeetupData::class)
         ->and($meetup->is_active)->toBeTrue()
         ->and($meetup->visible_on_map)->toBeTrue()
+        ->and($meetup->logo)->toBe('https://portal.einundzwanzig.space/storage/meetups/21/conversions/logo-thumb.jpg')
         ->and($meetup->last_event_at)->toBeInstanceOf(CarbonImmutable::class)
         ->and($meetup->last_event_at->toDateString())->toBe('2026-06-01');
 });

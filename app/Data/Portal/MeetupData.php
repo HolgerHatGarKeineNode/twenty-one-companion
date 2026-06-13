@@ -31,5 +31,6 @@ final class MeetupData extends Data
         public ?int $created_by,
         public ?CarbonImmutable $created_at,
         public ?CarbonImmutable $updated_at,
+        public ?string $logo = null,
     ) {}
 }
