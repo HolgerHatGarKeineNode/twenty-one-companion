@@ -172,16 +172,28 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         @if ($this->myMeetups->isEmpty())
             <x-portal-empty-state icon="user-group" :heading="__('Noch keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">
                 <flux:text class="max-w-xs">
-                    {{ __('Lege dein erstes Meetup an — es erscheint dann hier und auf der Karte.') }}
+                    {{ __('Such zuerst dein Meetup — gibt es das in deiner Stadt schon, füge es zu „Meine“ hinzu, statt ein Duplikat anzulegen.') }}
                 </flux:text>
+                {{-- Discovery-First (Phase 4.3): bestehendes Meetup aussuchen, statt
+                     vorschnell ein Duplikat anzulegen. Anlegen ist der zweite Weg. --}}
                 <flux:button
                     type="button"
                     variant="primary"
+                    icon="magnifying-glass"
+                    x-on:click="$haptic('medium'); $flux.modal('pick-meetup').show(); Livewire.dispatch('open-meetup-picker')"
+                    class="cursor-pointer"
+                >
+                    {{ __('Meetup aussuchen') }}
+                </flux:button>
+                <flux:button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
                     icon="plus"
                     x-on:click="$haptic('medium'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor')"
                     class="cursor-pointer"
                 >
-                    {{ __('Meetup anlegen') }}
+                    {{ __('Neues Meetup anlegen') }}
                 </flux:button>
             </x-portal-empty-state>
         @else

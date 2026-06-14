@@ -3,6 +3,7 @@
 use App\Data\Portal\CityData;
 use App\Data\Portal\MapMeetupData;
 use App\Services\PortalApi;
+use App\Services\PortalAuth;
 use App\Services\PortalWriter;
 use App\Services\WriteStatus;
 use Illuminate\Support\Collection;
@@ -122,6 +123,36 @@ it('creates (idempotent) and updates a meetup against the live portal', function
     ]);
 
     expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
+it('adds an existing meetup to mine (idempotent) against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Discovery-First „Meetup aussuchen": ein beliebiges bestehendes Meetup als
+    // Ziel — per Slug, da die Karten-Liste keine numerische ID exponiert.
+    $target = app(PortalApi::class)->mapMeetups(withLogos: true)->first();
+    expect($target)->not->toBeNull('Keine Meetups im lokalen Portal vorhanden — bitte seeden.');
+
+    $slug = $target->slug();
+
+    $result = app(PortalWriter::class)->addMeetupToMine($slug);
+
+    expect($result->status)->toBe(WriteStatus::Success)
+        ->and($result->successful())->toBeTrue();
+
+    Cache::flush();
+    expect(app(PortalApi::class)->myMeetups()->firstWhere('slug', $slug))
+        ->not->toBeNull('Hinzugefügtes Meetup nicht in my-meetups gefunden.');
+
+    // Idempotent: ein zweiter Aufruf bleibt erfolgreich (serverseitig 200 statt 201).
+    expect(app(PortalWriter::class)->addMeetupToMine($slug)->status)->toBe(WriteStatus::Success);
 })->group('integration');
 
 it('creates (idempotent) and updates a meetup event against the live portal', function () {
@@ -317,6 +348,10 @@ it('creates (idempotent) and updates a course against the live portal', function
     withPortalToken((string) $token);
     SecureStorage::shouldReceive('set')->andReturnTrue();
 
+    // myCourses() filtert die öffentliche Kursliste per user_id aus dem
+    // gecachten Profil (kein /my-courses-Endpunkt) — Profil zuerst live laden.
+    app(PortalAuth::class)->profile();
+
     // Einen Referenten als Ziel — den Integrationstest-Datensatz wiederverwenden.
     $lecturer = app(PortalApi::class)->myLecturers()->first();
     expect($lecturer)->not->toBeNull('Kein eigener Referent vorhanden — bitte zuerst den Referenten-Schreibtest laufen lassen.');
@@ -360,6 +395,9 @@ it('creates (idempotent) and updates a course event against the live portal', fu
 
     withPortalToken((string) $token);
     SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // myCourses() braucht die user_id aus dem gecachten Profil — zuerst live laden.
+    app(PortalAuth::class)->profile();
 
     $course = app(PortalApi::class)->myCourses()->firstWhere('name', 'Integrationstest Kurs (mobile)')
         ?? app(PortalApi::class)->myCourses()->first();

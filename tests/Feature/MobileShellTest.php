@@ -48,7 +48,7 @@ it('hides the create FAB for guests', function () {
 
     $this->get(route('meetups'))
         ->assertOk()
-        ->assertDontSee(__('Meetup anlegen'));
+        ->assertDontSee(__('Meetup aussuchen'));
 });
 
 it('shows the context-sensitive create FAB for connected users', function () {
@@ -59,10 +59,10 @@ it('shows the context-sensitive create FAB for connected users', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    // Auf Meetups: „Meetup anlegen“, nicht „Termin anlegen“.
+    // Auf Meetups: „Meetup aussuchen“ (Discovery-First-FAB), nicht „Termin anlegen“.
     $this->get(route('meetups'))
         ->assertOk()
-        ->assertSee(__('Meetup anlegen'))
+        ->assertSee(__('Meetup aussuchen'))
         ->assertDontSee(__('Termin anlegen'));
 
     // Auf Termine: „Termin anlegen“.

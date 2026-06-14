@@ -6,9 +6,10 @@
      * passt seine Aktion an die aktuelle Seite an. Nur für verbundene Nutzer
      * sichtbar — Schreiben braucht ein Portal-Token.
      *
-     * Meetup-Kontext: öffnet das Editor-Sheet `create-meetup` (Phase 4), das
-     * von <livewire:meetup-editor> im Layout besessen wird — der FAB triggert
-     * es nur und setzt es per `open-meetup-editor`-Event in den Anlegen-Modus.
+     * Meetup-Kontext (Discovery-First, Phase 4.3): öffnet das Picker-Sheet
+     * `pick-meetup` (<livewire:meetup-picker>), das bestehende Meetups zu
+     * „Meine“ hinzufügt — Anlegen ist erst der Fallback im Picker. So entstehen
+     * keine Duplikate, obwohl es das Meetup in der Stadt schon gibt.
      * Termin-Kontext: analog das Sheet `create-event` (Phase 5), besessen von
      * <livewire:event-editor>, geöffnet per `open-event-editor`-Event.
      */
@@ -22,10 +23,10 @@
             'event' => 'open-event-editor',
         ],
         request()->routeIs('meetups', 'meetups.show', 'mine') => [
-            'label' => __('Meetup anlegen'),
-            'modal' => 'create-meetup',
+            'label' => __('Meetup aussuchen'),
+            'modal' => 'pick-meetup',
             'icon' => 'user-group',
-            'event' => 'open-meetup-editor',
+            'event' => 'open-meetup-picker',
         ],
         default => null,
     };

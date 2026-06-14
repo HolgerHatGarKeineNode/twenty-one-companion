@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Integrations\Portal\PortalConnector;
+use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
 use App\Http\Integrations\Portal\Requests\CreateCourseEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateCourseRequest;
@@ -59,6 +60,16 @@ final class PortalWriter
     public function updateMeetup(int $id, array $payload): WriteResult
     {
         return $this->send(new UpdateMeetupRequest($id, $payload), ['my-meetups', 'map-meetups']);
+    }
+
+    /**
+     * Fügt ein bestehendes Meetup zu „Meine Meetups" hinzu (Discovery-First:
+     * statt Duplikate anzulegen, übernimmt der Nutzer ein vorhandenes Meetup).
+     * Invalidiert die eigene Meetup-Liste, damit es sofort im „Meine"-Tab erscheint.
+     */
+    public function addMeetupToMine(string $slug): WriteResult
+    {
+        return $this->send(new AddMeetupToMineRequest($slug), ['my-meetups']);
     }
 
     /**

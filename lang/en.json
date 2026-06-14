@@ -311,5 +311,18 @@
     "Lege zuerst einen Kurs an.": "Create a course first.",
     "Nur Referenten können Kurs-Events anlegen.": "Only lecturers can create course events.",
     "Zeitzone": "Time zone",
-    "Alle Datums- und Uhrzeitangaben werden in dieser Zeitzone angezeigt.": "All dates and times are shown in this time zone."
+    "Alle Datums- und Uhrzeitangaben werden in dieser Zeitzone angezeigt.": "All dates and times are shown in this time zone.",
+    "Meetup zu „Meine“ hinzugefügt.": "Meetup added to “Mine”.",
+    "Dieses Meetup konnte nicht hinzugefügt werden.": "This meetup could not be added.",
+    "Meetup aussuchen": "Pick a meetup",
+    "Suche zuerst, ob es dein Meetup schon gibt — füge es dann zu „Meine“ hinzu, statt ein Duplikat anzulegen.": "Search first whether your meetup already exists — then add it to “Mine” instead of creating a duplicate.",
+    "Kein passendes Meetup gefunden.": "No matching meetup found.",
+    "Dabei": "Added",
+    "Hinzufügen": "Add",
+    "Dein Meetup gibt es noch nicht?": "Your meetup doesn't exist yet?",
+    "Neues Meetup anlegen": "Create a new meetup",
+    "Dieses Meetup gibt es schon": "This meetup already exists",
+    "In :city existiert dieses Meetup bereits. Lege kein Duplikat an — füge es stattdessen zu deinen Meetups hinzu.": "This meetup already exists in :city. Don't create a duplicate — add it to your meetups instead.",
+    "Zu meinen Meetups hinzufügen": "Add to my meetups",
+    "Such zuerst dein Meetup — gibt es das in deiner Stadt schon, füge es zu „Meine“ hinzu, statt ein Duplikat anzulegen.": "Search for your meetup first — if it already exists in your city, add it to “Mine” instead of creating a duplicate."
 }

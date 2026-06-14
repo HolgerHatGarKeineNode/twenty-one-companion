@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
@@ -43,16 +44,18 @@ it('requires a name and a city before sending', function () {
         ->assertNotDispatched('meetup-saved');
 });
 
-it('warns about a possible duplicate before creating and lets the user override', function () {
+it('warns about a similar (non-exact) duplicate and lets the user override', function () {
     withPortalToken();
     MockClient::global([
+        // Ähnlicher Name, aber ANDERE Stadt (Graz statt Wien) → kein exakter
+        // Treffer, nur die überstimmbare Warnung (Name enthält „Wien“).
         GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201),
     ]);
 
     $component = Livewire::test('meetup-editor')
         ->set('form.name', 'Einundzwanzig Wien')
-        ->call('selectCity', 5, 'Wien')
+        ->call('selectCity', 9, 'Graz')
         ->call('save')
         ->assertNotDispatched('meetup-saved')
         ->assertSee('Gibt es das schon?');
@@ -64,6 +67,47 @@ it('warns about a possible duplicate before creating and lets the user override'
         ->assertDispatched('meetup-saved');
 
     MockClient::global()->assertSent(CreateMeetupRequest::class);
+});
+
+it('hard-blocks an exact name+city duplicate and refuses to create even when overridden', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201),
+    ]);
+
+    // Exakt gleicher Name UND Stadt wie das bestehende Wien-Meetup.
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Wien')
+        ->call('selectCity', 5, 'Wien')
+        ->call('save')
+        ->assertSee('Dieses Meetup gibt es schon')
+        ->assertNotDispatched('meetup-saved')
+        // Harte Sperre: auch mit gesetztem ignoreDuplicates wird nicht angelegt.
+        ->set('ignoreDuplicates', true)
+        ->call('save')
+        ->assertNotDispatched('meetup-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupRequest::class);
+});
+
+it('adds the existing meetup to mine instead of creating a duplicate', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        AddMeetupToMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'wien'])], 201),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Wien')
+        ->call('selectCity', 5, 'Wien')
+        ->assertSee('Zu meinen Meetups hinzufügen')
+        ->call('addExistingToMine')
+        ->assertDispatched('meetup-saved')
+        ->assertSet('editingId', null);
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof AddMeetupToMineRequest
+        && $request->resolveEndpoint() === '/my-meetups/wien');
 });
 
 it('maps a 422 response back onto the form fields', function () {

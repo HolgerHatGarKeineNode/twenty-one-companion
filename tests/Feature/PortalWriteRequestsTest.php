@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
@@ -37,6 +38,14 @@ it('builds the update-meetup request with id in path and partial body', function
     expect($request->getMethod())->toBe(Method::PATCH)
         ->and($request->resolveEndpoint())->toBe('/meetup/7')
         ->and(bodyOf($request))->toBe(['intro' => 'Neuer Text']);
+});
+
+it('builds the add-meetup-to-mine request body-free with the slug in the path', function () {
+    $request = new AddMeetupToMineRequest('wien');
+
+    expect($request->getMethod())->toBe(Method::POST)
+        ->and($request->resolveEndpoint())->toBe('/my-meetups/wien')
+        ->and(bodyOf($request))->toBe([]);
 });
 
 it('builds the create-meetup-event request', function () {

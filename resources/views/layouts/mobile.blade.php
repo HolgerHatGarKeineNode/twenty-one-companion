@@ -84,6 +84,10 @@
                      der Termin-Verwaltung und den inline-Stadt-Flows. Nur für
                      verbundene Nutzer — Schreiben braucht ein Token. --}}
                 @if ($connected)
+                    {{-- Discovery-First: „Meetup aussuchen“ (Phase 4.3) öffnet den
+                         Picker, der bestehende Meetups zu „Meine“ hinzufügt, statt
+                         Duplikate anzulegen. --}}
+                    <livewire:meetup-picker/>
                     <livewire:meetup-editor/>
                     <livewire:event-editor/>
                     <livewire:venue-editor/>

@@ -115,7 +115,9 @@ it('shows a create call-to-action when the own meetups list is empty', function 
     Livewire::test('pages::meetups.index')
         ->set('tab', 'meine')
         ->assertSee('Noch keine eigenen Meetups')
-        ->assertSee('Meetup anlegen');
+        // Discovery-First (Phase 4.3): „aussuchen“ primär, „neu anlegen“ als Fallback.
+        ->assertSee('Meetup aussuchen')
+        ->assertSee('Neues Meetup anlegen');
 });
 
 it('refreshes the own meetups after a save event', function () {

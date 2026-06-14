@@ -43,6 +43,9 @@ new class extends Component {
     /** Ein mögliches Duplikat bewusst überstimmen (Phase 4.1). */
     public bool $ignoreDuplicates = false;
 
+    /** @var Collection<int, MapMeetupData>|null Karten-Meetups einmal pro Request gemappt. */
+    private ?Collection $cachedMapMeetups = null;
+
     /**
      * Öffnen aus FAB (Anlegen) oder Karte (Bearbeiten). Das Sheet selbst
      * öffnet clientseitig; hier wird nur der Zustand vorbereitet.
@@ -86,10 +89,8 @@ new class extends Component {
 
         $this->editingId = $meetup->id;
         $this->form->setMeetup($meetup);
-        // withIntro/withLogos: true trifft denselben Cache-Key wie der
-        // Meetups-Index (netzwerkfrei, statt einer eigenen Karten-Variante).
-        $this->form->cityName = app(PortalApi::class)
-            ->mapMeetups(withIntro: true, withLogos: true)
+        // Stadtname netzwerkfrei aus den gecachten Karten-Meetups (per Slug).
+        $this->form->cityName = $this->cachedMapMeetups()
             ->first(fn (MapMeetupData $map): bool => $map->slug() === $meetup->slug)
             ?->city ?? '';
     }
@@ -147,6 +148,18 @@ new class extends Component {
     }
 
     /**
+     * Karten-Meetups einmal pro Request gemappt — die Duplikat-Checks
+     * (duplicates + exactDuplicate) und das Edit-Laden lesen dieselbe Liste.
+     * Gemeinsamer Cache-Key mit dem Meetups-Index (withIntro/withLogos: true).
+     *
+     * @return Collection<int, MapMeetupData>
+     */
+    private function cachedMapMeetups(): Collection
+    {
+        return $this->cachedMapMeetups ??= app(PortalApi::class)->mapMeetups(withIntro: true, withLogos: true);
+    }
+
+    /**
      * Mögliche Duplikate beim Anlegen (Phase 4.1): in-memory auf den
      * gecachten Karten-Meetups nach Name (und, wenn gewählt, Stadt). Beim
      * Bearbeiten irrelevant.
@@ -168,15 +181,61 @@ new class extends Component {
 
         $city = mb_strtolower(trim($this->form->cityName));
 
-        // Gleiche (withIntro/withLogos: true)-Variante wie der Meetups-Index →
-        // gemeinsamer Cache-Key statt eines zweiten Karten-Abrufs.
-        return app(PortalApi::class)
-            ->mapMeetups(withIntro: true, withLogos: true)
+        return $this->cachedMapMeetups()
             ->filter(fn (MapMeetupData $map): bool => str_contains(mb_strtolower($map->name), $name)
                 || ($city !== '' && mb_strtolower($map->city) === $city))
             ->sortBy(fn (MapMeetupData $map): string => mb_strtolower($map->name))
             ->take(4)
             ->values();
+    }
+
+    /**
+     * Exakter Treffer (gleicher Name UND gleiche Stadt): harte Duplikat-Sperre
+     * (Discovery-First). Statt anzulegen soll der Nutzer das bestehende Meetup
+     * übernehmen. Nur beim Anlegen, nur wenn Name + Stadt gesetzt sind.
+     */
+    #[Computed]
+    public function exactDuplicate(): ?MapMeetupData
+    {
+        if ($this->editingId !== null) {
+            return null;
+        }
+
+        $name = mb_strtolower(trim($this->form->name));
+        $city = mb_strtolower(trim($this->form->cityName));
+
+        if ($name === '' || $city === '') {
+            return null;
+        }
+
+        return $this->cachedMapMeetups()
+            ->first(fn (MapMeetupData $map): bool => mb_strtolower($map->name) === $name
+                && mb_strtolower($map->city) === $city);
+    }
+
+    /**
+     * Das exakt passende bestehende Meetup zu „Meine“ hinzufügen, statt ein
+     * Duplikat anzulegen (Discovery-First, Phase 4.3). Per Slug, da die
+     * Karten-Liste keine numerische ID exponiert.
+     */
+    public function addExistingToMine(): void
+    {
+        $exact = $this->exactDuplicate;
+
+        if ($exact === null) {
+            return;
+        }
+
+        $result = app(PortalWriter::class)->addMeetupToMine($exact->slug());
+
+        if ($result->successful()) {
+            $this->reportWriteSuccess('create-meetup', __('Meetup zu „Meine“ hinzugefügt.'));
+            $this->resetEditor();
+
+            return;
+        }
+
+        $this->reportWriteFailure($result, __('Dieses Meetup konnte nicht hinzugefügt werden.'));
     }
 
     public function togglePreview(): void
@@ -199,8 +258,15 @@ new class extends Component {
     {
         $payload = $this->form->payload();
 
+        if ($this->editingId === null && $this->exactDuplicate !== null) {
+            // Harte Sperre (Phase 4.3): exakter Name+Stadt-Treffer ist nicht
+            // überstimmbar — der Nutzer übernimmt stattdessen das bestehende
+            // Meetup (addExistingToMine). Niemals ein echtes Duplikat anlegen.
+            return;
+        }
+
         if ($this->editingId === null && ! $this->ignoreDuplicates && $this->duplicates->isNotEmpty()) {
-            // Noch nicht senden: erst den Duplikat-Hinweis zeigen (Phase 4.1).
+            // Noch nicht senden: erst den (überstimmbaren) Duplikat-Hinweis zeigen (Phase 4.1).
             return;
         }
 
@@ -221,16 +287,10 @@ new class extends Component {
 
     private function handleSuccess(): void
     {
-        $created = $this->editingId === null;
-
-        Flux::modal('create-meetup')->close();
-        Flux::toast(
-            text: $created ? __('Meetup angelegt.') : __('Meetup aktualisiert.'),
-            variant: 'success',
+        $this->reportWriteSuccess(
+            'create-meetup',
+            $this->editingId === null ? __('Meetup angelegt.') : __('Meetup aktualisiert.'),
         );
-
-        $this->dispatch('meetup-saved');
-        $this->js("window.haptic && window.haptic('success')");
         $this->resetEditor();
     }
 };
@@ -346,8 +406,40 @@ new class extends Component {
             <flux:switch wire:model="form.visible_on_map" :label="__('Auf der Karte zeigen')"/>
         </div>
 
-        {{-- Duplikat-Hinweis beim Anlegen (Phase 4.1). --}}
-        @if ($this->duplicates->isNotEmpty())
+        {{-- Harte Duplikat-Sperre (Phase 4.3): exakter Name+Stadt-Treffer. Statt
+             ein Duplikat anzulegen, das bestehende Meetup zu „Meine“ übernehmen. --}}
+        @if ($this->exactDuplicate)
+            <div class="flex flex-col gap-3 rounded-tile border border-red-300 bg-red-50 p-4 dark:border-red-500/40 dark:bg-red-500/10">
+                <span class="flex items-center gap-2 font-semibold text-red-800 dark:text-red-300">
+                    <flux:icon name="exclamation-triangle" class="size-5"/>
+                    {{ __('Dieses Meetup gibt es schon') }}
+                </span>
+                <flux:text class="text-sm">
+                    {{ __('In :city existiert dieses Meetup bereits. Lege kein Duplikat an — füge es stattdessen zu deinen Meetups hinzu.', ['city' => $this->exactDuplicate->city]) }}
+                </flux:text>
+                <a
+                    href="{{ route('meetups.show', $this->exactDuplicate->slug()) }}"
+                    wire:navigate
+                    class="flex items-center gap-2 text-sm font-medium text-red-900 underline dark:text-red-200"
+                >
+                    <flux:icon name="arrow-up-right" class="size-4"/>
+                    {{ $this->exactDuplicate->name }} · {{ $this->exactDuplicate->city }}
+                </a>
+                <flux:button
+                    type="button"
+                    variant="primary"
+                    icon="plus"
+                    wire:click="addExistingToMine"
+                    x-on:click="$haptic('medium')"
+                    wire:loading.attr="disabled"
+                    wire:target="addExistingToMine"
+                    class="w-fit cursor-pointer"
+                >
+                    {{ __('Zu meinen Meetups hinzufügen') }}
+                </flux:button>
+            </div>
+        {{-- Überstimmbarer Hinweis bei ähnlichen (nicht exakten) Treffern (Phase 4.1). --}}
+        @elseif ($this->duplicates->isNotEmpty())
             <div class="flex flex-col gap-2 rounded-tile border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
                 <span class="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
                     <flux:icon name="exclamation-triangle" class="size-5"/>
@@ -387,6 +479,7 @@ new class extends Component {
                 class="cursor-pointer"
                 wire:loading.attr="disabled"
                 wire:target="save"
+                :disabled="(bool) $this->exactDuplicate"
             >
                 {{ $editingId ? __('Speichern') : __('Anlegen') }}
             </flux:button>

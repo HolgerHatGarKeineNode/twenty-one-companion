@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Integrations\Portal\PortalConnector;
+use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
 use App\Services\PortalApi;
@@ -35,6 +36,22 @@ it('sends an authenticated create-meetup request and returns the created body', 
 
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->headers()->get('Authorization') === 'Bearer 12|secrettoken'
         && $request->body()->all() === ['name' => 'Einundzwanzig Ansbach', 'city_id' => 42, 'is_active' => true]);
+});
+
+it('adds an existing meetup to mine by slug and invalidates the own list', function () {
+    withPortalToken();
+    Cache::put('portal_api:my-meetups', [myMeetupFixture()], 900);
+    MockClient::global([AddMeetupToMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'wien'])], 201)]);
+
+    $result = portalWriter()->addMeetupToMine('wien');
+
+    expect($result->successful())->toBeTrue()
+        ->and(Cache::has('portal_api:my-meetups'))->toBeFalse();
+
+    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => str_ends_with(
+        (string) $response->getPendingRequest()->getUri(),
+        '/api/my-meetups/wien',
+    ) && $request->body()->all() === []);
 });
 
 it('invalidates the affected read caches after a successful write', function () {

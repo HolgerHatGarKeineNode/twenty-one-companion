@@ -21,6 +21,20 @@ use Livewire\Component;
 trait HandlesPortalWriteFeedback
 {
     /**
+     * Erfolgs-Feedback eines Portal-Writes: Sheet schließen, Erfolgs-Toast,
+     * Listen-Refresh-Event und Erfolgs-Haptik. Gegenstück zu
+     * {@see reportWriteFailure()}; den komponentenspezifischen State-Reset
+     * macht der Aufrufer danach selbst.
+     */
+    protected function reportWriteSuccess(string $modal, string $toastText, string $event = 'meetup-saved'): void
+    {
+        Flux::modal($modal)->close();
+        Flux::toast(text: $toastText, variant: 'success');
+        $this->dispatch($event);
+        $this->js("window.haptic && window.haptic('success')");
+    }
+
+    /**
      * @param  array<string, string>  $fieldMap  Portal-Feld → Form-Feld (für 422-Mapping).
      */
     protected function reportWriteFailure(WriteResult $result, string $forbiddenMessage, array $fieldMap = []): void
