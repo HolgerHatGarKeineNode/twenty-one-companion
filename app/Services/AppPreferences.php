@@ -16,6 +16,12 @@ final class AppPreferences
 
     public const DEFAULT_COUNTRY = 'de';
 
+    /**
+     * Standard-Zeitzone für die Anzeige (DB/API liefern UTC). Der Nutzer kann
+     * sie im Profil überschreiben; bis dahin gilt Mitteleuropa.
+     */
+    public const DEFAULT_TIMEZONE = 'Europe/Berlin';
+
     /** Unterstützte App-Sprachen (deutsche Quell-Strings + lang/en.json). */
     public const SUPPORTED_LOCALES = ['de', 'en'];
 
@@ -43,6 +49,8 @@ final class AppPreferences
     private const KEY_LOCALE = 'locale';
 
     private const KEY_COUNTRY = 'country';
+
+    private const KEY_TIMEZONE = 'timezone';
 
     private const KEY_ONBOARDING_STEP = 'onboarding_step';
 
@@ -123,6 +131,29 @@ final class AppPreferences
     public function setCountry(string $country): void
     {
         $this->set(self::KEY_COUNTRY, mb_strtolower(trim($country)));
+    }
+
+    /**
+     * Anzeige-Zeitzone des Nutzers (IANA-Identifier, z. B. "Europe/Berlin").
+     * DB/API-Zeiten sind UTC und werden erst für die Anzeige hierhin
+     * umgerechnet; Eingaben in den Editoren werden von hier nach UTC
+     * zurückgerechnet. Fällt auf {@see DEFAULT_TIMEZONE} zurück, solange nichts
+     * Gültiges gespeichert ist.
+     */
+    public function timezone(): string
+    {
+        $timezone = $this->get(self::KEY_TIMEZONE);
+
+        return $timezone !== null && in_array($timezone, timezone_identifiers_list(), true)
+            ? $timezone
+            : self::DEFAULT_TIMEZONE;
+    }
+
+    public function setTimezone(string $timezone): void
+    {
+        if (in_array($timezone, timezone_identifiers_list(), true)) {
+            $this->set(self::KEY_TIMEZONE, $timezone);
+        }
     }
 
     public function get(string $key): ?string

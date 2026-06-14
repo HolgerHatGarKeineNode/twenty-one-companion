@@ -20,7 +20,7 @@
         <flux:icon name="calendar-days" class="size-5"/>
     </span>
     <div class="min-w-0 flex-1">
-        <span class="font-semibold">{{ $event->start->translatedFormat('D, d. M Y · H:i') }}</span>
+        <span class="font-semibold">{{ $event->start->forDisplay()->translatedFormat('D, d. M Y · H:i') }}</span>
         @if ($event->location)
             <flux:text class="truncate text-sm">{{ $event->location }}</flux:text>
         @endif

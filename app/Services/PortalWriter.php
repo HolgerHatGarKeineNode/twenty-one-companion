@@ -4,10 +4,16 @@ namespace App\Services;
 
 use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
+use App\Http\Integrations\Portal\Requests\CreateCourseEventRequest;
+use App\Http\Integrations\Portal\Requests\CreateCourseRequest;
+use App\Http\Integrations\Portal\Requests\CreateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
+use App\Http\Integrations\Portal\Requests\UpdateCourseEventRequest;
+use App\Http\Integrations\Portal\Requests\UpdateCourseRequest;
+use App\Http\Integrations\Portal\Requests\UpdateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UpdateVenueRequest;
@@ -101,6 +107,54 @@ final class PortalWriter
     public function updateCity(int $id, array $payload): WriteResult
     {
         return $this->send(new UpdateCityRequest($id, $payload), ['cities', 'my-cities']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function createLecturer(array $payload): WriteResult
+    {
+        return $this->send(new CreateLecturerRequest($payload), ['lecturers', 'my-lecturers']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function updateLecturer(int $id, array $payload): WriteResult
+    {
+        return $this->send(new UpdateLecturerRequest($id, $payload), ['lecturers', 'my-lecturers']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function createCourse(array $payload): WriteResult
+    {
+        return $this->send(new CreateCourseRequest($payload), ['courses', 'my-courses']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function updateCourse(int $id, array $payload): WriteResult
+    {
+        return $this->send(new UpdateCourseRequest($id, $payload), ['courses', 'my-courses']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function createCourseEvent(array $payload): WriteResult
+    {
+        return $this->send(new CreateCourseEventRequest($payload), ['my-course-events', 'courses']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function updateCourseEvent(int $id, array $payload): WriteResult
+    {
+        return $this->send(new UpdateCourseEventRequest($id, $payload), ['my-course-events', 'courses']);
     }
 
     /**

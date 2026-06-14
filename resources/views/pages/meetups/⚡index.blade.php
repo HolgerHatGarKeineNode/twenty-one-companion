@@ -159,7 +159,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                                 <flux:text class="truncate text-sm">{{ $meetup->city }} · {{ $meetup->country }}</flux:text>
                                 @if ($meetup->next_event)
                                     <flux:badge color="orange" size="sm" class="mt-1 w-fit">
-                                        {{ $meetup->next_event->start->translatedFormat('D, d. M · H:i') }}
+                                        {{ $meetup->next_event->start->forDisplay()->translatedFormat('D, d. M · H:i') }}
                                     </flux:badge>
                                 @endif
                             </span>

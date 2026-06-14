@@ -124,7 +124,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     #[Computed]
     public function days(): Collection
     {
-        return $this->events->groupBy(fn (MeetupEventData $event): string => $event->start->toDateString(), preserveKeys: true);
+        return $this->events->groupBy(fn (MeetupEventData $event): string => $event->start->forDisplay()->toDateString(), preserveKeys: true);
     }
 
     #[Computed]
@@ -148,7 +148,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
             title: $event->meetup->name,
             text: __(':name am :date', [
                 'name' => $event->meetup->name,
-                'date' => $event->start->translatedFormat('d.m.Y · H:i'),
+                'date' => $event->start->forDisplay()->translatedFormat('d.m.Y · H:i'),
             ]),
             url: $event->link ?? $event->meetup->portalLink,
         );
@@ -196,7 +196,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         @foreach ($this->days as $day => $eventsOfDay)
             <section wire:key="day-{{ $day }}" class="list-stagger flex flex-col gap-2">
                 <flux:heading size="sm" level="2" class="text-zinc-500 dark:text-zinc-400">
-                    {{ $eventsOfDay->first()->start->translatedFormat('l, d. F') }}
+                    {{ $eventsOfDay->first()->start->forDisplay()->translatedFormat('l, d. F') }}
                 </flux:heading>
                 @foreach ($eventsOfDay as $index => $event)
                     <button
@@ -210,7 +210,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                         <span class="flex min-w-0 flex-col gap-0.5">
                             <span class="truncate font-semibold">{{ $event->meetup->name }}</span>
                             <flux:text class="truncate text-sm">
-                                {{ $event->start->format('H:i') }}{{ $event->location ? ' · '.$event->location : '' }}
+                                {{ $event->start->forDisplay()->format('H:i') }}{{ $event->location ? ' · '.$event->location : '' }}
                             </flux:text>
                         </span>
                         <flux:icon name="chevron-right" class="ms-auto size-5 shrink-0 text-zinc-400"/>
@@ -236,7 +236,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                 <div class="flex items-center gap-3">
                     <flux:icon name="calendar-days" class="size-5 shrink-0 text-zinc-400"/>
                     <span class="font-semibold">
-                        {{ $this->selectedEvent->start->translatedFormat('l, d. F Y · H:i') }}
+                        {{ $this->selectedEvent->start->forDisplay()->translatedFormat('l, d. F Y · H:i') }}
                     </span>
                 </div>
 

@@ -4,20 +4,38 @@ use App\Livewire\PortalPage;
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
 use App\Services\PortalAuth;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 
 new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] class extends PortalPage {
+    /**
+     * Kuratierte Anzeige-Zeitzonen (DACH zuerst, dann häufige Bitcoin-Regionen).
+     * Eine abweichend gespeicherte Zeitzone wird in {@see timezones()} ergänzt.
+     */
+    private const TIMEZONE_OPTIONS = [
+        'Europe/Berlin', 'Europe/Vienna', 'Europe/Zurich', 'Europe/London',
+        'Europe/Lisbon', 'Europe/Madrid', 'Europe/Paris', 'Europe/Amsterdam',
+        'Europe/Rome', 'Europe/Prague', 'Europe/Warsaw', 'Europe/Athens',
+        'Europe/Helsinki', 'Europe/Istanbul', 'America/New_York', 'America/Chicago',
+        'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo',
+        'America/Argentina/Buenos_Aires', 'Africa/Johannesburg', 'Asia/Dubai',
+        'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney', 'UTC',
+    ];
+
     public string $locale = AppPreferences::DEFAULT_LOCALE;
 
     public string $country = AppPreferences::DEFAULT_COUNTRY;
+
+    public string $timezone = AppPreferences::DEFAULT_TIMEZONE;
 
     public function mount(AppPreferences $preferences): void
     {
         $this->locale = $preferences->locale();
         $this->country = $preferences->country();
+        $this->timezone = $preferences->timezone();
 
         // Landeplatz nach dem Login-Deep-Link: Rückmeldung als Toast.
         if (session()->pull('portal-connected')) {
@@ -62,6 +80,44 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
         Flux::toast(text: __('Gespeichert.'), variant: 'success');
     }
 
+    /**
+     * Auswählbare Anzeige-Zeitzonen als [value => Label mit aktueller
+     * UTC-Verschiebung]; eine abweichend gespeicherte Zeitzone wird vorangestellt.
+     *
+     * @return array<string, string>
+     */
+    #[Computed]
+    public function timezones(): array
+    {
+        $ids = self::TIMEZONE_OPTIONS;
+
+        if (! in_array($this->timezone, $ids, true)) {
+            array_unshift($ids, $this->timezone);
+        }
+
+        $now = CarbonImmutable::now();
+        $options = [];
+
+        foreach ($ids as $id) {
+            $city = str_replace('_', ' ', str_contains($id, '/') ? substr((string) strrchr($id, '/'), 1) : $id);
+            $options[$id] = $city.' · UTC'.$now->setTimezone($id)->format('P');
+        }
+
+        return $options;
+    }
+
+    public function updatedTimezone(AppPreferences $preferences): void
+    {
+        if (! in_array($this->timezone, timezone_identifiers_list(), true)) {
+            $this->timezone = $preferences->timezone();
+
+            return;
+        }
+
+        $preferences->setTimezone($this->timezone);
+        Flux::toast(text: __('Gespeichert.'), variant: 'success');
+    }
+
     public function openPortal(PortalAuth $portalAuth): void
     {
         $this->openLink($portalAuth->baseUrl());
@@ -82,6 +138,16 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
                 <flux:label>{{ __('Region') }}</flux:label>
                 <x-country-select :countries="$this->countries" wire:model.live="country"/>
                 <flux:description>{{ __('Standardfilter für Meetups und Termine.') }}</flux:description>
+            </flux:field>
+
+            <flux:field>
+                <flux:label>{{ __('Zeitzone') }}</flux:label>
+                <flux:select wire:model.live="timezone">
+                    @foreach ($this->timezones as $value => $label)
+                        <flux:select.option :value="$value" wire:key="tz-{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+                <flux:description>{{ __('Alle Datums- und Uhrzeitangaben werden in dieser Zeitzone angezeigt.') }}</flux:description>
             </flux:field>
 
             <flux:radio.group x-data x-model="$flux.appearance" :label="__('Darstellung')" variant="segmented">

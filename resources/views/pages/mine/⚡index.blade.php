@@ -64,8 +64,8 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             ],
             [
                 'icon' => 'academic-cap',
-                'label' => __('Meine Kurse'),
-                'href' => route('courses'),
+                'label' => __('Meine Kurse & Referenten'),
+                'href' => route('mine.teaching'),
                 'subtitle' => trans_choice('{0}Noch keine Kurse|{1}:count Kurs|[2,*]:count Kurse', $courses, ['count' => $courses]),
             ],
         ];

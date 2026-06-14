@@ -226,7 +226,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                     </span>
                     <div class="min-w-0">
                         <span class="font-semibold">
-                            {{ $this->meetup->next_event->start->translatedFormat('l, d. F Y · H:i') }}
+                            {{ $this->meetup->next_event->start->forDisplay()->translatedFormat('l, d. F Y · H:i') }}
                         </span>
                         @if ($this->meetup->next_event->location)
                             <flux:text class="truncate text-sm">{{ $this->meetup->next_event->location }}</flux:text>
@@ -264,7 +264,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                                 <flux:icon name="calendar-days" class="size-5"/>
                             </span>
                             <div class="min-w-0">
-                                <span class="font-semibold">{{ $event->start->translatedFormat('D, d. M · H:i') }}</span>
+                                <span class="font-semibold">{{ $event->start->forDisplay()->translatedFormat('D, d. M · H:i') }}</span>
                                 @if ($event->location)
                                     <flux:text class="truncate text-sm">{{ $event->location }}</flux:text>
                                 @endif

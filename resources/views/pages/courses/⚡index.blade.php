@@ -168,7 +168,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
                             @endif
                             @if ($course->nextEvent())
                                 <flux:badge color="orange" size="sm" class="mt-1 w-fit">
-                                    {{ $course->nextEvent()->translatedFormat('D, d. M · H:i') }}
+                                    {{ $course->nextEvent()->forDisplay()->translatedFormat('D, d. M · H:i') }}
                                 </flux:badge>
                             @endif
                         </span>

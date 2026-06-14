@@ -6,8 +6,8 @@ use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\EventForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
+use App\Support\Clock;
 use App\Support\Markdown;
-use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -167,7 +167,7 @@ new class extends Component {
 
     private function startsInPast(): bool
     {
-        return CarbonImmutable::parse($this->form->date.' '.$this->form->time)->isPast();
+        return Clock::localIsPast($this->form->date.' '.$this->form->time);
     }
 
     private function handleSuccess(): void

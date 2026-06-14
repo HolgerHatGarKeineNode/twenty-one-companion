@@ -8,6 +8,7 @@ use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use App\Services\PortalWriter;
+use App\Support\Clock;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
@@ -92,6 +93,14 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+
+        // UTC-Zeitpunkt → Anzeige-Zeitzone des Nutzers (Profil-Einstellung,
+        // Default Europe/Berlin). Liest sich in Blades als
+        // `$date->forDisplay()->translatedFormat(…)`.
+        CarbonImmutable::macro('forDisplay', function (): CarbonImmutable {
+            /** @var CarbonImmutable $this */
+            return Clock::toDisplay($this);
+        });
 
         DB::prohibitDestructiveCommands(
             app()->isProduction(),

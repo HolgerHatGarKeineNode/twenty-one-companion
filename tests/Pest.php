@@ -64,6 +64,16 @@ use Native\Mobile\Facades\SecureStorage;
 function completeOnboarding(string $locale = 'de', string $country = ''): void
 {
     app(AppPreferences::class)->completeOnboarding($locale, $country);
+    // Tests laufen deterministisch in UTC (= API-Zeiten), damit Datums-/
+    // Zeit-Assertions nicht von der Default-Anzeige-Zeitzone (Europe/Berlin)
+    // bzw. der Sommerzeit abhängen. Die Zeitzonen-Umrechnung selbst prüft
+    // TimezoneTest gezielt mit gesetzter Berlin-Zeitzone.
+    withTimezone('UTC');
+}
+
+function withTimezone(string $timezone): void
+{
+    app(AppPreferences::class)->setTimezone($timezone);
 }
 
 function resetOnboarding(): void
@@ -412,6 +422,61 @@ function countryFixture(array $overrides = []): array
         'name' => 'Germany',
         'code' => 'de',
         'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
+    ], $overrides);
+}
+
+/**
+ * Eigener Referent aus GET /api/my-lecturers (LecturerResource, flache
+ * Schreib-/Eigentums-Sicht mit allen editierbaren Feldern, im data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function myLecturerFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 3,
+        'name' => 'Toni Stack',
+        'slug' => 'toni-stack',
+        'subtitle' => 'Bitcoin-Educator',
+        'intro' => 'Ich halte Kurse zu **Bitcoin**.',
+        'description' => 'Seit 2017 unterwegs.',
+        'active' => true,
+        'website' => 'https://tonistack.example',
+        'twitter_username' => 'tonistack',
+        'nostr' => 'npub1tonistack',
+        'lightning_address' => 'toni@stack.example',
+        'lnurl' => null,
+        'node_id' => null,
+        'paynym' => null,
+        'team_id' => null,
+        'created_by' => 7,
+        'created_at' => '2026-01-01T00:00:00.000000Z',
+        'updated_at' => '2026-06-01T00:00:00.000000Z',
+    ], $overrides);
+}
+
+/**
+ * Eigenes Kurs-Event aus GET /api/course-events (CourseEvent mit Kurs-/Venue-
+ * Kurzinfo, ohne data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function myCourseEventFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 9,
+        'course_id' => 5,
+        'venue_id' => 3,
+        'from' => '2026-07-01T18:00:00.000000Z',
+        'to' => '2026-07-01T20:00:00.000000Z',
+        'link' => 'https://example.com/kurs-anmeldung',
+        'created_by' => 7,
+        'created_at' => '2026-01-01T00:00:00.000000Z',
+        'updated_at' => '2026-06-01T00:00:00.000000Z',
+        'course' => ['id' => 5, 'name' => 'Bitcoin, Blockchain und Geld'],
+        'venue' => ['id' => 3, 'name' => 'Volkshochschule'],
     ], $overrides);
 }
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\Portal\LecturerDetailData;
+use App\Data\Portal\MyLecturerData;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
 use Livewire\Attributes\Computed;
@@ -30,6 +31,19 @@ new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent',
     {
         return $this->lecturer?->socialLinks() ?? [];
     }
+
+    /**
+     * Gehört dieses Profil dem verbundenen Nutzer? (netzwerkfrei über die
+     * gecachten eigenen Referenten — ohne Token leer.) Schaltet die
+     * Bearbeiten-Affordance frei (Phase 7.4).
+     */
+    #[Computed]
+    public function isOwner(): bool
+    {
+        return app(PortalApi::class)
+            ->myLecturers()
+            ->contains(fn (MyLecturerData $lecturer): bool => $lecturer->id === $this->id);
+    }
 };
 ?>
 
@@ -54,6 +68,20 @@ new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent',
                     @endif
                 </div>
             </div>
+            @if ($this->isOwner)
+                {{-- Bearbeiten für das eigene Profil (Phase 7.4). --}}
+                <div class="mt-4">
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="pencil-square"
+                        x-on:click="$haptic('light'); $flux.modal('create-lecturer').show(); Livewire.dispatch('open-lecturer-editor', { id: {{ $this->lecturer->id }} })"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Bearbeiten') }}
+                    </flux:button>
+                </div>
+            @endif
         </section>
 
         @if ($this->lecturer->introHtml() || $this->lecturer->descriptionHtml())
@@ -86,7 +114,7 @@ new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent',
                                 <span class="truncate font-semibold">{{ $course->name }}</span>
                                 @if ($course->nextEvent())
                                     <flux:badge color="orange" size="sm" class="mt-1 w-fit">
-                                        {{ $course->nextEvent()->translatedFormat('D, d. M · H:i') }}
+                                        {{ $course->nextEvent()->forDisplay()->translatedFormat('D, d. M · H:i') }}
                                     </flux:badge>
                                 @endif
                             </span>

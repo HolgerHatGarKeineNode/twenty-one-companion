@@ -15,6 +15,7 @@ use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MemberMeetupData;
 use App\Data\Portal\MyCityData;
+use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
 use App\Data\Portal\MyVenueData;
 use App\Data\Portal\UserProfileData;
@@ -32,6 +33,7 @@ use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMemberMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyVenuesRequest;
@@ -348,6 +350,30 @@ final class PortalApi
         );
 
         return GetMyCourseEventsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigene Referenten-Profile (vom Nutzer erstellt). Ohne Portal-Token leer,
+     * ohne Request. Trägt die editierbaren Felder (inkl. roher Markdown-Texte),
+     * die der Referenten-Editor zum Bearbeiten braucht.
+     *
+     * @return Collection<int, MyLecturerData>
+     */
+    public function myLecturers(): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        $json = $this->remember(
+            'my-lecturers',
+            [],
+            self::TTL_MINE_SECONDS,
+            new GetMyLecturersRequest,
+            fn (Response $response): mixed => $response->json('data'),
+        );
+
+        return GetMyLecturersRequest::collectData($json ?? []);
     }
 
     /**

@@ -268,3 +268,134 @@ it('rejects an invalid create with structured 422 field errors', function () {
         ->and($result->hasValidationErrors())->toBeTrue()
         ->and($result->errors)->not->toBeEmpty();
 })->group('integration');
+
+it('creates (idempotent) and updates a lecturer against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Idempotent: einen festen Test-Datensatz wiederverwenden.
+    $name = 'Integrationstest Referent (mobile)';
+    $existing = app(PortalApi::class)->myLecturers()->firstWhere('name', $name);
+
+    if ($existing === null) {
+        $created = app(PortalWriter::class)->createLecturer([
+            'name' => $name,
+            'subtitle' => 'Bitcoin-Educator',
+            'description' => 'Automatisch durch den Integrationstest angelegt.',
+            'active' => true,
+        ]);
+
+        expect($created->status)->toBe(WriteStatus::Success)
+            ->and($created->successful())->toBeTrue();
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myLecturers()->firstWhere('name', $name);
+    }
+
+    expect($existing)->not->toBeNull('Angelegter Referent nicht in my-lecturers gefunden.');
+
+    $updated = app(PortalWriter::class)->updateLecturer($existing->id, [
+        'subtitle' => 'Aktualisiert am '.now()->toDateTimeString(),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
+it('creates (idempotent) and updates a course against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Einen Referenten als Ziel — den Integrationstest-Datensatz wiederverwenden.
+    $lecturer = app(PortalApi::class)->myLecturers()->first();
+    expect($lecturer)->not->toBeNull('Kein eigener Referent vorhanden — bitte zuerst den Referenten-Schreibtest laufen lassen.');
+
+    $name = 'Integrationstest Kurs (mobile)';
+    $existing = app(PortalApi::class)->myCourses()->firstWhere('name', $name);
+
+    if ($existing === null) {
+        $created = app(PortalWriter::class)->createCourse([
+            'name' => $name,
+            'lecturer_id' => $lecturer->id,
+            'description' => 'Automatisch durch den Integrationstest angelegt.',
+        ]);
+
+        // Kurse anlegen erfordert is_lecturer — sonst sauber überspringen.
+        if ($created->status === WriteStatus::Forbidden) {
+            test()->markTestSkipped('Test-User ist kein Referent (is_lecturer) — Kurs-Schreibtest übersprungen.');
+        }
+
+        expect($created->status)->toBe(WriteStatus::Success);
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myCourses()->firstWhere('name', $name);
+    }
+
+    expect($existing)->not->toBeNull('Angelegter Kurs nicht in my-courses gefunden.');
+
+    $updated = app(PortalWriter::class)->updateCourse($existing->id, [
+        'description' => 'Aktualisiert am '.now()->toDateTimeString(),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');
+
+it('creates (idempotent) and updates a course event against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    $course = app(PortalApi::class)->myCourses()->firstWhere('name', 'Integrationstest Kurs (mobile)')
+        ?? app(PortalApi::class)->myCourses()->first();
+    expect($course)->not->toBeNull('Kein eigener Kurs vorhanden — bitte zuerst den Kurs-Schreibtest laufen lassen.');
+
+    $venue = app(PortalApi::class)->venues(withDetails: true)->first();
+    expect($venue)->not->toBeNull('Kein Ort im lokalen Portal vorhanden — bitte seeden.');
+
+    // Idempotent: einen vorhandenen eigenen Kurs-Termin dieses Kurses wiederverwenden,
+    // sonst genau einen neuen anlegen.
+    $existing = app(PortalApi::class)->myCourseEvents()->firstWhere('course_id', $course->id);
+
+    if ($existing === null) {
+        $created = app(PortalWriter::class)->createCourseEvent([
+            'course_id' => $course->id,
+            'venue_id' => $venue->id,
+            'from' => now()->addMonth()->format('Y-m-d').' 18:00',
+            'to' => now()->addMonth()->format('Y-m-d').' 20:00',
+            'link' => 'https://example.com/integrationstest-anmeldung',
+        ]);
+
+        if ($created->status === WriteStatus::Forbidden) {
+            test()->markTestSkipped('Test-User ist kein Referent (is_lecturer) — Kurs-Event-Schreibtest übersprungen.');
+        }
+
+        expect($created->status)->toBe(WriteStatus::Success);
+
+        Cache::flush();
+        $existing = app(PortalApi::class)->myCourseEvents()->firstWhere('course_id', $course->id);
+    }
+
+    expect($existing)->not->toBeNull('Angelegtes Kurs-Event nicht in course-events gefunden.');
+
+    $updated = app(PortalWriter::class)->updateCourseEvent($existing->id, [
+        'link' => 'https://example.com/aktualisiert-'.now()->format('His'),
+    ]);
+
+    expect($updated->status)->toBe(WriteStatus::Success);
+})->group('integration');

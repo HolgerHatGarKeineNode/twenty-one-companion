@@ -35,12 +35,18 @@ new class extends Component {
     public string $cityQuery = '';
 
     #[On('open-venue-editor')]
-    public function open(?int $id = null): void
+    public function open(?int $id = null, ?string $name = null): void
     {
         $this->resetEditor();
 
         if ($id !== null) {
             $this->loadForEdit($id);
+
+            return;
+        }
+
+        if ($name !== null) {
+            $this->form->name = $name;
         }
     }
 
@@ -139,7 +145,7 @@ new class extends Component {
             : $writer->updateVenue($this->editingId, $payload);
 
         if ($result->successful()) {
-            $this->handleSuccess();
+            $this->handleSuccess($result->data);
 
             return;
         }
@@ -147,7 +153,10 @@ new class extends Component {
         $this->reportWriteFailure($result, __('Du darfst diesen Ort nicht bearbeiten.'));
     }
 
-    private function handleSuccess(): void
+    /**
+     * @param  array<int|string, mixed>  $data
+     */
+    private function handleSuccess(array $data): void
     {
         $created = $this->editingId === null;
 
@@ -156,6 +165,16 @@ new class extends Component {
             text: $created ? __('Ort angelegt.') : __('Ort aktualisiert.'),
             variant: 'success',
         );
+
+        // Inline aus dem Kurs-Event-Flow: die neue id+name zurückmelden, damit
+        // ein offener Kurs-Event-Editor den frisch angelegten Ort übernimmt
+        // (analog zu city-saved beim Stadt-Editor).
+        if ($created) {
+            $newId = $data['data']['id'] ?? null;
+            if (is_int($newId)) {
+                $this->dispatch('venue-saved', id: $newId, name: $this->form->name);
+            }
+        }
 
         $this->dispatch('places-changed');
         $this->js("window.haptic && window.haptic('success')");

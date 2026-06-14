@@ -4,6 +4,7 @@ namespace App\Livewire\Forms;
 
 use App\Data\Portal\MyMeetupEventData;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
+use App\Support\Clock;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -47,10 +48,13 @@ class EventForm extends Form
      */
     public function setEvent(MyMeetupEventData $event, string $meetupName): void
     {
+        // Die API liefert UTC; für die Eingabefelder in die Nutzer-Zeitzone.
+        $local = Clock::toDisplay($event->start);
+
         $this->meetup_id = $event->meetup_id;
         $this->meetupName = $meetupName;
-        $this->date = $event->start->format('Y-m-d');
-        $this->time = $event->start->format('H:i');
+        $this->date = $local->format('Y-m-d');
+        $this->time = $local->format('H:i');
         $this->location = $event->location;
         $this->description = $event->description;
         $this->link = $event->link;
@@ -68,7 +72,8 @@ class EventForm extends Form
 
         return [
             'meetup_id' => $this->meetup_id,
-            'start' => $this->date.' '.$this->time,
+            // Lokale Eingabe (Nutzer-Zeitzone) → UTC, wie das Portal es erwartet.
+            'start' => Clock::localToUtc($this->date.' '.$this->time),
             'location' => $this->location,
             'description' => $this->description,
             'link' => $this->link,

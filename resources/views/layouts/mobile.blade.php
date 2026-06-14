@@ -88,6 +88,13 @@
                     <livewire:event-editor/>
                     <livewire:venue-editor/>
                     <livewire:city-editor/>
+                    {{-- Kurse & Referenten (Phase 7): Referenten-Editor besitzt
+                         `create-lecturer`, Kurs-Editor `create-course`, Kurs-Event-
+                         Editor `create-course-event`. Geöffnet aus /mine/teaching,
+                         den Detail-Seiten und den inline-Referenten-/Ort-Flows. --}}
+                    <livewire:lecturer-editor/>
+                    <livewire:course-editor/>
+                    <livewire:course-event-editor/>
                 @endif
 
                 <flux:modal name="main-menu" variant="flyout" class="menu-flyout !p-0">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Data\Portal\CourseData;
 use App\Data\Portal\CourseDetailData;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
@@ -19,6 +20,19 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' 
     public function course(): ?CourseDetailData
     {
         return app(PortalApi::class)->course($this->id);
+    }
+
+    /**
+     * Gehört dieser Kurs dem verbundenen Nutzer? (netzwerkfrei über die
+     * gecachten eigenen Kurse — ohne Token leer.) Schaltet die Bearbeiten-/
+     * „Kurs-Event anlegen“-Affordances frei (Phase 7.4).
+     */
+    #[Computed]
+    public function isOwner(): bool
+    {
+        return app(PortalApi::class)
+            ->myCourses()
+            ->contains(fn (CourseData $course): bool => $course->id === $this->id);
     }
 
     /**
@@ -62,13 +76,34 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' 
                     @endif
                 </div>
             </div>
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4 flex flex-wrap gap-2">
                 <flux:button wire:click="share" size="sm" icon="share" class="cursor-pointer">
                     {{ __('Teilen') }}
                 </flux:button>
                 <flux:button wire:click="openLink({{ Js::from($this->course->portalLink) }})" size="sm" variant="ghost" icon="arrow-top-right-on-square" class="cursor-pointer">
                     {{ __('Im Portal öffnen') }}
                 </flux:button>
+                @if ($this->isOwner)
+                    {{-- Bearbeiten/Termin anlegen für den eigenen Kurs (Phase 7.4). --}}
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="pencil-square"
+                        x-on:click="$haptic('light'); $flux.modal('create-course').show(); Livewire.dispatch('open-course-editor', { id: {{ $this->course->id }} })"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Bearbeiten') }}
+                    </flux:button>
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="calendar-days"
+                        x-on:click="$haptic('light'); $flux.modal('create-course-event').show(); Livewire.dispatch('open-course-event-editor', { courseId: {{ $this->course->id }} })"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Kurs-Event anlegen') }}
+                    </flux:button>
+                @endif
             </div>
         </section>
 
@@ -84,7 +119,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' 
                                 <flux:icon name="calendar-days" class="size-5"/>
                             </span>
                             <div class="min-w-0 flex-1">
-                                <span class="font-semibold">{{ $event->from->translatedFormat('D, d. M Y · H:i') }}</span>
+                                <span class="font-semibold">{{ $event->from->forDisplay()->translatedFormat('D, d. M Y · H:i') }}</span>
                                 @if ($event->locationLabel())
                                     <flux:text class="truncate text-sm">{{ $event->locationLabel() }}</flux:text>
                                 @endif
