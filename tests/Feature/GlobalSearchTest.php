@@ -6,6 +6,8 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\Request;
+use Saloon\Http\Response;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
@@ -39,6 +41,29 @@ it('searches meetups, courses and lecturers and links to their detail pages', fu
         ->set('term', 'toni')
         ->assertSee('Toni Stack')
         ->assertSee(route('lecturers.show', 3));
+});
+
+it('requests the uncapped course and lecturer lists so results beyond the first ten are searchable', function () {
+    // Regression: das Portal begrenzt /courses und /lecturers ohne das
+    // withDetails-Flag auf 10 Einträge. Die globale Suche muss die volle
+    // Liste anfragen (withDetails=1), sonst übersieht sie alles ab dem 11.
+    // Treffer (live verifiziert: „Nostr"-Kurse waren unauffindbar).
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()]),
+        GetLecturersRequest::class => MockResponse::make([detailedLecturerFixture()]),
+    ]);
+
+    Livewire::test('global-search')->set('term', 'bitcoin');
+
+    $assertUncapped = fn (string $requestClass) => MockClient::global()->assertSent(
+        fn (Request $request, Response $response): bool => $request instanceof $requestClass
+            && $response->getPendingRequest()->query()->get('withDetails') === '1',
+    );
+
+    $assertUncapped(GetCoursesRequest::class);
+    $assertUncapped(GetLecturersRequest::class);
 });
 
 it('shows an empty state when nothing matches', function () {

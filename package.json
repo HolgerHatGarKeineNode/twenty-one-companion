@@ -23,6 +23,7 @@
         "lightningcss-linux-x64-gnu": "^1.29.1"
     },
     "devDependencies": {
-        "nostr-tools": "^2.23.5"
+        "nostr-tools": "^2.23.5",
+        "playwright": "^1.60.0"
     }
 }

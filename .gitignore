@@ -36,3 +36,6 @@ auth.json
 offline_event.json
 offline_err.log
 event.json
+
+# Pest Browser-Test-Screenshots (Fehlschlag-Artefakte)
+/tests/Browser/Screenshots

@@ -11,3 +11,14 @@ parameters:
         - routes/
 
     level: 7
+
+    # Das Editor-Feedback-Concern wird ausschließlich von den Livewire-SFC-
+    # Editoren (anonyme Klassen in resources/views/livewire/*.blade.php) per
+    # `use` eingebunden. PHPStan analysiert Traits nur im Kontext nutzender
+    # Klassen innerhalb der Analyse-Pfade; die SFC-Consumer werden erst zur
+    # Laufzeit nach storage/ kompiliert und sind statisch nicht erfassbar →
+    # sonst „trait.unused"-False-Positive. Verhalten ist über die Editor-
+    # Feature-Tests (MeetupEditorTest, VenueEditorTest, …) abgesichert.
+    excludePaths:
+        analyse:
+            - app/Livewire/Concerns/HandlesPortalWriteFeedback.php

@@ -87,7 +87,10 @@ new class extends Component
         $term = $this->normalizedTerm();
 
         return $this->search(
-            fn (): Collection => app(PortalApi::class)->courses(),
+            // withDetails: true hebt das serverseitige 10-Einträge-Limit auf
+            // (sonst durchsucht die globale Suche nur die ersten 10 Kurse) und
+            // teilt zugleich den Cache-Key mit der Kurs-Index-Seite.
+            fn (): Collection => app(PortalApi::class)->courses(withDetails: true),
             fn (CourseData $course): bool => str_contains(mb_strtolower($course->name), $term),
         );
     }
@@ -101,7 +104,9 @@ new class extends Component
         $term = $this->normalizedTerm();
 
         return $this->search(
-            fn (): Collection => app(PortalApi::class)->lecturers(),
+            // withDetails: true wie bei courses(): ohne das Flag liefert das
+            // Portal nur 10 Referenten, die globale Suche übersähe den Rest.
+            fn (): Collection => app(PortalApi::class)->lecturers(withDetails: true),
             fn (LecturerData $lecturer): bool => str_contains(mb_strtolower($lecturer->name), $term),
         );
     }

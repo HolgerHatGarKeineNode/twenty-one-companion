@@ -29,6 +29,17 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Integration');
 
+// Browser-Smoke-Tests (echter Chromium via pest-plugin-browser) laufen nur
+// über phpunit.browser.xml — die Standard-phpunit.xml referenziert tests/Browser
+// nicht, damit der schnelle Unit/Feature-Loop und CI ohne Playwright nicht
+// brechen. Onboarding wird geseedet, damit EnsureOnboarded nicht aufs
+// Onboarding umleitet; das Portal ist im Browser-Env unerreichbar gesetzt
+// (PORTAL_URL), sodass die Seiten ihre Offline-/Leer-Zustände rendern.
+pest()->extend(TestCase::class)
+    ->use(RefreshDatabase::class)
+    ->beforeEach(fn () => completeOnboarding())
+    ->in('Browser');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations

@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use Developernauts\NativephpMobileLocales\NativephpMobileLocalesServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
+use Native\Mobile\Providers\CameraServiceProvider;
 use Native\Mobile\Providers\DialogServiceProvider;
+use Native\Mobile\Providers\FileServiceProvider;
 use Native\Mobile\Providers\NetworkServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
 use Native\Mobile\Providers\ShareServiceProvider;
@@ -44,12 +47,9 @@ class NativeServiceProvider extends ServiceProvider
             NetworkServiceProvider::class,
             ShareServiceProvider::class,
             SecureStorageServiceProvider::class,
-            \Developernauts\NativephpMobileLocales\NativephpMobileLocalesServiceProvider::class,
-            \Native\Mobile\Providers\FileServiceProvider::class,
-            \Native\Mobile\Providers\CameraServiceProvider::class,
-        
-        
-        
+            NativephpMobileLocalesServiceProvider::class,
+            FileServiceProvider::class,
+            CameraServiceProvider::class,
 
         ];
     }
