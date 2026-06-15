@@ -11,6 +11,7 @@ use App\Http\Integrations\Portal\Requests\CreateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
+use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseRequest;
@@ -73,6 +74,17 @@ final class PortalWriter
     public function addMeetupToMine(string $slug): WriteResult
     {
         return $this->send(new AddMeetupToMineRequest($slug), ['my-meetups']);
+    }
+
+    /**
+     * Entfernt ein Meetup wieder aus „Meine Meetups" (löst serverseitig die
+     * meetup_user-Pivot). Gegenstück zu {@see addMeetupToMine()}; die Stammdaten
+     * bleiben erhalten. Invalidiert die eigene Meetup-Liste, damit es sofort aus
+     * dem „Meine"-Tab verschwindet.
+     */
+    public function removeMeetupFromMine(string $slug): WriteResult
+    {
+        return $this->send(new RemoveMeetupFromMineRequest($slug), ['my-meetups']);
     }
 
     /**

@@ -4,11 +4,13 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\Request;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
@@ -118,6 +120,46 @@ it('shows a create call-to-action when the own meetups list is empty', function 
         // Discovery-First (Phase 4.3): „aussuchen“ primär, „neu anlegen“ als Fallback.
         ->assertSee('Meetup aussuchen')
         ->assertSee('Neues Meetup anlegen');
+});
+
+it('shows a remove-from-mine affordance on own meetups', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->assertSee('Aus „Meine“ entfernen');
+});
+
+it('removes a meetup from mine by slug', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
+        RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->call('removeFromMine', 'aschaffenburg');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof RemoveMeetupFromMineRequest
+        && $request->resolveEndpoint() === '/my-meetups/aschaffenburg');
+});
+
+it('does not remove from mine without a portal token', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->call('removeFromMine', 'aschaffenburg');
+
+    MockClient::global()->assertNotSent(RemoveMeetupFromMineRequest::class);
 });
 
 it('refreshes the own meetups after a save event', function () {

@@ -2,10 +2,13 @@
 
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
+use App\Services\PortalWriter;
+use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -14,6 +17,8 @@ use Livewire\Attributes\Url;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage
 {
+    use HandlesPortalWriteFeedback;
+
     #[Url(as: 'q')]
     public string $search = '';
 
@@ -92,6 +97,27 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     public function refreshMyMeetups(): void
     {
         unset($this->myMeetups);
+    }
+
+    /**
+     * Ein Meetup wieder aus „Meine Meetups" entfernen (löst serverseitig die
+     * meetup_user-Pivot, per Slug — Gegenstück zum Aussuchen im Picker). Die
+     * Stammdaten bleiben erhalten; bei Erfolg verschwindet das Meetup sofort
+     * aus dem „Meine"-Tab.
+     */
+    public function removeFromMine(string $slug): void
+    {
+        $result = app(PortalWriter::class)->removeMeetupFromMine($slug);
+
+        if ($result->successful()) {
+            unset($this->myMeetups);
+            Flux::toast(text: __('Meetup aus „Meine“ entfernt.'), variant: 'success');
+            $this->js("window.haptic && window.haptic('success')");
+
+            return;
+        }
+
+        $this->reportWriteFailure($result, __('Dieses Meetup konnte nicht entfernt werden.'));
     }
 
     /** @var Collection<int, MapMeetupData>|null */
@@ -228,6 +254,21 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                             icon="pencil-square"
                             :aria-label="__('Meetup bearbeiten')"
                             x-on:click="$haptic('light'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor', { id: {{ $meetup->id }} })"
+                            class="shrink-0 cursor-pointer"
+                        />
+                        {{-- Aus „Meine“ entfernen (Phase 1.2.1): löst nur die Pivot-
+                             Zuordnung, die Stammdaten bleiben. Bestätigung gegen
+                             versehentliches Entfernen. --}}
+                        <flux:button
+                            type="button"
+                            variant="ghost"
+                            icon="trash"
+                            :aria-label="__('Aus „Meine“ entfernen')"
+                            wire:click="removeFromMine(@js($meetup->slug))"
+                            wire:confirm="{{ __('Dieses Meetup aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.') }}"
+                            x-on:click="$haptic('medium')"
+                            wire:loading.attr="disabled"
+                            wire:target="removeFromMine"
                             class="shrink-0 cursor-pointer"
                         />
                     </div>

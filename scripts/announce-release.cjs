@@ -51,9 +51,9 @@ const TOPICS = ['bitcoin', 'nostr', 'einundzwanzig', 'android']
 const L10N = {
   header: (v) => `🟧⚡ TWENTY ONE Companion v${v} is out! 🎉`,
   downloadsIntro: '📥 Get it / update now:',
-  zapstore: `⚡ Zapstore (Nostr-signed, auto-verified):\n   ${LINKS.zapstore} — search for "TWENTY ONE"`,
-  obtainium: `📦 Obtainium (auto-updates from GitHub):\n   ${LINKS.obtainium}`,
-  github: `🐙 GitHub release (APK + verification):\n   ${LINKS.github}`,
+  zapstore: `⚡ Zapstore (recommended — Nostr-signed, auto-verified updates):\n   ① Install the Zapstore app ② search "TWENTY ONE" ③ tap install.\n   ${LINKS.zapstore}`,
+  obtainium: `📦 Obtainium (auto-updates straight from GitHub):\n   ① Open this link in Obtainium → "Add app" ② it self-updates on every release.\n   ${LINKS.obtainium}`,
+  github: `🐙 GitHub (manual — APK + signature verification):\n   ① Download the .apk from the latest release ② verify ③ install.\n   ${LINKS.github}`,
   source: `🛠️ Source code (open source, MIT):\n   ${LINKS.source}`,
 }
 // Default broadcast relays in case the publisher has no kind 10002.
