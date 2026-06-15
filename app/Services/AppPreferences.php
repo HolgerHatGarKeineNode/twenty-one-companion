@@ -22,8 +22,12 @@ final class AppPreferences
      */
     public const DEFAULT_TIMEZONE = 'Europe/Berlin';
 
-    /** Unterstützte App-Sprachen (deutsche Quell-Strings + lang/en.json). */
-    public const SUPPORTED_LOCALES = ['de', 'en'];
+    /**
+     * Unterstützte App-Sprachen. Deutsche Quell-Strings + je eine lang/*.json
+     * pro Locale (de nutzt die Quell-Strings direkt). Von der Region/Marke
+     * entkoppelt — die Sprache ist eine eigenständige Nutzerwahl.
+     */
+    public const SUPPORTED_LOCALES = ['de', 'en', 'es', 'hu', 'lv', 'nl', 'pl', 'pt'];
 
     /**
      * Schritte des geführten Onboarding-Pagers (Phase 3.1). Hier zentral,

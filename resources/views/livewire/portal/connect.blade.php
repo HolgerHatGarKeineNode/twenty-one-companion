@@ -83,7 +83,7 @@ new class extends Component {
             @if ($profile && ($profile['avatar'] ?? null))
                 <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
             @else
-                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'TWENTY ONE' }}"/>
+                <flux:avatar size="lg" name="{{ $profile['name'] ?? app(\App\Services\BrandResolver::class)->current()->label() }}"/>
             @endif
             <div class="min-w-0">
                 <flux:heading size="lg">{{ $profile['name'] ?? __('Verbunden') }}</flux:heading>

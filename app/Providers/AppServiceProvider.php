@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\AndroidManifestPatcher;
 use App\Services\AppPreferences;
+use App\Services\BrandResolver;
 use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
@@ -43,6 +44,10 @@ class AppServiceProvider extends ServiceProvider
         // Eine Instanz pro Request, damit Render und Validierung die
         // memoisierte Länderliste teilen (Cache-Read + DTO-Mapping).
         $this->app->scoped(CountryOptions::class);
+
+        // Eine Instanz pro Request, damit Layout, Brand-Komponenten und die
+        // Regionswechsel-Animation dieselbe aufgelöste Marke teilen.
+        $this->app->scoped(BrandResolver::class);
 
         // Eine Instanz pro Request, damit Offline-/Stale-/Fehler-Status der
         // API-Aufrufe (Banner + Fehler-States) über den Render hinweg

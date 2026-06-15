@@ -161,7 +161,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
             @if ($step === AppPreferences::STEP_WELCOME)
                 {{-- 3.2 Welcome mit Wertversprechen. --}}
                 <div class="flex flex-col items-center gap-5 text-center">
-                    <x-brand-wordmark aria-label="TWENTY ONE Companion" class="h-24 w-auto text-zinc-900 dark:text-zinc-100"/>
+                    <x-brand-wordmark class="h-auto w-full max-w-[16rem] text-zinc-900 dark:text-zinc-100"/>
                     <flux:text class="max-w-xs">
                         {{ __('Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.') }}
                     </flux:text>

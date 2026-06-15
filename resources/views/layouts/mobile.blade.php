@@ -6,6 +6,7 @@
 ])
 
 @php
+    use App\Services\BrandResolver;
     use App\Services\PortalAuth;
 
     // Verbindungsstatus + gecachtes Profil für den Flyout-Header (Phase 2.5).
@@ -13,6 +14,9 @@
     $portalAuth = app(PortalAuth::class);
     $connected = $portalAuth->hasToken();
     $profile = $connected ? $portalAuth->cachedProfile() : null;
+
+    // Marke aus der gewählten Region (vom UI-Sprach-Locale entkoppelt).
+    $brand = app(BrandResolver::class)->current();
 @endphp
 
 <!DOCTYPE html>
@@ -24,6 +28,9 @@
         <flux:toast.group>
             <flux:toast position="top center"/>
         </flux:toast.group>
+
+        {{-- Vollbild-Zelebrierung beim Regionswechsel (Marke wechselt). --}}
+        <x-brand-switch-overlay/>
 
         <div class="flex min-h-dvh flex-col">
             @if ($chrome)
@@ -41,9 +48,9 @@
                                 class="-ms-2 cursor-pointer"
                             />
                         @else
-                            <x-brand-wordmark aria-label="TWENTY ONE Companion" class="h-7 w-auto shrink-0 text-zinc-900 dark:text-zinc-100"/>
+                            <x-app-logo-icon class="h-7 w-7 shrink-0 text-zinc-900 dark:text-zinc-100"/>
                         @endif
-                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : 'TWENTY ONE' }}</flux:heading>
+                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : $brand->label() }}</flux:heading>
                         <flux:spacer/>
                         {{ $actions ?? '' }}
                         <flux:modal.trigger name="global-search">
@@ -108,7 +115,7 @@
                             @if ($connected && ($profile['avatar'] ?? null))
                                 <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
                             @elseif ($connected)
-                                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'TWENTY ONE' }}"/>
+                                <flux:avatar size="lg" name="{{ $profile['name'] ?? $brand->label() }}"/>
                             @else
                                 <flux:avatar size="lg" icon="user"/>
                             @endif
@@ -154,7 +161,7 @@
 
                         <div class="pb-safe border-t border-zinc-200 p-4 dark:border-zinc-800">
                             <flux:text class="text-xs">
-                                TWENTY ONE Companion · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
+                                {{ $brand->appName() }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
                             </flux:text>
                         </div>
                     </div>
