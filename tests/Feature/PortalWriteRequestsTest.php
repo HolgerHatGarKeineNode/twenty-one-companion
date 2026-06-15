@@ -5,6 +5,7 @@ use App\Http\Integrations\Portal\Requests\CreateCityRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
+use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
@@ -64,6 +65,14 @@ it('builds the update-meetup-event request', function () {
     expect($request->getMethod())->toBe(Method::PATCH)
         ->and($request->resolveEndpoint())->toBe('/meetup-events/13')
         ->and(bodyOf($request))->toBe(['location' => 'Neuer Ort']);
+});
+
+it('builds the rsvp-meetup-event request with id in path and status body', function () {
+    $request = new RsvpMeetupEventRequest(13, ['status' => 'attending']);
+
+    expect($request->getMethod())->toBe(Method::POST)
+        ->and($request->resolveEndpoint())->toBe('/meetup-events/13/rsvp')
+        ->and(bodyOf($request))->toBe(['status' => 'attending']);
 });
 
 it('builds the create-venue request', function () {

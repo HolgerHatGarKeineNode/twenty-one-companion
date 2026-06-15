@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
+use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
@@ -214,6 +216,7 @@ it('shows the own-event management section on the detail of an own meetup', func
             myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'location' => 'Bitcoin-Bar Aschaffenburg']),
             myMeetupEventFixture(['id' => 40, 'meetup_id' => 21, 'start' => '2022-01-01T19:00:00.000000Z', 'location' => 'Altes Lokal']),
         ]]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
     ]);
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
@@ -233,6 +236,7 @@ it('hides the own-event management section for non-owners', function () {
         GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
         GetMeetupEventsRequest::class => MockResponse::make([]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
     ]);
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
@@ -265,6 +269,78 @@ it('shares the meetup link via the native share sheet', function () {
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
         ->call('share');
+});
+
+it('hides the rsvp buttons for the next event when not connected', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSee('Nächster Termin')
+        ->assertDontSee(__('Ich komme'));
+});
+
+it('shows the rsvp buttons and hydrates the own status when connected', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make([
+            'status' => 'maybe', 'attendees' => 3, 'might_attendees' => 2,
+        ]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSet('rsvpStatus', 'maybe')
+        ->assertSet('rsvpAttendees', 3)
+        ->assertSet('rsvpMightAttendees', 2)
+        ->assertSee(__('Ich komme'))
+        ->assertSee(__('Vielleicht'))
+        // „Kann nicht" nur, wenn der Nutzer aktuell zu-/vielleicht-gesagt hat.
+        ->assertSee(__('Kann nicht'));
+});
+
+it('does not show the withdraw button when the user has not responded', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make([
+            'status' => 'none', 'attendees' => 0, 'might_attendees' => 0,
+        ]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSet('rsvpStatus', 'none')
+        ->assertSee(__('Ich komme'))
+        ->assertDontSee(__('Kann nicht'));
+});
+
+it('sends the rsvp and updates status and counts from the response', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make([
+            'status' => 'none', 'attendees' => 1, 'might_attendees' => 0,
+        ]),
+        RsvpMeetupEventRequest::class => MockResponse::make([
+            'status' => 'attending', 'attendees' => 2, 'might_attendees' => 0,
+        ]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSet('rsvpStatus', 'none')
+        ->call('setRsvp', 'attending')
+        ->assertSet('rsvpStatus', 'attending')
+        ->assertSet('rsvpAttendees', 2)
+        ->assertSee(__('Kann nicht'));
 });
 
 it('opens external links in the system browser', function () {

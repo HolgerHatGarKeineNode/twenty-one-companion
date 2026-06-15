@@ -485,6 +485,41 @@ it('creates a recurring meetup-event series against the live portal', function (
     expect($series->count())->toBeGreaterThan(1, 'Die Serie sollte mehrere Einzeltermine erzeugt haben.');
 })->group('integration');
 
+it('rsvps to a meetup event and reflects the status against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Einen eigenen Meetup-Termin als Ziel — myMeetupEvents() exponiert die ID
+    // (anders als die öffentliche Termin-Liste). Jeder eingeloggte Nutzer darf
+    // für beliebige Termine zu-/absagen, ein eigener ist nur am einfachsten zu finden.
+    $event = app(PortalApi::class)->myMeetupEvents()->first();
+    expect($event)->not->toBeNull('Kein eigener Meetup-Termin vorhanden — bitte zuerst den Termin-Schreibtest laufen lassen.');
+
+    // Zusagen → Status „attending", mindestens eine Zusage.
+    $attend = app(PortalWriter::class)->rsvpMeetupEvent($event->id, 'attending');
+    expect($attend->status)->toBe(WriteStatus::Success)
+        ->and($attend->data['status'] ?? null)->toBe('attending')
+        ->and($attend->data['attendees'] ?? 0)->toBeGreaterThanOrEqual(1);
+
+    Cache::flush();
+    expect(app(PortalApi::class)->meetupEventRsvp($event->id)?->status->value)->toBe('attending');
+
+    // Wechsel auf „maybe" — keine Doppelzählung.
+    $maybe = app(PortalWriter::class)->rsvpMeetupEvent($event->id, 'maybe');
+    expect($maybe->data['status'] ?? null)->toBe('maybe')
+        ->and($maybe->data['might_attendees'] ?? 0)->toBeGreaterThanOrEqual(1);
+
+    // Wieder austragen → Status „none".
+    $none = app(PortalWriter::class)->rsvpMeetupEvent($event->id, 'none');
+    expect($none->data['status'] ?? null)->toBe('none');
+})->group('integration');
+
 it('uploads a logo to an own meetup against the live portal', function () {
     $token = env('PORTAL_TEST_TOKEN');
 

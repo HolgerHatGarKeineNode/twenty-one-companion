@@ -19,9 +19,9 @@
 
 - [ ] **B.1 Favorites/watchlist** — bookmark meetups, events, courses locally (SQLite); dedicated "Saved" filter.
 - [ ] **B.2 Add-to-calendar / ICS** — export an event to the native calendar (NativePHP) or share an `.ics` file.
-- [ ] **B.3 Share** — share a meetup/event/course via the native share sheet (deep link into the portal/app).
+- [x] **B.3 Share** — share a meetup/event/course via the native share sheet (deep link into the portal/app). *(Already shipped: `Share::url()` on meetup, event and course detail views.)*
 - [ ] **B.4 QR code** — generate a QR per meetup/event (directions/join) + in-app QR scanner (NativePHP Scanner) to join.
-- [ ] **B.5 RSVP/attend** — "I'm coming" status for events (if a portal API exists; otherwise as a local reminder). *(To be clarified on the portal side — see open questions below.)*
+- [x] **B.5 RSVP/attend** — "I'm coming" / "maybe" / "can't make it" status for the next event on the meetup detail. New portal API (`GET`/`POST /api/meetup-events/{id}/rsvp`, Sanctum); display name taken from the profile automatically. App: `RsvpMeetupEventRequest` + `PortalWriter::rsvpMeetupEvent()`, status hydrated once and updated from the write response (no map refetch).
 - [ ] **B.6 Push notifications** — reminders before events of your own/saved meetups; new events in your region (NativePHP Push, permission priming from onboarding 3.5 already built).
 - [ ] **B.7 "Nearby"** — geo-sorting of meetups/events by device location (NativePHP Location, opt-in).
 - [ ] **B.8 Profile expansion** — avatar, bio, own contributions, connection status, "Log out / renew token".
@@ -37,5 +37,5 @@
 
 ## Open questions (carried over, relevant to this backlog)
 
-- [ ] **RSVP/attend route** (B.5): is there an RSVP/attend route in the portal? → otherwise a local reminder.
+- [x] **RSVP/attend route** (B.5): no route existed — added `GET`/`POST /api/meetup-events/{id}/rsvp` to the portal (mirrors the web `attendees`/`might_attendees` JSON arrays, entry format `id_<userId>|<name>`).
 - [ ] **Push infrastructure** (B.6): does the portal use its own push provider, or purely client-side local notifications?

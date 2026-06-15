@@ -13,6 +13,7 @@ use App\Data\Portal\LecturerDetailData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
+use App\Data\Portal\MeetupEventRsvpData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
@@ -28,6 +29,7 @@ use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturerRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
@@ -447,6 +449,32 @@ final class PortalApi
         );
 
         return GetMyCitiesRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Eigener RSVP-Status für einen Meetup-Termin (auth) inkl. aktueller
+     * Zähler — ungecacht, weil nutzerspezifisch und nach jeder Zu-/Absage
+     * sofort frisch sein muss. Ohne Token oder bei Netz-/Serverfehler null;
+     * der Aufrufer zeigt die Buttons dann im neutralen Zustand.
+     */
+    public function meetupEventRsvp(int $id): ?MeetupEventRsvpData
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return null;
+        }
+
+        try {
+            $response = $this->connector->send(new GetMeetupEventRsvpRequest($id));
+        } catch (FatalRequestException|RequestException) {
+            return null;
+        }
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        /** @var MeetupEventRsvpData */
+        return $response->dtoOrFail();
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\RsvpStatus;
 use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
@@ -12,6 +13,7 @@ use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
+use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseRequest;
@@ -101,6 +103,23 @@ final class PortalWriter
     public function updateMeetupEvent(int $id, array $payload): WriteResult
     {
         return $this->send(new UpdateMeetupEventRequest($id, $payload), ['meetup-events', 'map-meetups', 'my-meetup-events']);
+    }
+
+    /**
+     * Sagt für einen Meetup-Termin zu/vielleicht/ab (RSVP). `$status` ist ein
+     * {@see RsvpStatus}-Wert; der Anzeigename setzt das Portal aus dem Profil.
+     * Die Erfolgs-Antwort trägt den neuen Status und die frischen Zähler
+     * ({status, attendees, might_attendees}).
+     *
+     * Bewusst OHNE Cache-Invalidierung: die Detailseite hält ihre Zähler live
+     * aus dieser Antwort, und ein `forget('map-meetups')` würde dort beim
+     * Re-Render einen vollständigen Refetch der gesamten Karte erzwingen — pro
+     * Tap. Die ±1-Abweichung der Zähler in Karte/Termin-Liste heilt über die
+     * normale TTL aus.
+     */
+    public function rsvpMeetupEvent(int $id, string $status): WriteResult
+    {
+        return $this->send(new RsvpMeetupEventRequest($id, ['status' => $status]));
     }
 
     /**
