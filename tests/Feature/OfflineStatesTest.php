@@ -32,7 +32,7 @@ function withFastConnector(): void
  */
 function staleMapMeetups(array $meetups): void
 {
-    Cache::forever('portal_api:map-meetups:'.md5((string) json_encode([true, true])).':stale', $meetups);
+    Cache::forever('portal_api:v2:map-meetups:'.md5((string) json_encode([true, true])).':stale', $meetups);
 }
 
 it('shows the connection error state with retry when loading fails without a stale copy', function () {

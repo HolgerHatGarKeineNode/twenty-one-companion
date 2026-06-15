@@ -40,13 +40,13 @@ it('sends an authenticated create-meetup request and returns the created body', 
 
 it('adds an existing meetup to mine by slug and invalidates the own list', function () {
     withPortalToken();
-    Cache::put('portal_api:my-meetups', [myMeetupFixture()], 900);
+    Cache::put('portal_api:v2:my-meetups', [myMeetupFixture()], 900);
     MockClient::global([AddMeetupToMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'wien'])], 201)]);
 
     $result = portalWriter()->addMeetupToMine('wien');
 
     expect($result->successful())->toBeTrue()
-        ->and(Cache::has('portal_api:my-meetups'))->toBeFalse();
+        ->and(Cache::has('portal_api:v2:my-meetups'))->toBeFalse();
 
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => str_ends_with(
         (string) $response->getPendingRequest()->getUri(),
@@ -56,18 +56,18 @@ it('adds an existing meetup to mine by slug and invalidates the own list', funct
 
 it('invalidates the affected read caches after a successful write', function () {
     withPortalToken();
-    Cache::put('portal_api:my-meetups', [myMeetupFixture()], 900);
-    Cache::put('portal_api:map-meetups', [mapMeetupFixture()], 900);
-    Cache::forever('portal_api:my-meetups:stale', [myMeetupFixture()]);
+    Cache::put('portal_api:v2:my-meetups', [myMeetupFixture()], 900);
+    Cache::put('portal_api:v2:map-meetups', [mapMeetupFixture()], 900);
+    Cache::forever('portal_api:v2:my-meetups:stale', [myMeetupFixture()]);
     MockClient::global([CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201)]);
 
     portalWriter()->createMeetup(['name' => 'Neu', 'city_id' => 1]);
 
     // Frischer Cache verworfen → nächster Lesezugriff lädt neu.
-    expect(Cache::has('portal_api:my-meetups'))->toBeFalse()
-        ->and(Cache::has('portal_api:map-meetups'))->toBeFalse()
+    expect(Cache::has('portal_api:v2:my-meetups'))->toBeFalse()
+        ->and(Cache::has('portal_api:v2:map-meetups'))->toBeFalse()
         // Stale-Kopie bleibt als Offline-Netz erhalten.
-        ->and(Cache::has('portal_api:my-meetups:stale'))->toBeTrue();
+        ->and(Cache::has('portal_api:v2:my-meetups:stale'))->toBeTrue();
 });
 
 it('maps a 422 response to structured field errors', function () {

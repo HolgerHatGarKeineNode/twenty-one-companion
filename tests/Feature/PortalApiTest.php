@@ -250,7 +250,7 @@ it('falls back to the stale copy when the portal returns errors', function () {
     $api = portalApi();
     expect($api->courses())->toHaveCount(1);
 
-    Cache::forget('portal_api:courses');
+    Cache::forget('portal_api:v2:courses');
 
     $courses = $api->courses();
 
@@ -263,7 +263,7 @@ it('falls back to the stale copy when the portal returns errors', function () {
 it('serves stale data without a request when the device is offline', function () {
     withoutPortalToken();
     Network::shouldReceive('status')->andReturn((object) ['connected' => false]);
-    Cache::forever('portal_api:courses:stale', [courseFixture()]);
+    Cache::forever('portal_api:v2:courses:stale', [courseFixture()]);
     MockClient::global([]);
 
     $courses = portalApi()->courses();
@@ -362,7 +362,7 @@ it('keeps the status flags clear for fresh responses', function () {
 
 it('flags served stale data after falling back to the stale copy', function () {
     withoutPortalToken();
-    Cache::forever('portal_api:courses:stale', [courseFixture()]);
+    Cache::forever('portal_api:v2:courses:stale', [courseFixture()]);
     MockClient::global([GetCoursesRequest::class => MockResponse::make([], 500)]);
 
     $api = portalApi();

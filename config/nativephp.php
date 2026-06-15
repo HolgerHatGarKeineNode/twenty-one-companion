@@ -217,6 +217,15 @@ return [
         '/tests',          // App-Testsuite (zur Laufzeit nicht benötigt)
         '/storage/logs',   // Logs (können sich ansammeln)
 
+        // Lokale Dev-SQLite NICHT mitliefern: NativePHP legt die DB on-device an
+        // und migriert beim Start. Würde die Dev-Datei gebündelt, käme deren
+        // Inhalt mit (Cache/Sessions/Preferences aus lokalen Läufen) — z. B. ein
+        // veralteter API-Cache, der neue Felder maskiert. Echte Defaults gehören
+        // in Seed-Migrationen, nicht in die eingecheckte .sqlite.
+        '/database/database.sqlite',
+        '/database/database.sqlite-shm',
+        '/database/database.sqlite-wal',
+
         // Nicht-Laufzeit-Dateien (von NativePHPs iOS-Pfad ebenso entfernt).
         // OHNE führenden "/" → greift auf jeder Ebene (auch in vendor/), wird
         // beim rsync-Copy entfernt, bevor das Bundle gezippt wird. Markdown/

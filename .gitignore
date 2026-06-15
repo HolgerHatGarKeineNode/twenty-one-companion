@@ -39,3 +39,10 @@ event.json
 
 # Pest Browser-Test-Screenshots (Fehlschlag-Artefakte)
 /tests/Browser/Screenshots
+
+# Lokale SQLite-Dev-DB — wird on-device von NativePHP angelegt/migriert und
+# NICHT ins Bundle gegeben (siehe cleanup_exclude_files). Nie committen:
+# enthält sonst lokalen Cache/Sessions/Preferences aus Dev-Läufen.
+/database/database.sqlite
+/database/database.sqlite-shm
+/database/database.sqlite-wal

@@ -57,7 +57,15 @@ use Saloon\Http\Response;
  */
 final class PortalApi
 {
-    private const CACHE_PREFIX = 'portal_api:';
+    /**
+     * Versioniertes Cache-Namespace. Die `vN`-Stufe BEWUSST erhöhen, wenn sich
+     * die Form eines gecachten Portal-Payloads ändert (z. B. neues Feld wie
+     * `id`/`attendees` in meetup-events): Beim App-Update werden so alle alten
+     * Cache-Einträge (inkl. der dauerhaften Stale-Kopien) automatisch verworfen,
+     * ohne Deinstallation oder TTL-Warten — sonst maskiert ein on-device
+     * persistierter Alt-Cache die neuen Felder.
+     */
+    private const CACHE_PREFIX = 'portal_api:v2:';
 
     private const STALE_SUFFIX = ':stale';
 
