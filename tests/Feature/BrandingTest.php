@@ -122,6 +122,20 @@ it('switches brand and celebrates when changing the meetups country filter', fun
     expect(app(AppPreferences::class)->country())->toBe('hu');
 });
 
+it('reflects a country change on the same resolver instance (no stale memoization)', function () {
+    // NativePHP läuft als langlebiger Prozess: scoped Singletons überleben
+    // Requests. Dieselbe Resolver-Instanz muss eine zwischenzeitliche
+    // Regionsänderung widerspiegeln, sonst friert das Branding beim Navigieren
+    // auf der App-Start-Marke ein.
+    completeOnboarding(country: 'de');
+    $resolver = app(BrandResolver::class);
+    expect($resolver->current())->toBe(Brand::Einundzwanzig);
+
+    app(AppPreferences::class)->setCountry('hu');
+
+    expect($resolver->current())->toBe(Brand::Huszonegy);
+});
+
 it('renders the current brand wordmark in the live top-bar component', function () {
     completeOnboarding(country: 'hu');
 
