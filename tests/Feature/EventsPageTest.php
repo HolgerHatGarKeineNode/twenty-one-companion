@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Share;
@@ -88,6 +90,39 @@ it('opens the event details in a modal', function () {
         ->assertSet('showEvent', true)
         ->assertSee('Stammtisch im Kaffeehaus')
         ->assertSee(route('meetups.show', 'wien'));
+});
+
+it('hides the rsvp buttons in the slide-in when not connected', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    Livewire::test('pages::events.index')
+        ->call('select', 0)
+        ->assertSet('showEvent', true)
+        ->assertDontSee(__('Ich komme'));
+});
+
+it('shows and submits the rsvp from the slide-in when connected', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make([
+            meetupEventFixture(['id' => 777, 'start' => CarbonImmutable::today()->addDay()->setTime(19, 0)->format('Y-m-d H:i')]),
+        ]),
+        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 0, 'might_attendees' => 0]),
+        RsvpMeetupEventRequest::class => MockResponse::make(['status' => 'attending', 'attendees' => 1, 'might_attendees' => 0]),
+    ]);
+
+    Livewire::test('pages::events.index')
+        ->call('select', 0)
+        ->assertSet('rsvpStatus', 'none')
+        ->assertSee(__('Ich komme'))
+        ->assertSee(__('Vielleicht'))
+        ->call('setRsvp', 'attending')
+        ->assertSet('rsvpStatus', 'attending')
+        ->assertSet('rsvpAttendees', 1)
+        ->assertSee(__('Kann nicht'));
 });
 
 it('ignores selecting an event index that does not exist', function () {

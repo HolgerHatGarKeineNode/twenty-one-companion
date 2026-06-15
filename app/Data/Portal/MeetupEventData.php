@@ -20,6 +20,13 @@ final class MeetupEventData extends Data
         public ?string $description,
         public ?string $link,
         public EventMeetupData $meetup,
+        // id/Zähler erst seit dem RSVP-Feature in der API. Nullable/Default,
+        // damit vor dem Update gecachte (Stale-)Antworten ohne diese Felder
+        // weiterhin sauber gemappt werden — ohne id zeigt der Slide-In dann
+        // einfach keine RSVP-Buttons.
+        public ?int $id = null,
+        public int $attendees = 0,
+        public int $might_attendees = 0,
     ) {}
 
     /**

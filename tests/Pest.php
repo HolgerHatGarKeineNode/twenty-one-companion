@@ -152,10 +152,13 @@ function mapMeetupFixture(array $overrides = []): array
 function meetupEventFixture(array $overrides = []): array
 {
     return array_merge([
+        'id' => 555,
         'start' => '2022-12-17 19:00',
         'location' => 'Fürth',
         'description' => 'Einundzwanzig Franken Meetup',
         'link' => 'https://t.me/Einundzwanzig_FRANKEN',
+        'attendees' => 0,
+        'might_attendees' => 0,
         'meetup.name' => 'Einundzwanzig Franken',
         'meetup.portalLink' => 'https://portal.einundzwanzig.space/de/meetup/einundzwanzig-franken',
         'meetup.url' => 'https://t.me/Einundzwanzig_FRANKEN',

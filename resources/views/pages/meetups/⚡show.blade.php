@@ -4,14 +4,11 @@ use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MyMeetupEventData;
-use App\Enums\RsvpStatus;
-use App\Livewire\Concerns\HandlesPortalWriteFeedback;
+use App\Livewire\Concerns\InteractsWithEventRsvp;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
-use App\Services\PortalWriter;
 use Carbon\CarbonImmutable;
-use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -19,26 +16,22 @@ use Livewire\Attributes\On;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'back' => '/meetups'])] class extends PortalPage {
-    use HandlesPortalWriteFeedback;
+    use InteractsWithEventRsvp;
 
     public string $slug;
-
-    /**
-     * Eigener RSVP-Status für den nächsten Termin und die zugehörigen Zähler.
-     * Einmal beim Laden vom Portal geholt (nur mit Token) und nach jeder Zu-/
-     * Absage aus der Write-Antwort aktualisiert — kein teurer Refetch der
-     * Karten-Liste. `null` = unbekannt/nicht eingeloggt (dann keine Buttons).
-     */
-    public ?string $rsvpStatus = null;
-
-    public ?int $rsvpAttendees = null;
-
-    public ?int $rsvpMightAttendees = null;
 
     public function mount(string $slug): void
     {
         $this->slug = $slug;
         $this->loadRsvp();
+    }
+
+    /**
+     * Das RSVP der Detailseite bezieht sich auf den nächsten Termin.
+     */
+    protected function rsvpEventId(): ?int
+    {
+        return $this->meetup?->next_event?->id;
     }
 
     #[Computed]
@@ -151,70 +144,6 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
             text: __(':name — Bitcoin-Meetup in :city', ['name' => $meetup->name, 'city' => $meetup->city]),
             url: $meetup->portalLink,
         );
-    }
-
-    /**
-     * Kann der aktuelle Nutzer für den nächsten Termin zu-/absagen? Nur mit
-     * verbundenem Portal-Konto und vorhandenem nächsten Termin (er trägt die
-     * Event-ID, an die das RSVP geht).
-     */
-    #[Computed]
-    public function canRsvp(): bool
-    {
-        return $this->meetup?->next_event !== null && app(PortalAuth::class)->hasToken();
-    }
-
-    /**
-     * Eigenen RSVP-Status (+ Zähler) für den nächsten Termin laden. Einmalig
-     * beim Mount; ohne Token oder ohne nächsten Termin passiert nichts.
-     */
-    private function loadRsvp(): void
-    {
-        $event = $this->meetup?->next_event;
-
-        if ($event === null || ! app(PortalAuth::class)->hasToken()) {
-            return;
-        }
-
-        $rsvp = app(PortalApi::class)->meetupEventRsvp($event->id);
-
-        if ($rsvp !== null) {
-            $this->rsvpStatus = $rsvp->status->value;
-            $this->rsvpAttendees = $rsvp->attendees;
-            $this->rsvpMightAttendees = $rsvp->might_attendees;
-        }
-    }
-
-    /**
-     * Zu-/absagen für den nächsten Termin. Aktualisiert Status und Zähler aus
-     * der Write-Antwort, ohne die Karten-Liste neu zu laden.
-     */
-    public function setRsvp(string $status): void
-    {
-        $event = $this->meetup?->next_event;
-
-        if ($event === null) {
-            return;
-        }
-
-        $result = app(PortalWriter::class)->rsvpMeetupEvent($event->id, $status);
-
-        if ($result->successful()) {
-            $this->rsvpStatus = $result->data['status'] ?? $status;
-            $this->rsvpAttendees = $result->data['attendees'] ?? $this->rsvpAttendees;
-            $this->rsvpMightAttendees = $result->data['might_attendees'] ?? $this->rsvpMightAttendees;
-
-            Flux::toast(text: match (RsvpStatus::tryFrom($this->rsvpStatus)) {
-                RsvpStatus::Attending => __('Du bist dabei!'),
-                RsvpStatus::Maybe => __('Vielleicht-Zusage gespeichert.'),
-                default => __('Abgesagt.'),
-            }, variant: 'success');
-            $this->js("window.haptic && window.haptic('success')");
-
-            return;
-        }
-
-        $this->reportWriteFailure($result, __('Deine Antwort konnte nicht gespeichert werden.'));
     }
 
 };
@@ -333,66 +262,16 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                         {!! $this->meetup->next_event->descriptionHtml() !!}
                     </div>
                 @endif
-                @php
-                    // Live-Zähler (nach eigener Zu-/Absage aktuell gehalten) bevorzugen,
-                    // sonst die mit der Karte gelieferten Zähler des nächsten Termins.
-                    $attendees = $this->rsvpAttendees ?? $this->meetup->next_event->attendees;
-                    $mightAttendees = $this->rsvpMightAttendees ?? $this->meetup->next_event->might_attendees;
-                @endphp
-                @if ($attendees > 0 || $mightAttendees > 0)
-                    <flux:text class="mt-3 text-sm tabular-nums">
-                        {{ __(':yes Zusagen · :maybe Vielleicht', [
-                            'yes' => $attendees,
-                            'maybe' => $mightAttendees,
-                        ]) }}
-                    </flux:text>
-                @endif
-
-                @if ($this->canRsvp)
-                    {{-- RSVP (B.5): „Ich komme“ / „Vielleicht“ / „Kann nicht“ — der
-                         aktive Status wird hervorgehoben; ein erneuter Tap auf den
-                         aktiven Status bleibt idempotent. --}}
-                    <div class="mt-4 flex flex-wrap gap-2">
-                        <flux:button
-                            wire:click="setRsvp('attending')"
-                            x-on:click="$haptic('medium')"
-                            wire:loading.attr="disabled"
-                            wire:target="setRsvp"
-                            size="sm"
-                            icon="check"
-                            :variant="$rsvpStatus === 'attending' ? 'primary' : 'outline'"
-                            class="cursor-pointer"
-                        >
-                            {{ __('Ich komme') }}
-                        </flux:button>
-                        <flux:button
-                            wire:click="setRsvp('maybe')"
-                            x-on:click="$haptic('medium')"
-                            wire:loading.attr="disabled"
-                            wire:target="setRsvp"
-                            size="sm"
-                            icon="question-mark-circle"
-                            :variant="$rsvpStatus === 'maybe' ? 'primary' : 'outline'"
-                            class="cursor-pointer"
-                        >
-                            {{ __('Vielleicht') }}
-                        </flux:button>
-                        @if ($rsvpStatus === 'attending' || $rsvpStatus === 'maybe')
-                            <flux:button
-                                wire:click="setRsvp('none')"
-                                x-on:click="$haptic('light')"
-                                wire:loading.attr="disabled"
-                                wire:target="setRsvp"
-                                size="sm"
-                                variant="ghost"
-                                icon="x-mark"
-                                class="cursor-pointer"
-                            >
-                                {{ __('Kann nicht') }}
-                            </flux:button>
-                        @endif
-                    </div>
-                @endif
+                {{-- RSVP (B.5): Zähler + „Ich komme/Vielleicht/Kann nicht“. Live-
+                     Zähler (nach eigener Zu-/Absage) bevorzugen, sonst die mit der
+                     Karte gelieferten Zähler des nächsten Termins. --}}
+                <x-rsvp-controls
+                    class="mt-4"
+                    :status="$rsvpStatus"
+                    :attendees="$rsvpAttendees ?? $this->meetup->next_event->attendees"
+                    :might-attendees="$rsvpMightAttendees ?? $this->meetup->next_event->might_attendees"
+                    :can-rsvp="$this->canRsvp()"
+                />
                 @if ($this->meetup->next_event->link)
                     <flux:button wire:click="openLink({{ Js::from($this->meetup->next_event->link) }})" size="sm" icon="link" class="mt-4 cursor-pointer">
                         {{ __('Termin-Link öffnen') }}

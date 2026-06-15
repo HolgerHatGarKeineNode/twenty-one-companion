@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\Portal\MeetupEventData;
+use App\Livewire\Concerns\InteractsWithEventRsvp;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
 use App\Services\PortalApi;
@@ -12,6 +13,8 @@ use Livewire\Attributes\Url;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])] class extends PortalPage {
+    use InteractsWithEventRsvp;
+
     /** Angezeigter Monat im Format Y-m; leer = aktueller Monat. */
     #[Url]
     public string $month = '';
@@ -34,6 +37,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
     {
         $this->selected = null;
         $this->showEvent = false;
+        $this->resetRsvp();
         unset($this->events, $this->days, $this->selectedEvent, $this->countries);
     }
 
@@ -52,7 +56,18 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         if ($this->events->has($index)) {
             $this->selected = $index;
             $this->showEvent = true;
+            // selectedEvent neu auflösen, dann RSVP-Status des gewählten Termins laden.
+            unset($this->selectedEvent);
+            $this->loadRsvp();
         }
+    }
+
+    /**
+     * Das RSVP des Slide-Ins bezieht sich auf den gerade geöffneten Termin.
+     */
+    protected function rsvpEventId(): ?int
+    {
+        return $this->selectedEvent?->id;
     }
 
     #[Computed]
@@ -159,6 +174,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         $this->month = $start->isSameMonth(CarbonImmutable::today()) ? '' : $start->format('Y-m');
         $this->selected = null;
         $this->showEvent = false;
+        $this->resetRsvp();
         unset($this->monthStart, $this->isCurrentMonth, $this->events, $this->days, $this->selectedEvent, $this->countries);
     }
 };
@@ -252,6 +268,14 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                         {!! $this->selectedEvent->descriptionHtml() !!}
                     </div>
                 @endif
+
+                {{-- RSVP (B.5) direkt im Slide-In — sichtbarste Stelle beim Stöbern. --}}
+                <x-rsvp-controls
+                    :status="$rsvpStatus"
+                    :attendees="$rsvpAttendees ?? $this->selectedEvent->attendees"
+                    :might-attendees="$rsvpMightAttendees ?? $this->selectedEvent->might_attendees"
+                    :can-rsvp="$this->canRsvp()"
+                />
 
                 <div class="flex flex-wrap gap-2">
                     @if ($this->selectedEvent->link)
