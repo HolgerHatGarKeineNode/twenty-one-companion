@@ -57,6 +57,13 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         return app(PortalAuth::class)->hasToken();
     }
 
+    /** Marke zur aktuell gewählten Region — für die Live-Wortmarke im Region-Schritt. */
+    #[Computed]
+    public function brand(): \App\Support\Brand
+    {
+        return \App\Support\Brand::forCountry($this->country);
+    }
+
     public function next(AppPreferences $preferences, CountryOptions $countryOptions): void
     {
         // Schritt-spezifische Validierung + Persistenz der Auswahl, damit ein
@@ -199,9 +206,14 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                         {{ __('Meetups und Termine werden zuerst für deine Region angezeigt. Das lässt sich jederzeit im Profil ändern.') }}
                     </flux:text>
                 </div>
+                {{-- Live-Wortmarke der gewählten Region: der wechselnde wire:key remountet
+                     das Element bei Markenwechsel und spielt so die step-enter-Animation. --}}
+                <div class="flex h-16 items-center justify-center" wire:key="onboarding-brand-{{ $this->brand->value }}">
+                    <x-brand-wordmark :brand="$this->brand->value" class="step-enter h-auto w-full max-w-[14rem] text-zinc-900 dark:text-zinc-100"/>
+                </div>
                 <flux:field>
                     <flux:label>{{ __('Region') }}</flux:label>
-                    <x-country-select :countries="$this->countries" wire:model="country"/>
+                    <x-country-select :countries="$this->countries" wire:model.live="country"/>
                     <flux:error name="country"/>
                 </flux:field>
             @elseif ($step === AppPreferences::STEP_PORTAL)

@@ -4,7 +4,6 @@ use App\Livewire\PortalPage;
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
 use App\Services\PortalAuth;
-use App\Support\Brand;
 use Carbon\CarbonImmutable;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -77,18 +76,10 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
             return;
         }
 
-        // Marke VOR dem Speichern festhalten, um nur bei echtem Markenwechsel
-        // (z. B. DE→HU, nicht DE→AT) die Vollbild-Zelebrierung auszulösen.
-        $previousBrand = Brand::forCountry($preferences->country());
-
-        $preferences->setCountry($this->country);
+        // syncBrand persistiert die Region und löst bei echtem Markenwechsel
+        // (z. B. DE→HU, nicht DE→AT) die Vollbild-Zelebrierung aus.
+        $this->syncBrand($this->country);
         Flux::toast(text: __('Gespeichert.'), variant: 'success');
-
-        $brand = Brand::forCountry($this->country);
-
-        if ($brand !== $previousBrand) {
-            $this->dispatch('brand-changed', slug: $brand->value, label: $brand->label());
-        }
     }
 
     /**

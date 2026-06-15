@@ -4,6 +4,7 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Services\AppPreferences;
 use App\Services\BrandResolver;
 use App\Support\Brand;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
@@ -105,4 +106,29 @@ it('does not celebrate when the brand stays the same', function () {
     Livewire::test('pages::profile.index')
         ->set('country', 'at')
         ->assertNotDispatched('brand-changed');
+});
+
+it('switches brand and celebrates when changing the meetups country filter', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['country' => 'HU'])]),
+    ]);
+    completeOnboarding(country: 'de');
+
+    Livewire::test('pages::meetups.index')
+        ->set('country', 'hu')
+        ->assertDispatched('brand-changed', slug: 'huszonegy', label: 'HUSZONEGY');
+
+    expect(app(AppPreferences::class)->country())->toBe('hu');
+});
+
+it('renders the current brand wordmark in the live top-bar component', function () {
+    completeOnboarding(country: 'hu');
+
+    $html = Blade::render('<x-brand-wordmark-live/>');
+
+    // Aktive Marke ist server-seitig sichtbar (kein display:none), inaktive nicht.
+    expect($html)->toContain("slug: 'huszonegy'")
+        ->and($html)->toContain("slug === 'huszonegy'")
+        ->and($html)->toContain("slug === 'einundzwanzig'");
 });

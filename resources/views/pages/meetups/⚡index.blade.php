@@ -33,6 +33,12 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         $this->country = $this->defaultCountry();
     }
 
+    /** Länder-Filter wechselt zugleich die App-Region/Marke (Logo + Animation). */
+    public function updatedCountry(): void
+    {
+        $this->syncBrand($this->country);
+    }
+
     #[Computed]
     public function connected(): bool
     {

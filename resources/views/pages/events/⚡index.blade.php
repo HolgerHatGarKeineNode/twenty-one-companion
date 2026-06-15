@@ -39,6 +39,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         $this->showEvent = false;
         $this->resetRsvp();
         unset($this->events, $this->days, $this->selectedEvent, $this->countries);
+        $this->syncBrand($this->country);
     }
 
     public function previousMonth(): void
