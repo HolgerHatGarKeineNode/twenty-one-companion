@@ -26,5 +26,6 @@ final class MyLecturerData extends Data
         public ?string $twitter_username,
         public ?string $nostr,
         public ?string $lightning_address,
+        public ?string $avatar = null,
     ) {}
 }

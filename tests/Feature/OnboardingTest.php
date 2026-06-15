@@ -54,7 +54,7 @@ it('starts at the welcome step and shows the value proposition', function () {
 
     $this->get(route('onboarding'))
         ->assertOk()
-        ->assertSee('EINUNDZWANZIG')
+        ->assertSee('TWENTY ONE')
         ->assertSee(__('Meetups finden'))
         ->assertSee(__('Termine im Kalender'))
         ->assertSee(__('Eigene Community pflegen'))

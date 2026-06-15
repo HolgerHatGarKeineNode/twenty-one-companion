@@ -17,9 +17,10 @@ use Livewire\Form;
  * Venue), Datum + Start-/Endzeit sowie der Pflicht-Anmelde-Link.
  *
  * Datum und Zeiten werden getrennt erfasst (native Picker) und erst in
- * {@see payload()} zu `from`/`to` ("Y-m-d H:i") zusammengesetzt. Kurs-Events
- * gelten als eintägig (ein Datum, Start- und Endzeit) — das deckt die ganz
- * überwiegende Mehrheit der Kurs-Sessions ab und hält die mobile Maske schlank.
+ * {@see payload()} zu `from`/`to` ("Y-m-d H:i") zusammengesetzt. Ein Kurs-Event
+ * ist standardmäßig eintägig (Start-Datum + Start-/Endzeit); für mehrtägige
+ * Events lässt sich optional ein abweichendes End-Datum (`to_date`) erfassen —
+ * leer bedeutet „selber Tag". Das Portal trägt `from`/`to` als volle DateTimes.
  */
 class CourseEventForm extends Form
 {
@@ -38,10 +39,18 @@ class CourseEventForm extends Form
     #[Validate('required|date_format:Y-m-d')]
     public string $date = '';
 
+    /**
+     * Optionales End-Datum für mehrtägige Events; leer = selber Tag wie `date`.
+     * Bewusst ohne `#[Validate]`: ein leerer nativer date-Input sendet `''`
+     * (nicht `null`), woran `date_format` scheitern würde. Die Reihenfolge
+     * (Ende nach Beginn, inkl. `to_date` < `date`) prüft {@see endsBeforeOrAtStart()}.
+     */
+    public string $to_date = '';
+
     #[Validate('required|date_format:H:i')]
     public string $from_time = '';
 
-    #[Validate('required|date_format:H:i|after:from_time')]
+    #[Validate('required|date_format:H:i')]
     public string $to_time = '';
 
     #[Validate('required|url|max:255')]
@@ -63,9 +72,28 @@ class CourseEventForm extends Form
         $this->venue_id = $event->venue_id;
         $this->venueName = $venueName;
         $this->date = $from->format('Y-m-d');
+        // Nur bei abweichendem End-Datum füllen — leer hält die Maske eintägig.
+        $this->to_date = $to->format('Y-m-d') !== $from->format('Y-m-d') ? $to->format('Y-m-d') : '';
         $this->from_time = $from->format('H:i');
         $this->to_time = $to->format('H:i');
         $this->link = $event->link;
+    }
+
+    /** Das effektive End-Datum: das optionale `to_date`, sonst der Starttag. */
+    public function effectiveEndDate(): string
+    {
+        return $this->to_date !== '' ? $this->to_date : $this->date;
+    }
+
+    /**
+     * Liegt das zusammengesetzte Ende vor oder gleichauf mit dem Beginn? Deckt
+     * sowohl eine zu frühe Endzeit am selben Tag als auch ein `to_date` vor dem
+     * Start-Datum ab. Der Vergleich der "Y-m-d H:i"-Strings ist chronologisch
+     * korrekt (nullgepolstert) und damit zeitzonenneutral.
+     */
+    public function endsBeforeOrAtStart(): bool
+    {
+        return $this->effectiveEndDate().' '.$this->to_time <= $this->date.' '.$this->from_time;
     }
 
     /**
@@ -83,7 +111,7 @@ class CourseEventForm extends Form
             'venue_id' => $this->venue_id,
             // Lokale Eingabe (Nutzer-Zeitzone) → UTC, wie das Portal es erwartet.
             'from' => Clock::localToUtc($this->date.' '.$this->from_time),
-            'to' => Clock::localToUtc($this->date.' '.$this->to_time),
+            'to' => Clock::localToUtc($this->effectiveEndDate().' '.$this->to_time),
             'link' => $this->link,
         ];
     }

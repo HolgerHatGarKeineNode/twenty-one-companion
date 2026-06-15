@@ -3,7 +3,7 @@
 # Baut ein signiertes Release-APK und erzeugt die GitHub-Release-Artefakte
 # im Amber-Stil:
 #
-#   dist/v<version>/einundzwanzig-universal-v<version>.apk
+#   dist/v<version>/twenty-one-companion-v<version>.apk
 #   dist/v<version>/manifest-v<version>.txt        (SHA256-Prüfsummen)
 #   dist/v<version>/manifest-v<version>.txt.sig    (GPG-Signatur, detached)
 #
@@ -35,7 +35,7 @@ fi
 
 APK_SOURCE="nativephp/android/app/build/outputs/apk/release/app-release.apk"
 DIST="dist/v${VERSION}"
-APK_NAME="einundzwanzig-universal-v${VERSION}.apk"
+APK_NAME="twenty-one-companion-v${VERSION}.apk"
 MANIFEST="manifest-v${VERSION}.txt"
 
 if [ -z "${SKIP_BUILD:-}" ]; then

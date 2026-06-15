@@ -1,65 +1,65 @@
 # Security Policy
 
-EINUNDZWANZIG Mobile ist die offizielle App der EINUNDZWANZIG-Community: Sie zeigt Meetups,
-Termine, Kurse und Orte aus dem [EINUNDZWANZIG-Portal](https://portal.einundzwanzig.space)
-und verbindet sich optional per Lightning- oder Nostr-Login (Sanctum-Token) mit dem Portal.
-Die App speichert den Portal-API-Token im Geräte-Keystore (SecureStorage) und verarbeitet
-Deep Links (`einundzwanzig://`, App Links auf `portal.einundzwanzig.space`).
+TWENTY ONE Companion is the official app of the EINUNDZWANZIG community: it shows meetups,
+events, courses and places from the [TWENTY ONE Portal](https://portal.einundzwanzig.space)
+and optionally connects to the portal via Lightning or Nostr login (Sanctum token).
+The app stores the portal API token in the device keystore (SecureStorage) and handles
+deep links (`einundzwanzig://`, App Links on `portal.einundzwanzig.space`).
 
-## Unterstützte Versionen
+## Supported versions
 
-| Version | Unterstützt |
-| ------- | ----------- |
-| Neuestes Release | ✅ |
-| `master`-Branch | ✅ |
-| Ältere Releases | ❌ |
+| Version | Supported |
+| ------- | --------- |
+| Latest release | ✅ |
+| `master` branch | ✅ |
+| Older releases | ❌ |
 
-Sicherheits-Fixes werden nur für das jeweils aktuelle Release und den `master`-Branch
-bereitgestellt. Bitte aktualisiere immer auf die neueste Version.
+Security fixes are provided only for the current release and the `master` branch.
+Please always update to the latest version.
 
-## Schwachstelle melden
+## Reporting a vulnerability
 
-Bitte melde Schwachstellen **vertraulich** über GitHubs privates Vulnerability-Reporting:
+Please report vulnerabilities **confidentially** via GitHub's private vulnerability reporting:
 
-1. Öffne den Tab [Security → Advisories](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/security/advisories/new)
-2. Erstelle einen privaten Report — **keine öffentlichen Issues** für Sicherheitsprobleme.
+1. Open the [Security → Advisories](https://github.com/HolgerHatGarKeineNode/twenty-one-companion/security/advisories/new) tab
+2. Create a private report — **no public issues** for security problems.
 
-Die Details bleiben vertraulich, bis ein Fix verfügbar ist.
+Details stay confidential until a fix is available.
 
-### Was ein Report enthalten sollte
+### What a report should contain
 
-- Klare Beschreibung der Schwachstelle und ihrer Auswirkungen
-- Betroffener Pfad: Deep-Link-/App-Link-Handling, Token-Speicherung (SecureStorage),
-  WebView/In-App-Browser, Portal-API-Client oder Auth-Flow (Lightning/Nostr)
-- App-Version (siehe Profil → Über die App) und Android-Version
-- Schritte zur Reproduktion
-- Falls vorhanden: Vorschlag für einen Fix
+- A clear description of the vulnerability and its impact
+- The affected area: deep-link/App-Link handling, token storage (SecureStorage),
+  WebView/in-app browser, portal API client, or auth flow (Lightning/Nostr)
+- App version (see Profile → About the app) and Android version
+- Steps to reproduce
+- If available: a suggested fix
 
-### Was du erwarten kannst
+### What you can expect
 
-- Eingangsbestätigung innerhalb von 48 Stunden
-- Behebung kritischer Probleme innerhalb von 90 Tagen
-- Auf Wunsch öffentliche Anerkennung im Advisory (oder anonym)
+- Acknowledgement of receipt within 48 hours
+- Resolution of critical issues within 90 days
+- On request, public credit in the advisory (or anonymous)
 
-## Geltungsbereich
+## Scope
 
-**In Scope:**
+**In scope:**
 
-- Quellcode dieses Repositories und die offiziellen APKs der GitHub-Releases
-- Speicherung und Handhabung des Portal-API-Tokens (SecureStorage, Logout/Revoke)
-- Deep-Link-/App-Link-Verarbeitung (`einundzwanzig://`, `https://portal.einundzwanzig.space/app/auth`)
-- Auth-Flows (LNURL-auth, Nostr/NIP-55-Callback) auf App-Seite
-- Öffnen externer Links (Scheme-Whitelist) und Darstellung von Portal-Inhalten (Markdown-Rendering)
+- The source code of this repository and the official APKs from the GitHub releases
+- Storage and handling of the portal API token (SecureStorage, logout/revoke)
+- Deep-link/App-Link handling (`einundzwanzig://`, `https://portal.einundzwanzig.space/app/auth`)
+- Auth flows (LNURL-auth, Nostr/NIP-55 callback) on the app side
+- Opening external links (scheme allowlist) and rendering of portal content (Markdown rendering)
 
-**Out of Scope:**
+**Out of scope:**
 
-- Schwachstellen im EINUNDZWANZIG-Portal selbst (separates Repository)
-- Schwachstellen in Drittanbieter-Abhängigkeiten ohne konkreten Bezug zur App (bitte upstream melden)
-- Angriffe, die ein gerootetes/kompromittiertes Gerät voraussetzen
-- Denial-of-Service gegen das Portal oder verbundene Dienste
+- Vulnerabilities in the TWENTY ONE Portal itself (separate repository)
+- Vulnerabilities in third-party dependencies without a concrete link to the app (please report upstream)
+- Attacks that require a rooted/compromised device
+- Denial-of-service against the portal or connected services
 
-## Koordinierte Offenlegung
+## Coordinated disclosure
 
-Wir folgen dem Modell der koordinierten Offenlegung: Bitte gib uns eine angemessene Frist
-zur Behebung, bevor Details veröffentlicht werden. Wer sich an diese Richtlinie hält,
-hat keine rechtlichen Konsequenzen zu befürchten.
+We follow the coordinated-disclosure model: please give us a reasonable window to
+fix the issue before any details are published. Anyone who follows this policy has
+nothing to fear legally.

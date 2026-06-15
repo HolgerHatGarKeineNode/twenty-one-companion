@@ -1,56 +1,56 @@
 ---
 name: github-release
-description: "Erstellt ein GitHub-Release in Amber-Qualität für die Einundzwanzig-App: verifiziert die Artefakte in dist/v<version>/ (GPG-Signatur, SHA256, apksigner), generiert Release-Notes nach Amber-Vorbild (Zusammenfassung, Downloads, Verifikationsanleitung) und legt das Release per gh IMMER zuerst als Draft an. Aufrufen mit /github-release [version] — ohne Argument wird die Version aus dist/ bzw. dem letzten Build ermittelt."
+description: "Creates an Amber-quality GitHub release for the TWENTY ONE Companion app: verifies the artifacts in dist/v<version>/ (GPG signature, SHA256, apksigner), generates Amber-style release notes (summary, downloads, verification guide) and ALWAYS creates the release as a draft first via gh. Invoke with /github-release [version] — without an argument the version is derived from dist/ or the last build."
 ---
 
-# GitHub-Release in Amber-Qualität
+# Amber-quality GitHub release
 
-Ziel: Eine Release-Page wie bei [Amber](https://github.com/greenart7c3/Amber/releases) —
-signierte Artefakte, saubere Release-Notes mit Zusammenfassung, Download-Optionen und
-vollständiger Verifikationsanleitung. **Immer zuerst als Draft anlegen**; der User
-reviewt und published selbst.
+Goal: a release page like [Amber's](https://github.com/greenart7c3/Amber/releases) —
+signed artifacts, clean release notes with a summary, download options and a full
+verification guide. **Always create it as a draft first**; the user reviews and
+publishes it themselves.
 
-## Feste Projektdaten
+## Fixed project data
 
-- Repo: `HolgerHatGarKeineNode/einundzwanzig-mobile-app`
-- GPG-Fingerprint (Manifest-Signatur): `B2DD9D9969E61E617125346E6D5B01E06AA11B68`
-  (Blockschreibweise: `B2DD 9D99 69E6 1E61 7125  346E 6D5B 01E0 6AA1 1B68`)
-- Android-Cert-SHA256: `44:41:1E:20:A1:B4:3D:0F:66:CF:99:E1:23:8A:33:E7:E8:FD:92:48:F0:D0:D2:58:F5:E0:72:7C:FA:BF:0B:7C`
-- Artefakt-Konvention: `dist/v<version>/einundzwanzig-universal-v<version>.apk`,
-  `manifest-v<version>.txt`, `manifest-v<version>.txt.sig` (erzeugt `scripts/release.sh`)
+- Repo: `HolgerHatGarKeineNode/twenty-one-companion`
+- GPG fingerprint (manifest signature): `B2DD9D9969E61E617125346E6D5B01E06AA11B68`
+  (block notation: `B2DD 9D99 69E6 1E61 7125  346E 6D5B 01E0 6AA1 1B68`)
+- Android cert SHA256: `44:41:1E:20:A1:B4:3D:0F:66:CF:99:E1:23:8A:33:E7:E8:FD:92:48:F0:D0:D2:58:F5:E0:72:7C:FA:BF:0B:7C`
+- Artifact convention: `dist/v<version>/twenty-one-companion-v<version>.apk`,
+  `manifest-v<version>.txt`, `manifest-v<version>.txt.sig` (produced by `scripts/release.sh`)
 
-## Ablauf (strikt in dieser Reihenfolge)
+## Procedure (strictly in this order)
 
-### 1. Version bestimmen
+### 1. Determine the version
 
-Argument `$1` nutzen, sonst neuestes `dist/v*`-Verzeichnis. Format `X.Y.Z` validieren.
+Use argument `$1`, otherwise the newest `dist/v*` directory. Validate the `X.Y.Z` format.
 
-### 2. Artefakte prüfen — Release nur mit grünem Ergebnis anlegen
+### 2. Verify the artifacts — only create the release on a green result
 
-Alle drei Dateien müssen in `dist/v<version>/` liegen. Dann verifizieren:
+All three files must be present in `dist/v<version>/`. Then verify:
 
 ```bash
-gpg --verify dist/v<version>/manifest-v<version>.txt.sig dist/v<version>/manifest-v<version>.txt   # → "Good signature", Fingerprint exakt B2DD…1B68
+gpg --verify dist/v<version>/manifest-v<version>.txt.sig dist/v<version>/manifest-v<version>.txt   # → "Good signature", fingerprint exactly B2DD…1B68
 cd dist/v<version> && sha256sum -c manifest-v<version>.txt                                          # → OK
-apksigner verify --print-certs <apk> | grep -i sha-256                                              # → 44411e20…0b7c (apksigner braucht java/JBR im PATH)
+apksigner verify --print-certs <apk> | grep -i sha-256                                              # → 44411e20…0b7c (apksigner needs java/JBR in PATH)
 ```
 
-Fehlt die `.sig` oder schlägt ein Check fehl: **abbrechen** und dem User sagen, was fehlt
-(z. B. `SKIP_BUILD=1 ./scripts/release.sh` zum Signieren). Niemals unsignierte oder
-unverifizierte Artefakte hochladen.
+If the `.sig` is missing or a check fails: **abort** and tell the user what is missing
+(e.g. `SKIP_BUILD=1 ./scripts/release.sh` to sign). Never upload unsigned or
+unverified artifacts.
 
-### 3. Änderungs-Zusammenfassung erstellen
+### 3. Build a change summary
 
-- Gibt es ein vorheriges Release-Tag: `git log <letztes-tag>..HEAD --oneline` als Quelle.
-- Erstes Release: Feature-Überblick aus `README.md`/`PLAN.md`.
-- 3–8 prägnante Bullet-Points, nutzerorientiert formuliert (was hat der Nutzer davon?),
-  **auf Englisch** (alle veröffentlichten Release-Texte sind ab v1.1.0 ausschließlich Englisch —
-  siehe Memory `release-texte-englisch`), keine Commit-Hashes, keine internen Codenamen.
+- If there is a previous release tag: use `git log <last-tag>..HEAD --oneline` as the source.
+- First release: feature overview from `README.md`/`PLAN.md`.
+- 3–8 concise bullet points, phrased for users (what's in it for them?),
+  **in English** (all published release texts are English-only from v1.1.0 on —
+  see memory `release-texte-englisch`), no commit hashes, no internal codenames.
 
-### 4. Release-Notes nach Template generieren
+### 4. Generate the release notes from the template
 
-Notes-Datei nach `dist/v<version>/release-notes.md` schreiben (liegt in dist/, ist gitignored).
-Template — Platzhalter ersetzen, Struktur und Verifikationsblock NICHT verändern:
+Write the notes file to `dist/v<version>/release-notes.md` (lives in dist/, is gitignored).
+Template — replace placeholders, do NOT change the structure or the verification block:
 
 ```markdown
 ## What's new
@@ -61,11 +61,11 @@ Template — Platzhalter ersetzen, Struktur und Verifikationsblock NICHT veränd
 
 > There is no Play Store release. Official builds are available exclusively here on GitHub.
 
-- Download `einundzwanzig-universal-v<version>.apk` below and **verify it** (see below)
+- Download `twenty-one-companion-v<version>.apk` below and **verify it** (see below)
 
 ## Verify the release
 
-Full guide: [VERIFY_RELEASES.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/VERIFY_RELEASES.md)
+Full guide: [VERIFY_RELEASES.md](https://github.com/HolgerHatGarKeineNode/twenty-one-companion/blob/master/VERIFY_RELEASES.md)
 
 **1. Import the signing key** (one-time):
 
@@ -98,21 +98,21 @@ space.einundzwanzig.mobile
 
 ## Security
 
-Please report vulnerabilities confidentially: [SECURITY.md](https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app/blob/master/SECURITY.md)
+Please report vulnerabilities confidentially: [SECURITY.md](https://github.com/HolgerHatGarKeineNode/twenty-one-companion/blob/master/SECURITY.md)
 ```
 
-(Die `​`-Zeichen vor den Backticks im Template entfernen — sie verhindern nur das vorzeitige
-Schließen dieses Code-Blocks.)
+(Remove the `​` characters before the backticks in the template — they only prevent this
+code block from closing too early.)
 
-### 5. Draft-Release anlegen
+### 5. Create the draft release
 
-Vorher prüfen, ob der Release-Commit gepusht ist (`git status` / `git log origin/master..HEAD`)
-— der Tag wird beim Publish auf den Remote-HEAD gesetzt; bei ungepushten Commits den User
-warnen, aber den Draft trotzdem anlegen.
+First check whether the release commit is pushed (`git status` / `git log origin/master..HEAD`)
+— the tag is set to the remote HEAD on publish; if there are unpushed commits, warn the
+user but still create the draft.
 
 ```bash
 gh release create v<version> \
-  dist/v<version>/einundzwanzig-universal-v<version>.apk \
+  dist/v<version>/twenty-one-companion-v<version>.apk \
   dist/v<version>/manifest-v<version>.txt \
   dist/v<version>/manifest-v<version>.txt.sig \
   --draft \
@@ -120,11 +120,11 @@ gh release create v<version> \
   --notes-file dist/v<version>/release-notes.md
 ```
 
-Existiert bereits ein Release/Draft zum Tag: nachfragen statt überschreiben
+If a release/draft already exists for the tag: ask instead of overwriting
 (`gh release view v<version>`).
 
-### 6. Abschlussbericht an den User
+### 6. Final report to the user
 
-- Draft-URL nennen (gh gibt sie aus) + Hinweis: Review → „Publish release“ manuell.
-- Verifikations-Ergebnisse zusammenfassen (Signatur ✓, Hash ✓, Cert ✓).
-- **Niemals selbst publishen, niemals committen/taggen/pushen** — das macht der User.
+- Give the draft URL (gh prints it) + note: review → "Publish release" manually.
+- Summarize the verification results (signature ✓, hash ✓, cert ✓).
+- **Never publish yourself, never commit/tag/push** — the user does that.

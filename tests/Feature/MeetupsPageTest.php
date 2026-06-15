@@ -179,7 +179,10 @@ it('shows the own-event management section on the detail of an own meetup', func
         ->assertSee(__('Termin anlegen'))
         ->assertSee('Bitcoin-Bar Aschaffenburg')
         ->assertSee(__('Vergangene Termine'))
-        ->assertSee('Altes Lokal');
+        ->assertSee('Altes Lokal')
+        // Edit-Affordance fürs eigene Meetup (Phase 4.2 auf der Detail-Seite).
+        ->assertSee(__('Bearbeiten'))
+        ->assertSeeHtml("Livewire.dispatch('open-meetup-editor', { id: 21 })");
 });
 
 it('hides the own-event management section for non-owners', function () {
@@ -192,7 +195,8 @@ it('hides the own-event management section for non-owners', function () {
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
         ->assertSee('Einundzwanzig Aschaffenburg')
-        ->assertDontSee(__('Meine Termine'));
+        ->assertDontSee(__('Meine Termine'))
+        ->assertDontSee(__('Bearbeiten'));
 });
 
 it('shows a friendly fallback for unknown meetup slugs', function () {

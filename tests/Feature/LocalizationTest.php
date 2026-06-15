@@ -30,6 +30,7 @@ function mobileUiSources(): array
         resource_path('views/livewire/lecturer-editor.blade.php'),
         resource_path('views/livewire/course-editor.blade.php'),
         resource_path('views/livewire/course-event-editor.blade.php'),
+        resource_path('views/components/image-picker.blade.php'),
         resource_path('views/components/empty-state.blade.php'),
         resource_path('views/components/error-state.blade.php'),
         resource_path('views/components/portal-status.blade.php'),

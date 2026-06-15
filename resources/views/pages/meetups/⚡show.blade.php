@@ -163,6 +163,18 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
                 <flux:button wire:click="openLink({{ Js::from($this->meetup->portalLink) }})" size="sm" variant="ghost" icon="arrow-top-right-on-square" class="cursor-pointer">
                     {{ __('Im Portal öffnen') }}
                 </flux:button>
+                @if ($this->ownMeetup)
+                    {{-- Bearbeiten des eigenen Meetups (Phase 4.2) — analog zu courses.show/lecturers.show. --}}
+                    <flux:button
+                        size="sm"
+                        variant="ghost"
+                        icon="pencil-square"
+                        x-on:click="$haptic('light'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor', { id: {{ $this->ownMeetup->id }} })"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Bearbeiten') }}
+                    </flux:button>
+                @endif
             </div>
         </section>
 

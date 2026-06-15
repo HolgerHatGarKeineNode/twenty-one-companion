@@ -48,7 +48,7 @@ final class PortalAuth
 
     public function deviceName(): string
     {
-        return 'EINUNDZWANZIG App (Android)';
+        return 'TWENTY ONE Companion (Android)';
     }
 
     /**

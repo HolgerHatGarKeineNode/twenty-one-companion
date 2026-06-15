@@ -1,10 +1,12 @@
 <?php
 
 use App\Data\Portal\MyLecturerData;
+use App\Livewire\Concerns\HandlesImageUpload;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\LecturerForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
+use App\Services\WriteResult;
 use App\Support\Markdown;
 use Flux\Flux;
 use Livewire\Attributes\Computed;
@@ -25,7 +27,7 @@ use Livewire\Component;
  * lädt die Hub-Listen neu.
  */
 new class extends Component {
-    use HandlesPortalWriteFeedback;
+    use HandlesImageUpload, HandlesPortalWriteFeedback;
 
     public LecturerForm $form;
 
@@ -51,11 +53,17 @@ new class extends Component {
         }
     }
 
+    protected function imageUploadKey(): string
+    {
+        return 'lecturer-avatar';
+    }
+
     private function resetEditor(): void
     {
         $this->form->reset();
         $this->editingId = null;
         $this->showPreview = false;
+        $this->resetImageState();
         $this->resetErrorBag();
     }
 
@@ -72,6 +80,7 @@ new class extends Component {
         }
 
         $this->editingId = $lecturer->id;
+        $this->setCurrentImageUrl($lecturer->avatar);
         $this->form->setLecturer($lecturer);
     }
 
@@ -97,12 +106,21 @@ new class extends Component {
             : $writer->updateLecturer($this->editingId, $payload);
 
         if ($result->successful()) {
+            // Zweistufig: das Profil existiert jetzt, der Avatar geht separat raus.
+            $avatarFailed = $this->uploadSelectedImage($this->editingId ?? $result->createdId());
+
             $this->handleSuccess($result->data);
+            $this->warnIfImageUploadFailed($avatarFailed);
 
             return;
         }
 
         $this->reportWriteFailure($result, __('Du darfst dieses Referenten-Profil nicht bearbeiten.'));
+    }
+
+    protected function uploadImage(int $id, string $filePath): WriteResult
+    {
+        return app(PortalWriter::class)->uploadLecturerAvatar($id, $filePath);
     }
 
     /**
@@ -145,6 +163,14 @@ new class extends Component {
             wire:model="form.subtitle"
             :label="__('Kurzbeschreibung')"
             :placeholder="__('z. B. Bitcoin-Educator')"
+        />
+
+        <x-image-picker
+            :label="__('Avatar')"
+            :current-url="$currentImageUrl"
+            :has-selected="$this->hasSelectedImage()"
+            shape="circle"
+            :hint="__('JPEG, PNG, WebP oder AVIF, max. 5 MB.')"
         />
 
         <flux:textarea

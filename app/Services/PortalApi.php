@@ -13,7 +13,6 @@ use App\Data\Portal\LecturerDetailData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
-use App\Data\Portal\MemberMeetupData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
@@ -30,7 +29,6 @@ use App\Http\Integrations\Portal\Requests\GetLecturerRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
-use App\Http\Integrations\Portal\Requests\GetMemberMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
@@ -347,6 +345,9 @@ final class PortalApi
             [$courseId],
             self::TTL_MINE_SECONDS,
             new GetMyCourseEventsRequest($courseId),
+            // Der mine-Endpunkt liefert eine CourseEventResource::collection
+            // (data-gewrappt) — anders als der öffentliche courses-Index.
+            fn (Response $response): mixed => $response->json('data'),
         );
 
         return GetMyCourseEventsRequest::collectData($json ?? []);
@@ -446,29 +447,6 @@ final class PortalApi
         );
 
         return GetMyCitiesRequest::collectData($json ?? []);
-    }
-
-    /**
-     * Meetups, denen der Nutzer beigetreten ist. Ohne Portal-Token leer.
-     * ⚠️ Liefert derzeit 401, bis das Portal die Route auf auth:sanctum
-     * umstellt (siehe GetMemberMeetupsRequest).
-     *
-     * @return Collection<int, MemberMeetupData>
-     */
-    public function memberMeetups(?string $search = null): Collection
-    {
-        if (! $this->portalAuth->hasToken()) {
-            return new Collection;
-        }
-
-        $json = $this->remember(
-            'member-meetups',
-            [$search],
-            self::TTL_MINE_SECONDS,
-            new GetMemberMeetupsRequest($search),
-        );
-
-        return GetMemberMeetupsRequest::collectData($json ?? []);
     }
 
     /**

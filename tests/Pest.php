@@ -492,6 +492,19 @@ function myCourseEventFixture(array $overrides = []): array
 }
 
 /**
+ * Erzeugt eine lokale Wegwerf-Datei als Stellvertreter für ein Bild aus der
+ * nativen Kamera/Galerie (die in der Testumgebung nicht verfügbar ist). Der
+ * Pfad wird im Editor als `imagePath` gesetzt und vom Upload-Request gelesen.
+ */
+function fakeImagePath(string $name = 'image.jpg'): string
+{
+    $path = tempnam(sys_get_temp_dir(), 'img').'-'.$name;
+    file_put_contents($path, 'fake-binary-image');
+
+    return $path;
+}
+
+/**
  * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
  * HTTP-Call lesen können.
  *

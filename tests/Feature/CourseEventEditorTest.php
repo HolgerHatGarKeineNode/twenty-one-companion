@@ -41,6 +41,21 @@ it('creates a course event and assembles the from/to payload', function () {
         && $request->body()->all()['link'] === 'https://example.com/anmeldung');
 });
 
+it('preselects the only own course when creating from the FAB', function () {
+    withPortalToken();
+    withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
+    MockClient::global([
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
+    ]);
+
+    // Wie beim Termin-Editor: native Select zeigt den ersten Kurs an → course_id
+    // muss vorausgewählt sein (Emulator-Bug-Fix), sonst „course_id required".
+    Livewire::test('course-event-editor')
+        ->call('open')
+        ->assertSet('form.course_id', 5)
+        ->assertSet('courseLocked', false);
+});
+
 it('requires course, venue, date, times and link before sending', function () {
     withPortalToken();
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
@@ -50,6 +65,8 @@ it('requires course, venue, date, times and link before sending', function () {
 
     Livewire::test('course-event-editor')
         ->call('open')
+        // Vorauswahl zurücknehmen, um die Pflichtfeld-Regeln zu prüfen.
+        ->set('form.course_id', null)
         ->call('save')
         ->assertHasErrors([
             'form.course_id' => 'required',
@@ -78,7 +95,55 @@ it('rejects an end time before the start time', function () {
         ->set('form.to_time', '18:00')
         ->set('form.link', 'https://example.com/anmeldung')
         ->call('save')
-        ->assertHasErrors(['form.to_time' => 'after'])
+        ->assertHasErrors('form.to_time')
+        ->assertNotDispatched('teaching-changed');
+});
+
+it('creates a multi-day course event with a separate end date', function () {
+    withPortalToken();
+    withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
+    MockClient::global([
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
+        CreateCourseEventRequest::class => MockResponse::make(['id' => 99], 201),
+    ]);
+
+    Livewire::test('course-event-editor')
+        ->call('open')
+        ->set('form.course_id', 5)
+        ->call('selectVenue', 3, 'Volkshochschule')
+        ->set('form.date', '2030-01-01')
+        ->set('form.from_time', '18:00')
+        ->set('form.to_date', '2030-01-03')
+        // Endzeit darf am späteren Tag früher als die Startzeit sein.
+        ->set('form.to_time', '12:00')
+        ->set('form.link', 'https://example.com/anmeldung')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('teaching-changed');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateCourseEventRequest
+        && $request->body()->all()['from'] === '2030-01-01 18:00'
+        && $request->body()->all()['to'] === '2030-01-03 12:00');
+});
+
+it('rejects an end date before the start date', function () {
+    withPortalToken();
+    withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
+    MockClient::global([
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
+    ]);
+
+    Livewire::test('course-event-editor')
+        ->call('open')
+        ->set('form.course_id', 5)
+        ->call('selectVenue', 3, 'Volkshochschule')
+        ->set('form.date', '2030-01-05')
+        ->set('form.from_time', '18:00')
+        ->set('form.to_date', '2030-01-03')
+        ->set('form.to_time', '20:00')
+        ->set('form.link', 'https://example.com/anmeldung')
+        ->call('save')
+        ->assertHasErrors('form.to_time')
         ->assertNotDispatched('teaching-changed');
 });
 
@@ -135,7 +200,7 @@ it('loads an own course event for editing and sends an update', function () {
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
-        GetMyCourseEventsRequest::class => MockResponse::make([myCourseEventFixture(['id' => 9, 'course_id' => 5, 'venue_id' => 3])]),
+        GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture(['id' => 9, 'course_id' => 5, 'venue_id' => 3])]]),
         UpdateCourseEventRequest::class => MockResponse::make(['id' => 9], 200),
     ]);
 
@@ -162,7 +227,7 @@ it('keeps the editor open and reports a 403 when editing a foreign course event'
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
-        GetMyCourseEventsRequest::class => MockResponse::make([myCourseEventFixture(['id' => 9])]),
+        GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture(['id' => 9])]]),
         UpdateCourseEventRequest::class => MockResponse::make(['message' => 'This action is unauthorized.'], 403),
     ]);
 

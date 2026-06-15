@@ -43,6 +43,25 @@ class EventForm extends Form
     public ?string $link = null;
 
     /**
+     * Wiederkehrenden Termin als Serie anlegen (nur beim Anlegen). Spiegelt den
+     * Serien-Modus des Web-Editors: das Portal expandiert die Regel über die
+     * gemeinsame ExpandRecurrenceSeries-Action in einzelne Termine.
+     */
+    public bool $repeats = false;
+
+    /** Wiederhol-Typ: daily | weekly | monthly | yearly | custom (RecurrenceType). */
+    public string $recurrence_type = '';
+
+    /** Wochentag (für weekly/custom), z. B. „monday". */
+    public string $recurrence_day_of_week = '';
+
+    /** Position im Monat (nur custom): first|second|third|fourth|last. */
+    public string $recurrence_day_position = '';
+
+    /** Enddatum der Serie (Pflicht im Serien-Modus, ≥ Startdatum). */
+    public string $recurrence_end_date = '';
+
+    /**
      * Bestehenden eigenen Termin zum Bearbeiten in die Form laden. Der
      * Meetup-Name wird vom Aufrufer aus myMeetups() aufgelöst (netzwerkfrei).
      */
@@ -70,7 +89,7 @@ class EventForm extends Form
     {
         $this->validate();
 
-        return [
+        $payload = [
             'meetup_id' => $this->meetup_id,
             // Lokale Eingabe (Nutzer-Zeitzone) → UTC, wie das Portal es erwartet.
             'start' => Clock::localToUtc($this->date.' '.$this->time),
@@ -78,5 +97,19 @@ class EventForm extends Form
             'description' => $this->description,
             'link' => $this->link,
         ];
+
+        // Serie nur, wenn beide Pflichtfelder gesetzt sind — exakt die Bedingung,
+        // unter der das Portal eine Serie statt eines Einzeltermins erzeugt. Leere
+        // optionale Felder (Wochentag/Position) fallen über array_filter raus.
+        if ($this->repeats && $this->recurrence_type !== '' && $this->recurrence_end_date !== '') {
+            $payload += array_filter([
+                'recurrence_type' => $this->recurrence_type,
+                'recurrence_end_date' => $this->recurrence_end_date,
+                'recurrence_day_of_week' => $this->recurrence_day_of_week,
+                'recurrence_day_position' => $this->recurrence_day_position,
+            ], fn (string $value): bool => $value !== '');
+        }
+
+        return $payload;
     }
 }

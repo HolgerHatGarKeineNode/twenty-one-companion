@@ -18,6 +18,9 @@ use App\Http\Integrations\Portal\Requests\UpdateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UpdateVenueRequest;
+use App\Http\Integrations\Portal\Requests\UploadCourseLogoRequest;
+use App\Http\Integrations\Portal\Requests\UploadLecturerAvatarRequest;
+use App\Http\Integrations\Portal\Requests\UploadMeetupLogoRequest;
 use Saloon\Exceptions\Request\FatalRequestException;
 use Saloon\Exceptions\Request\RequestException;
 use Saloon\Http\Request;
@@ -166,6 +169,48 @@ final class PortalWriter
     public function updateCourseEvent(int $id, array $payload): WriteResult
     {
         return $this->send(new UpdateCourseEventRequest($id, $payload), ['my-course-events', 'courses']);
+    }
+
+    /**
+     * Lädt ein Meetup-Logo hoch (multipart, Feld `file`). Zweistufig: das Meetup
+     * existiert bereits (per create/update angelegt), das Bild kommt separat an
+     * `…/{id}/logo`. Invalidiert die Meetup-Listen, damit das neue Logo erscheint.
+     */
+    public function uploadMeetupLogo(int $id, string $filePath): WriteResult
+    {
+        return $this->upload(new UploadMeetupLogoRequest($id, $filePath), $filePath, ['my-meetups', 'map-meetups']);
+    }
+
+    /**
+     * Lädt einen Referenten-Avatar hoch (multipart, Feld `file`).
+     */
+    public function uploadLecturerAvatar(int $id, string $filePath): WriteResult
+    {
+        return $this->upload(new UploadLecturerAvatarRequest($id, $filePath), $filePath, ['my-lecturers', 'lecturers']);
+    }
+
+    /**
+     * Lädt ein Kurs-Logo hoch (multipart, Feld `file`).
+     */
+    public function uploadCourseLogo(int $id, string $filePath): WriteResult
+    {
+        return $this->upload(new UploadCourseLogoRequest($id, $filePath), $filePath, ['my-courses', 'courses']);
+    }
+
+    /**
+     * Gemeinsamer Upload-Pfad: prüft, dass die Datei lokal lesbar ist (der
+     * Pfad stammt von der nativen Kamera/Galerie), bevor der multipart-Request
+     * rausgeht — sonst ein klarer NetworkFailure statt einer Saloon-Exception.
+     *
+     * @param  list<string>  $invalidates
+     */
+    private function upload(Request $request, string $filePath, array $invalidates): WriteResult
+    {
+        if (! is_file($filePath) || ! is_readable($filePath)) {
+            return WriteResult::networkFailure(__('Die gewählte Datei konnte nicht gelesen werden.'));
+        }
+
+        return $this->send($request, $invalidates);
     }
 
     /**

@@ -60,6 +60,18 @@ final class WriteResult
         return $this->status === WriteStatus::Success;
     }
 
+    /**
+     * ID des angelegten Datensatzes aus der (data-gewrappten) Erfolgs-Antwort.
+     * Kapselt die Portal-Response-Shape, damit die Editoren nicht selbst in
+     * `data.data.id` greifen müssen — null, wenn nichts Passendes vorhanden ist.
+     */
+    public function createdId(): ?int
+    {
+        $id = $this->data['data']['id'] ?? null;
+
+        return is_int($id) ? $id : null;
+    }
+
     public function failed(): bool
     {
         return ! $this->successful();

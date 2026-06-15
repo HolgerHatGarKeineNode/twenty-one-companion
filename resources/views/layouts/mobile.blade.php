@@ -41,9 +41,9 @@
                                 class="-ms-2 cursor-pointer"
                             />
                         @else
-                            <x-brand-logo aria-label="EINUNDZWANZIG" class="size-8 text-zinc-900 dark:text-zinc-100"/>
+                            <x-brand-wordmark aria-label="TWENTY ONE Companion" class="h-7 w-auto shrink-0 text-zinc-900 dark:text-zinc-100"/>
                         @endif
-                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : 'EINUNDZWANZIG' }}</flux:heading>
+                        <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : 'TWENTY ONE' }}</flux:heading>
                         <flux:spacer/>
                         {{ $actions ?? '' }}
                         <flux:modal.trigger name="global-search">
@@ -108,7 +108,7 @@
                             @if ($connected && ($profile['avatar'] ?? null))
                                 <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
                             @elseif ($connected)
-                                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'EINUNDZWANZIG' }}"/>
+                                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'TWENTY ONE' }}"/>
                             @else
                                 <flux:avatar size="lg" icon="user"/>
                             @endif
@@ -154,7 +154,7 @@
 
                         <div class="pb-safe border-t border-zinc-200 p-4 dark:border-zinc-800">
                             <flux:text class="text-xs">
-                                {{ __('EINUNDZWANZIG App') }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
+                                TWENTY ONE Companion · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
                             </flux:text>
                         </div>
                     </div>

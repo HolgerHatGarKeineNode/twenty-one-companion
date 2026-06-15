@@ -1,142 +1,142 @@
-# NativePHP Mobile v3 — Ausführungsplan
+# NativePHP Mobile v3 — Execution Plan
 
-> Erstellt am 2026-06-11 aus einem Deep-Scan aller 58 Seiten der offiziellen Doku (nativephp.com/docs/mobile/3).
+> Created on 2026-06-11 from a deep scan of all 58 pages of the official documentation (nativephp.com/docs/mobile/3).
 
-# Ausführungsplan: „einundzwanzig-mobile-app" — Laravel 12 + NativePHP Mobile v3 + Flux UI Pro (Linux/Android-first)
+# Execution Plan: "einundzwanzig-mobile-app" — Laravel 12 + NativePHP Mobile v3 + Flux UI Pro (Linux/Android-first)
 
-> Zielversion: **nativephp/mobile ~3.3.6** (aktuell), PHP 8.3–8.5 (NativePHP bündelt PHP 8.4), Laravel 12, Livewire 4, Flux UI Pro v2, Tailwind v4.
-> Zielpfad: `/home/user/Code/einundzwanzig-mobile-app`
+> Target version: **nativephp/mobile ~3.3.6** (current), PHP 8.3–8.5 (NativePHP bundles PHP 8.4), Laravel 12, Livewire 4, Flux UI Pro v2, Tailwind v4.
+> Target path: `/home/user/Code/einundzwanzig-mobile-app`
 
 ---
 
-## 0) Lizenz-Voraussetzungen (vorab klären!)
+## 0) License prerequisites (clarify upfront!)
 
-| Komponente | Lizenzstatus | Was wird benötigt |
+| Component | License status | What is required |
 |---|---|---|
-| **NativePHP Mobile v3 Core** (`nativephp/mobile`) | **Free & Open Source** seit v3.0 — KEIN privates Composer-Repo, KEIN Lizenzschlüssel, keine `auth.json`-Credentials mehr | nichts |
-| **Free Core-Plugins** (MIT): Browser, Camera, Device, Dialog, File, Microphone, Network, Share, System | kostenlos via Packagist | nichts |
-| **Premium-Plugins** (proprietär, Bifrost Technology): Biometrics (49 $), Geolocation (49 $), Scanner (49 $), SecureStorage (49 $), Firebase/Push (99 $) — alternativ alle in **NativePHP Ultra** (ab 35 $/Monat) oder Starter-Kit-Bundle (199 $) | kostenpflichtig | Kauf + Composer-Auth: `composer config repositories.nativephp-plugins composer https://plugins.nativephp.com` und `composer config http-basic.plugins.nativephp.com <lizenz-email> <license-key>` (Credentials im NativePHP-Dashboard unter „Purchased Plugins") |
-| **Flux UI Pro** | kostenpflichtige Lizenz (vorhanden, da im Hauptprojekt genutzt) | `composer config repositories.flux-pro composer https://composer.fluxui.dev` + `composer config http-basic.composer.fluxui.dev <email> <flux-license-key>` (alternativ `php artisan flux:activate`) |
-| **Jump-App** (Live-Preview auf Gerät) | kostenlos (App Store / Google Play, https://bifrost.nativephp.com/jump) — Jump **v2+** für NativePHP 3.3+ nötig | nichts |
-| **Apple Developer Account** *(nur iOS)* | kostenpflichtig; Pflicht für Echtgerät-Tests, App Store, Push | nur auf macOS relevant |
-| **Google Play Console** *(für Release)* | einmalig 25 $ | erst bei Store-Release |
+| **NativePHP Mobile v3 Core** (`nativephp/mobile`) | **Free & Open Source** since v3.0 — NO private Composer repo, NO license key, no more `auth.json` credentials | nothing |
+| **Free core plugins** (MIT): Browser, Camera, Device, Dialog, File, Microphone, Network, Share, System | free via Packagist | nothing |
+| **Premium plugins** (proprietary, Bifrost Technology): Biometrics ($49), Geolocation ($49), Scanner ($49), SecureStorage ($49), Firebase/Push ($99) — alternatively all included in **NativePHP Ultra** (from $35/month) or the Starter Kit bundle ($199) | paid | purchase + Composer auth: `composer config repositories.nativephp-plugins composer https://plugins.nativephp.com` and `composer config http-basic.plugins.nativephp.com <license-email> <license-key>` (credentials in the NativePHP dashboard under "Purchased Plugins") |
+| **Flux UI Pro** | paid license (already available, since it is used in the main project) | `composer config repositories.flux-pro composer https://composer.fluxui.dev` + `composer config http-basic.composer.fluxui.dev <email> <flux-license-key>` (alternatively `php artisan flux:activate`) |
+| **Jump app** (live preview on device) | free (App Store / Google Play, https://bifrost.nativephp.com/jump) — Jump **v2+** required for NativePHP 3.3+ | nothing |
+| **Apple Developer Account** *(iOS only)* | paid; mandatory for real-device testing, App Store, Push | only relevant on macOS |
+| **Google Play Console** *(for release)* | one-time $25 | only at store release |
 
-**Entscheidung vor Start:** Werden Biometrie/Scanner/Geolocation/SecureStorage/Push gebraucht? Dann Plugins kaufen oder Ultra-Abo abschließen — sonst nur Free-Plugins einplanen.
+**Decision before starting:** Are Biometrics/Scanner/Geolocation/SecureStorage/Push needed? Then buy the plugins or take out an Ultra subscription — otherwise plan only for the free plugins.
 
 ---
 
-## 1) Voraussetzungen & Tools/SDKs (Linux, Android)
+## 1) Prerequisites & tools/SDKs (Linux, Android)
 
-### 1.1 PHP & Basis-Tooling
-- **PHP 8.3–8.5** mit Extensions **gd** (für Icon-/Splash-Generierung, `memory_limit` ≥ 2G empfohlen) und sqlite3. Achtung: `native:run` bricht seit 3.3.5 ab, wenn die Host-PHP-Version nicht zur `nativephp.lock` passt — Host-PHP konsistent halten (NativePHP bündelt PHP 8.4 → idealerweise lokal 8.4 nutzen, wird aus `composer.json` erkannt).
-- Composer, Laravel-Installer, Node + Yarn:
+### 1.1 PHP & base tooling
+- **PHP 8.3–8.5** with extensions **gd** (for icon/splash generation, `memory_limit` ≥ 2G recommended) and sqlite3. Note: `native:run` has aborted since 3.3.5 if the host PHP version does not match `nativephp.lock` — keep the host PHP consistent (NativePHP bundles PHP 8.4 → ideally use 8.4 locally, which is detected from `composer.json`).
+- Composer, Laravel installer, Node + Yarn:
 ```bash
-# CachyOS/Arch-Beispiele
+# CachyOS/Arch examples
 sudo pacman -S --needed php php-gd php-sqlite composer nodejs yarn jdk17-openjdk android-tools
 composer global require laravel/installer
-php -m | grep -E 'gd|sqlite'   # verifizieren
+php -m | grep -E 'gd|sqlite'   # verify
 ```
-- `memory_limit` in der CLI-php.ini auf `2G` setzen (Icon/Splash-Verarbeitung).
+- Set `memory_limit` in the CLI php.ini to `2G` (icon/splash processing).
 
-### 1.2 Android-Toolchain (Pflicht für Linux-Entwicklung)
-- **Android Studio 2024.2.1+** installieren (AUR `android-studio` oder JetBrains Toolbox).
-- Im SDK Manager (Tools → SDK Manager):
-  - Tab „SDK Platforms": mindestens **eine Plattform API 29+** (empfohlen: API 36).
-  - Tab „SDK Tools": **Android SDK Build-Tools** + **Android SDK Platform-Tools**.
-- **JDK 17** (Android Studio liefert kein JDK mehr automatisch mit).
-- Mindestens **einen AVD/Emulator** im Virtual Device Manager anlegen (sonst Fehler „No AVDs found"). Zusätzlich einen AVD mit der minimal unterstützten Android-Version anlegen (WebView-/Tailwind-v4-Test, siehe §6).
-- Umgebungsvariablen (fish-Shell, `~/.config/fish/config.fish`):
+### 1.2 Android toolchain (mandatory for Linux development)
+- Install **Android Studio 2024.2.1+** (AUR `android-studio` or JetBrains Toolbox).
+- In the SDK Manager (Tools → SDK Manager):
+  - "SDK Platforms" tab: at least **one platform API 29+** (recommended: API 36).
+  - "SDK Tools" tab: **Android SDK Build-Tools** + **Android SDK Platform-Tools**.
+- **JDK 17** (Android Studio no longer ships a JDK automatically).
+- Create at least **one AVD/emulator** in the Virtual Device Manager (otherwise the error "No AVDs found"). Additionally create an AVD with the minimum supported Android version (WebView/Tailwind v4 test, see §6).
+- Environment variables (fish shell, `~/.config/fish/config.fish`):
 ```fish
 set -gx JAVA_HOME /usr/lib/jvm/java-17-openjdk
 set -gx ANDROID_HOME $HOME/Android/Sdk
 fish_add_path $JAVA_HOME/bin $ANDROID_HOME/emulator $ANDROID_HOME/platform-tools $ANDROID_HOME/tools $ANDROID_HOME/tools/bin
 ```
-- Verifikation (muss beides funktionieren, sonst schlägt der Build fehl):
+- Verification (both must work, otherwise the build fails):
 ```bash
 java -version
 adb devices
 ```
-- Echtgerät (optional): Entwickleroptionen + USB-Debugging aktivieren.
+- Real device (optional): enable Developer Options + USB debugging.
 
-### 1.3 🍎 iOS-Hinweise (separat — NUR auf macOS möglich)
-> iOS-Apps lassen sich **ausschließlich auf einem Apple-Silicon-Mac (M1+)** kompilieren. Unter Linux: iOS komplett überspringen; lediglich der **Jump**-Workflow erlaubt das Testen der Laravel-App auf einem iPhone ohne Build.
+### 1.3 🍎 iOS notes (separate — ONLY possible on macOS)
+> iOS apps can be compiled **exclusively on an Apple Silicon Mac (M1+)**. On Linux: skip iOS entirely; only the **Jump** workflow allows testing the Laravel app on an iPhone without a build.
 - Xcode 16.0+ (App Store), `xcode-select --install`, Homebrew, `brew install cocoapods`.
-- Apple Developer Account: nicht nötig für Simulator, Pflicht für Echtgerät/Store/Push; `NATIVEPHP_DEVELOPMENT_TEAM` (Team-ID aus Membership) in `.env`.
-- iOS-Builds dann: `php artisan native:run ios`, Packaging via `native:package ios --export-method=app-store …`.
+- Apple Developer Account: not needed for the simulator, mandatory for real device/store/push; set `NATIVEPHP_DEVELOPMENT_TEAM` (team ID from membership) in `.env`.
+- iOS builds then: `php artisan native:run ios`, packaging via `native:package ios --export-method=app-store …`.
 
 ---
 
-## 2) Exakte Befehlsreihenfolge der Installation
+## 2) Exact command order for installation
 
 ```bash
-# (1) Frisches Laravel-12-Projekt mit Livewire-Starter-Kit
+# (1) Fresh Laravel 12 project with the Livewire starter kit
 cd /home/user/Code
 laravel new einundzwanzig-mobile-app
-#   → im Wizard: Starter Kit "Livewire", Auth wählen, Pest, kein Test-DB-Sonderfall
+#   → in the wizard: Starter Kit "Livewire", choose Auth, Pest, no special test-DB case
 cd /home/user/Code/einundzwanzig-mobile-app
 
-# (2) Flux UI Pro aktivieren (Free-Flux kommt mit dem Starter Kit)
+# (2) Activate Flux UI Pro (free Flux comes with the starter kit)
 composer config repositories.flux-pro composer https://composer.fluxui.dev
 composer config http-basic.composer.fluxui.dev "<email>" "<flux-license-key>"
 composer require livewire/flux-pro
 
-# (3) NativePHP Mobile installieren (frei, kein Lizenz-Setup)
+# (3) Install NativePHP Mobile (free, no license setup)
 composer require nativephp/mobile:~3.3.6
 
-# (4) PFLICHT vor native:install: App-ID in .env setzen (Reverse-Domain, unveränderlich planen!)
-#     .env ergänzen:
+# (4) MANDATORY before native:install: set the App ID in .env (reverse domain, plan it to be immutable!)
+#     Add to .env:
 #     NATIVEPHP_APP_ID=com.einundzwanzig.mobileapp
 #     NATIVEPHP_APP_VERSION=DEBUG
 #     QUEUE_CONNECTION=database
 
-# (5) Installer ausführen (nur Android auf Linux)
+# (5) Run the installer (Android only on Linux)
 php artisan native:install android
-#   → ICU-Prompt: "ohne ICU" wählen, sofern keine intl-Extension gebraucht wird
-#     (Flux/Livewire brauchen kein intl; ICU = +~30 MB Android. Filament bräuchte ICU.)
-#   → erzeugt ./nativephp/ (ephemer!) und den Script-Helper ./native
+#   → ICU prompt: choose "without ICU", as long as no intl extension is needed
+#     (Flux/Livewire don't need intl; ICU = +~30 MB on Android. Filament would need ICU.)
+#   → creates ./nativephp/ (ephemeral!) and the script helper ./native
 
-# (6) .gitignore ergänzen
+# (6) Extend .gitignore
 printf "nativephp/\npublic/ios-hot\npublic/android-hot\n" >> .gitignore
 
-# (7) Vite-Plugin einbinden (vite.config.js, siehe §3.4), dann Frontend bauen
+# (7) Wire in the Vite plugin (vite.config.js, see §3.4), then build the frontend
 yarn install
 yarn build --mode=android
 
-# (8) App im Emulator starten
-php artisan native:run android        # Kurzform nach install: ./native run android
+# (8) Launch the app in the emulator
+php artisan native:run android        # short form after install: ./native run android
 ```
 
-**Alternative für schnellste Iteration ohne Emulator (Jump):** Jump-App (v2+) auf dem Handy installieren, beide Geräte ins selbe WLAN, dann `php artisan native:jump` und QR-Code scannen (funktioniert auch für iPhones vom Linux-Rechner aus!). Firewall: eingehende Ports 3000–3003 freigeben.
+**Alternative for the fastest iteration without an emulator (Jump):** Install the Jump app (v2+) on your phone, put both devices on the same Wi-Fi, then run `php artisan native:jump` and scan the QR code (this works for iPhones from a Linux machine too!). Firewall: open inbound ports 3000–3003.
 
-**Optional: Laravel Boost** für KI-Unterstützung: `php artisan boost:install` (lädt auch NativePHP-Guidelines).
+**Optional: Laravel Boost** for AI support: `php artisan boost:install` (also loads the NativePHP guidelines).
 
 ---
 
-## 3) Projektstruktur- & Konfigurationsschritte
+## 3) Project structure & configuration steps
 
-### 3.1 `.env` (Entwicklung)
+### 3.1 `.env` (development)
 ```env
-NATIVEPHP_APP_ID=com.einundzwanzig.mobileapp     # NIE mehr ändern (Bundle-ID iOS+Android)
-NATIVEPHP_APP_VERSION=DEBUG                       # in Dev so lassen → App-Bundle wird immer neu geladen
-NATIVEPHP_START_URL=/dashboard                    # initiale Route beim App-Start
-NATIVEPHP_DEEPLINK_SCHEME=einundzwanzig           # für spätere OAuth-/Deep-Link-Flows
-QUEUE_CONNECTION=database                         # aktiviert den nativen Background-Queue-Worker (ZTS-PHP)
-FILESYSTEM_DISK=mobile_public                     # nutzergenerierte Dateien überleben App-Updates
-# NATIVEPHP_ANDROID_MIN_SDK=33                    # Default 33; NICHT unter 33 senken → Tailwind v4! (s. §6)
+NATIVEPHP_APP_ID=com.einundzwanzig.mobileapp     # NEVER change again (bundle ID iOS+Android)
+NATIVEPHP_APP_VERSION=DEBUG                       # leave like this in dev → the app bundle is always reloaded
+NATIVEPHP_START_URL=/dashboard                    # initial route at app start
+NATIVEPHP_DEEPLINK_SCHEME=einundzwanzig           # for later OAuth/deep-link flows
+QUEUE_CONNECTION=database                         # enables the native background queue worker (ZTS PHP)
+FILESYSTEM_DISK=mobile_public                     # user-generated files survive app updates
+# NATIVEPHP_ANDROID_MIN_SDK=33                    # default 33; do NOT lower below 33 → Tailwind v4! (see §6)
 ```
 
-### 3.2 `config/nativephp.php` prüfen/setzen
-- `runtime.mode = 'persistent'` (Default ab 3.1, ~5–30 ms Antwortzeit). Bei State-Problemen: `reset_instances=true` (Default), notfalls `gc_between_dispatches=true` oder Modus `classic`.
-- `android`: `compile_sdk=36`, `target_sdk=36`, `min_sdk=33` (Relation: compile ≥ target ≥ min; absolutes Minimum 26 — aber siehe Tailwind-v4-Falle §6).
-- `android.status_bar_style`: `auto|light|dark` passend zum Flux-Dark-Mode-Verhalten.
-- `hot_reload.watch_paths`: **`'resources'` ergänzen** (Default enthält es nicht — Livewire-Views/Blade liegen dort!): `['app','resources','routes','config','database','public']`.
-- `cleanup_env_keys`: alle Secrets eintragen (z. B. `APP_STORE_*`, `ANDROID_KEYSTORE_*`, API-Keys) — die `.env` wird sonst mit ins App-Bundle ausgeliefert!
-- `permissions` (iOS-Usage-Strings) erst relevant, wenn Plugins mit Berechtigungen dazukommen.
-- Fehlende neuere Keys aus `vendor/nativephp/mobile/config/nativephp.php` nachziehen (oder `php artisan vendor:publish --tag=nativephp-mobile-config --force` — Achtung: überschreibt eigene Änderungen).
+### 3.2 Check/set `config/nativephp.php`
+- `runtime.mode = 'persistent'` (default since 3.1, ~5–30 ms response time). For state issues: `reset_instances=true` (default), or as a last resort `gc_between_dispatches=true` or `classic` mode.
+- `android`: `compile_sdk=36`, `target_sdk=36`, `min_sdk=33` (relation: compile ≥ target ≥ min; absolute minimum 26 — but see the Tailwind v4 trap §6).
+- `android.status_bar_style`: `auto|light|dark` matching the Flux dark mode behavior.
+- `hot_reload.watch_paths`: **add `'resources'`** (the default does not include it — Livewire views/Blade live there!): `['app','resources','routes','config','database','public']`.
+- `cleanup_env_keys`: add all secrets (e.g. `APP_STORE_*`, `ANDROID_KEYSTORE_*`, API keys) — otherwise the `.env` is shipped along with the app bundle!
+- `permissions` (iOS usage strings) only become relevant once plugins with permissions are added.
+- Pull in any newer keys from `vendor/nativephp/mobile/config/nativephp.php` (or `php artisan vendor:publish --tag=nativephp-mobile-config --force` — caution: this overwrites your own changes).
 
-### 3.3 Assets/Branding (Konvention, keine Config)
-- `public/icon.png` — PNG, **exakt 1024×1024, ohne Transparenz** (EINUNDZWANZIG-Logo auf Vollflächen-Hintergrund).
-- `public/splash.png` + `public/splash-dark.png` — PNG, mind. **1080×1920** (Hochformat).
+### 3.3 Assets/branding (convention, no config)
+- `public/icon.png` — PNG, **exactly 1024×1024, no transparency** (EINUNDZWANZIG logo on a full-bleed background).
+- `public/splash.png` + `public/splash-dark.png` — PNG, at least **1080×1920** (portrait).
 
 ### 3.4 `vite.config.js`
 ```js
@@ -157,19 +157,19 @@ export default defineConfig({
     ],
 });
 ```
-Builds immer plattformspezifisch: `yarn build --mode=android` (auf macOS zusätzlich `--mode=ios`).
+Always build platform-specifically: `yarn build --mode=android` (on macOS additionally `--mode=ios`).
 
-### 3.5 Mobile-Layout (App-Shell) — `resources/views/components/layouts/app.blade.php`
-- Viewport-Meta für natives Gefühl + Edge-to-Edge:
+### 3.5 Mobile layout (app shell) — `resources/views/components/layouts/app.blade.php`
+- Viewport meta for a native feel + edge-to-edge:
   `<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">`
-- `<body class="nativephp-safe-area …">` + Safe-Area-CSS-Variablen (`--inset-top/-bottom/-left/-right`) für fixe Header/Footer.
-- Tailwind-v4-Variante für Tastatur in `resources/css/app.css`:
+- `<body class="nativephp-safe-area …">` + safe-area CSS variables (`--inset-top/-bottom/-left/-right`) for fixed headers/footers.
+- Tailwind v4 variant for the keyboard in `resources/css/app.css`:
 ```css
 @import "tailwindcss";
 @custom-variant keyboard-visible (&:where(body.keyboard-visible *));
 ```
-  → z. B. `class="… keyboard-visible:translate-y-full"` auf der Bottom-Nav.
-- **EDGE-Komponenten ins Layout** (werden bei jedem Request gerendert, nativ — kein Tailwind-Styling möglich, max. 5 Bottom-Nav-Items, Pflicht-Props `id/icon/label/url`):
+  → e.g. `class="… keyboard-visible:translate-y-full"` on the bottom nav.
+- **EDGE components in the layout** (rendered on every request, native — no Tailwind styling possible, max. 5 bottom-nav items, required props `id/icon/label/url`):
 ```blade
 <native:top-bar title="EINUNDZWANZIG" show-navigation-icon="false" />
 <native:bottom-nav label-visibility="labeled">
@@ -179,218 +179,218 @@ Builds immer plattformspezifisch: `yarn build --mode=android` (auf macOS zusätz
     <native:bottom-nav-item id="profile" icon="person"   label="Profil"  url="/profile"   :active="request()->is('profile*')" />
 </native:bottom-nav>
 ```
-  Hinweis: EDGE-Links machen volle Requests (für Livewire normal/okay); URLs außerhalb der WebView-Domain öffnen im System-Browser.
+  Note: EDGE links make full requests (normal/fine for Livewire); URLs outside the WebView domain open in the system browser.
 
-### 3.6 Beispiel-Screens (Livewire 4 + Flux Pro)
+### 3.6 Example screens (Livewire 4 + Flux Pro)
 ```bash
 php artisan make:livewire Pages\\Dashboard --no-interaction
 php artisan make:livewire Pages\\Meetups\\Index --no-interaction
 php artisan make:livewire Pages\\Profile --no-interaction
 php artisan make:livewire Auth\\Login --no-interaction
 ```
-- Routen in `routes/web.php` als Vollseiten-Komponenten; `/` → Redirect auf `NATIVEPHP_START_URL`-Ziel.
-- UI durchgängig mit Flux (`flux:card`, `flux:button`, `flux:input`, `flux:navbar` etc.), Dark-Mode via `dark:` (EDGE-Komponenten folgen dem System-Dark-Mode automatisch — Flux daran angleichen).
-- Plattform-Weichen serverseitig: `Native\Mobile\Facades\System::isIos()/isAndroid()` (System-Plugin, s. §4).
+- Routes in `routes/web.php` as full-page components; `/` → redirect to the `NATIVEPHP_START_URL` target.
+- UI consistently with Flux (`flux:card`, `flux:button`, `flux:input`, `flux:navbar` etc.), dark mode via `dark:` (EDGE components automatically follow the system dark mode — align Flux to it).
+- Platform branching server-side: `Native\Mobile\Facades\System::isIos()/isAndroid()` (System plugin, see §4).
 
-### 3.7 Auth-Vorbereitung (Sanctum-Token gegen das bestehende Portal-API)
-Architekturprinzip der Doku: **lokale Daten beweisen keine Authentifizierung** — Auth läuft gegen einen externen Service (hier: die bestehende `einundzwanzig-app`-API mit Sanctum).
-1. Login-Screen (Livewire): E-Mail/Passwort → `Http::post('https://portal…/api/v1/auth/token', …)` → Token zurück.
-2. Token-Speicherung:
-   - **Mit SecureStorage-Plugin (49 $, empfohlen):** `SecureStorage::set('auth_token', $token)` (Android Keystore / iOS Keychain).
-   - **Ohne Premium-Plugin (Fallback):** Token mit `Crypt::encryptString()` verschlüsselt in lokaler SQLite/Datei ablegen — NativePHP generiert pro Gerät einen einzigartigen `APP_KEY` im Secure Storage.
-3. Serverseitig im Portal: **Sanctum-Token-Expiration aktivieren** (Default: läuft nie ab!), kurzlebige Tokens (< 48 h) + Refresh-Strategie, Rate-Limiting auf dem Auth-Endpoint (CSRF gibt es im API-Kontext nicht).
-4. App-seitig: Vor API-Calls `Network::status()` prüfen (offline-Fallback auf lokalen SQLite-Cache); 401 → Re-Login-Flow.
-5. Optional später: Lightning-Login via `Browser::auth(...)` + `NATIVEPHP_DEEPLINK_SCHEME` (Redirect `einundzwanzig://auth/handle`; Redirect-URI vorab beim Auth-Dienst registrieren).
+### 3.7 Auth preparation (Sanctum token against the existing Portal API)
+Architectural principle from the docs: **local data does not prove authentication** — auth runs against an external service (here: the existing `einundzwanzig-app` API with Sanctum).
+1. Login screen (Livewire): email/password → `Http::post('https://portal…/api/v1/auth/token', …)` → token returned.
+2. Token storage:
+   - **With the SecureStorage plugin ($49, recommended):** `SecureStorage::set('auth_token', $token)` (Android Keystore / iOS Keychain).
+   - **Without the premium plugin (fallback):** store the token encrypted with `Crypt::encryptString()` in a local SQLite/file — NativePHP generates a unique `APP_KEY` per device in the secure storage.
+3. Server-side in the Portal: **enable Sanctum token expiration** (default: never expires!), short-lived tokens (< 48 h) + refresh strategy, rate limiting on the auth endpoint (there is no CSRF in an API context).
+4. App-side: before API calls, check `Network::status()` (offline fallback to the local SQLite cache); 401 → re-login flow.
+5. Optional later: Lightning login via `Browser::auth(...)` + `NATIVEPHP_DEEPLINK_SCHEME` (redirect `einundzwanzig://auth/handle`; register the redirect URI with the auth service in advance).
 
-### 3.8 Datenbank & Queues
-- **Nur SQLite**, vollautomatisch: NativePHP schaltet die Connection beim Build um, legt die DB im App-Container an und führt **bei jedem App-Start ausstehende Migrationen** aus. Kein Remote-DB-Zugriff — zentrale Daten ausschließlich über die Sanctum-API (API-First, lokale DB = Offline-Cache).
-- Seed-Daten als **Seed-Migration** (`php artisan make:migration seed_app_settings`) statt Seeder (läuft genau 1× pro Installation).
-- Jobs: normale `ShouldQueue`-Jobs + `QUEUE_CONNECTION=database`; Worker startet automatisch in eigenem Thread (`queue:work --once`-Loop). Nur `database`-Connection wird unterstützt; Jobs überleben App-Neustarts, laufen aber primär bei aktiver App (echte Background-Tasks sind in v3 nur Roadmap!).
+### 3.8 Database & queues
+- **SQLite only**, fully automatic: NativePHP switches the connection at build time, creates the DB in the app container, and runs **pending migrations on every app start**. No remote DB access — central data exclusively via the Sanctum API (API-first, local DB = offline cache).
+- Seed data as a **seed migration** (`php artisan make:migration seed_app_settings`) instead of a seeder (runs exactly once per installation).
+- Jobs: regular `ShouldQueue` jobs + `QUEUE_CONNECTION=database`; the worker starts automatically in its own thread (`queue:work --once` loop). Only the `database` connection is supported; jobs survive app restarts but run primarily while the app is active (true background tasks are only on the roadmap in v3!).
 
 ### 3.9 Tests
-- Pest-Feature-Tests für Livewire-Komponenten wie gewohnt (`php artisan test --compact`); native Aufrufe in Tests mit `function_exists('nativephp_call')`-Guards bzw. Facade-Mocks absichern.
+- Pest feature tests for Livewire components as usual (`php artisan test --compact`); guard native calls in tests with `function_exists('nativephp_call')` checks or facade mocks.
 
 ---
 
-## 4) Verfügbare native APIs (vollständige Liste)
+## 4) Available native APIs (complete list)
 
-Alle nativen Features sind in v3 **Plugins** (Composer-Pakete; nach `composer require` ggf. via `php artisan native:plugin:register` registrieren, dann Rebuild). Nutzungsmuster in Livewire: Facade-Aufruf + asynchrones Ergebnis über `#[OnNative(EventKlasse::class)]` (aus `Native\Mobile\Attributes\OnNative`).
+In v3, all native features are **plugins** (Composer packages; after `composer require`, register them if needed via `php artisan native:plugin:register`, then rebuild). Usage pattern in Livewire: facade call + asynchronous result via `#[OnNative(EventClass::class)]` (from `Native\Mobile\Attributes\OnNative`).
 
 **Free (MIT):**
-1. **Browser** (`nativephp/mobile-browser`) — öffnet URLs in-app (Custom Tabs/SFSafariViewController), im System-Browser oder als OAuth-Flow mit `Browser::auth()` und automatischem Deep-Link-Redirect.
-2. **Camera** (`nativephp/mobile-camera`) — Fotoaufnahme, Videoaufzeichnung und Galerie-Picker; Ergebnisse via `PhotoTaken`/`VideoRecorded`/`MediaSelected`-Events (Achtung: Android-Foto landet als fixes `{cache}/captured.jpg` → sofort wegkopieren).
-3. **Device** (`nativephp/mobile-device`) — Vibration, Taschenlampe, eindeutige Geräte-ID, Geräteinfos und Batteriestatus als synchrone Rückgaben (info-Felder sind JSON-Strings).
-4. **Dialog** (`nativephp/mobile-dialog`) — native Alert-Dialoge mit Buttons (`ButtonPressed`-Event) und Toasts/Snackbars (`Dialog::toast()`, synchron).
-5. **File** (`nativephp/mobile-file`) — Dateien verschieben/kopieren im App-Sandbox-Dateisystem mit Auto-Verzeichnisanlage und Integritätsprüfung.
-6. **Microphone** (`nativephp/mobile-microphone`) — M4A/AAC-Audioaufnahme mit Pause/Resume, Status-Abfrage und `MicrophoneRecorded`-Event; Hintergrundaufnahme via `microphone_background`-Config.
-7. **Network** (`nativephp/mobile-network`) — `Network::status()` liefert connected/type (wifi/cellular/…)/isExpensive/isConstrained (Pull-API, keine Change-Events).
-8. **Share** (`nativephp/mobile-share`) — natives Share-Sheet für URLs, Texte und lokale Dateien (Fire-and-forget, kein Ergebnis-Event).
-9. **System** (`nativephp/mobile-system`) — Plattformerkennung (`isIos/isAndroid/isMobile`), App-Einstellungen des OS öffnen, Taschenlampen-Toggle.
+1. **Browser** (`nativephp/mobile-browser`) — opens URLs in-app (Custom Tabs/SFSafariViewController), in the system browser, or as an OAuth flow with `Browser::auth()` and automatic deep-link redirect.
+2. **Camera** (`nativephp/mobile-camera`) — photo capture, video recording, and gallery picker; results via `PhotoTaken`/`VideoRecorded`/`MediaSelected` events (note: an Android photo lands as a fixed `{cache}/captured.jpg` → copy it away immediately).
+3. **Device** (`nativephp/mobile-device`) — vibration, flashlight, unique device ID, device info, and battery status as synchronous return values (info fields are JSON strings).
+4. **Dialog** (`nativephp/mobile-dialog`) — native alert dialogs with buttons (`ButtonPressed` event) and toasts/snackbars (`Dialog::toast()`, synchronous).
+5. **File** (`nativephp/mobile-file`) — move/copy files in the app sandbox filesystem with automatic directory creation and integrity checking.
+6. **Microphone** (`nativephp/mobile-microphone`) — M4A/AAC audio recording with pause/resume, status query, and `MicrophoneRecorded` event; background recording via the `microphone_background` config.
+7. **Network** (`nativephp/mobile-network`) — `Network::status()` returns connected/type (wifi/cellular/…)/isExpensive/isConstrained (pull API, no change events).
+8. **Share** (`nativephp/mobile-share`) — native share sheet for URLs, text, and local files (fire-and-forget, no result event).
+9. **System** (`nativephp/mobile-system`) — platform detection (`isIos/isAndroid/isMobile`), opening the OS app settings, flashlight toggle.
 
-**Premium (proprietär, Lizenz + privates Composer-Repo nötig):**
-10. **Biometrics** (`nativephp/mobile-biometrics`, 49 $) — Face ID/Touch ID/Fingerprint-Prompt mit System-PIN-Fallback; Ergebnis als `Completed`-Event mit `bool $success` (Convenience, keine echte Sicherheit — Autorisierung serverseitig halten).
-11. **Geolocation** (`nativephp/mobile-geolocation`, 49 $) — einmalige Positionsabfrage (Netzwerk oder GPS) + Berechtigungsverwaltung; Ergebnis via `LocationReceived`-Event (lat/lng/accuracy/provider), kein kontinuierliches Tracking.
-12. **Scanner** (`nativephp/mobile-scanner`, 49 $) — QR-/Barcode-Scanner (ML Kit/AVFoundation) mit Formaten qr/ean/code128/…, continuous-Mode und `CodeScanned`-Event — prädestiniert für Lightning-/LNURL-QR-Codes.
-13. **SecureStorage** (`nativephp/mobile-secure-storage`, 49 $) — verschlüsselter Key-Value-Speicher (iOS Keychain / Android EncryptedSharedPreferences, AES-256-GCM) für Tokens & Secrets (nur kleine Strings, device-only).
-14. **Firebase Push** (`nativephp/mobile-firebase`, 99 $) — Push-Notifications über FCM (Android) + APNs-Routing (iOS) inkl. `enroll()/getToken()`, `TokenGenerated`-/`PushNotificationReceived`-Events, Data-only-Messages, Deep-Link-Navigation und Test-Befehl `fcm:send`.
+**Premium (proprietary, license + private Composer repo required):**
+10. **Biometrics** (`nativephp/mobile-biometrics`, $49) — Face ID/Touch ID/fingerprint prompt with system PIN fallback; result as a `Completed` event with `bool $success` (a convenience, not real security — keep authorization server-side).
+11. **Geolocation** (`nativephp/mobile-geolocation`, $49) — one-time position query (network or GPS) + permission management; result via `LocationReceived` event (lat/lng/accuracy/provider), no continuous tracking.
+12. **Scanner** (`nativephp/mobile-scanner`, $49) — QR/barcode scanner (ML Kit/AVFoundation) with formats qr/ean/code128/…, continuous mode, and `CodeScanned` event — ideal for Lightning/LNURL QR codes.
+13. **SecureStorage** (`nativephp/mobile-secure-storage`, $49) — encrypted key-value store (iOS Keychain / Android EncryptedSharedPreferences, AES-256-GCM) for tokens & secrets (small strings only, device-only).
+14. **Firebase Push** (`nativephp/mobile-firebase`, $99) — push notifications via FCM (Android) + APNs routing (iOS) including `enroll()/getToken()`, `TokenGenerated`/`PushNotificationReceived` events, data-only messages, deep-link navigation, and the test command `fcm:send`.
 
-**Framework-Fähigkeiten (im Core enthalten):**
-15. **EDGE-Komponenten** — echte native UI aus Blade: `<native:top-bar>` (Titel + max. 10 Actions), `<native:bottom-nav>` (max. 5 Tabs, Badges), `<native:side-nav>` (Drawer mit Header/Gruppen/Divider), Icon-Mapping (SF Symbols/Material Icons).
-16. **Event-System** — native Ergebnisse als Laravel-Events, in Livewire per `#[OnNative]`, im JS per `On()/Off()` aus `#nativephp`.
-17. **SQLite-Datenbank** — automatisch provisioniert, Migrationen bei jedem App-Start.
-18. **Queues** — Background-Queue-Worker auf eigenem Thread (ZTS-PHP, `database`-Connection).
-19. **Deep Links** — Custom-Scheme (`NATIVEPHP_DEEPLINK_SCHEME`) und Universal/App Links (`NATIVEPHP_DEEPLINK_HOST` + `.well-known`-Verifikationsdateien auf dem Server).
-20. **Secure APP_KEY & Crypt** — gerätespezifischer APP_KEY im nativen Secure Storage; `Crypt::encryptString()` für größere lokale Datenmengen.
-
----
-
-## 5) Build-/Run-/Hot-Reload-Workflow (täglicher Dev-Loop)
-
-**Variante A — Jump (schnellster Loop, echtes Gerät, kein Build):**
-```bash
-yarn dev                          # Terminal 1: Vite mit HMR (wird automatisch über Port 3003 geproxied)
-php artisan native:jump           # Terminal 2: QR-Code → mit Jump-App scannen
-# Optionen: --ip=192.168.x.x (bei mehreren Interfaces), --no-mdns, Ports --http-port/--ws-port/--bridge-port/--vite-proxy-port
-# Logs der Bridge: tail -f storage/logs/jump-bridge.log
-```
-Die meisten nativen APIs (Dialoge, Kamera, Scanner …) funktionieren in Jump; **nicht** verlässlich: alles mit langlebigem Geräte-State (Queues/Background) → dafür Variante B.
-
-**Variante B — echter Build im Emulator/Gerät:**
-```bash
-yarn build --mode=android                 # IMMER vor dem Kompilieren (sonst alte Assets im Bundle!)
-php artisan native:run android            # baut + deployed; ./native run android als Kurzform
-php artisan native:run android --watch    # mit Hot Reloading (oder separat: php artisan native:watch android)
-php artisan native:tail                   # Laravel-Logs der laufenden Android-App
-php artisan native:open android           # Android Studio mit dem nativen Projekt öffnen (Debugging)
-php artisan native:debug                  # Diagnose der Mobile-Umgebung
-```
-- `NATIVEPHP_APP_VERSION=DEBUG` in Dev belassen → Laravel-Bundle wird bei jedem Start neu geladen.
-- HMR auf Echtgerät: Gerät + Rechner im selben WLAN; volles Hot Reloading funktioniert am besten im Emulator.
-- Nach Plugin-Installation/-Registrierung oder NativePHP-Minor-Update: **Rebuild Pflicht** (`php artisan native:install --force` + `native:run`).
+**Framework capabilities (included in the core):**
+15. **EDGE components** — true native UI from Blade: `<native:top-bar>` (title + max. 10 actions), `<native:bottom-nav>` (max. 5 tabs, badges), `<native:side-nav>` (drawer with header/groups/divider), icon mapping (SF Symbols/Material Icons).
+16. **Event system** — native results as Laravel events, in Livewire via `#[OnNative]`, in JS via `On()/Off()` from `#nativephp`.
+17. **SQLite database** — automatically provisioned, migrations on every app start.
+18. **Queues** — background queue worker on its own thread (ZTS PHP, `database` connection).
+19. **Deep Links** — custom scheme (`NATIVEPHP_DEEPLINK_SCHEME`) and Universal/App Links (`NATIVEPHP_DEEPLINK_HOST` + `.well-known` verification files on the server).
+20. **Secure APP_KEY & Crypt** — device-specific APP_KEY in the native secure storage; `Crypt::encryptString()` for larger local data sets.
 
 ---
 
-## 6) Stolperfallen & Einschränkungen
+## 5) Build/run/hot-reload workflow (daily dev loop)
 
-1. **`NATIVEPHP_APP_ID` vor dem ersten `native:install` setzen** und danach nie ändern (= Bundle-ID in beiden Stores).
-2. **`nativephp/` ist ephemer** — nie committen, nie manuell editieren (geht bei `native:install --force` verloren); ebenso `public/ios-hot`/`public/android-hot` in `.gitignore`.
-3. **Tailwind v4 vs. alte Android-WebViews:** `@theme` & moderne CSS-Features laufen auf alten System-WebViews nicht. Da Flux UI Pro Tailwind v4 voraussetzt: **`min_sdk` bei 33 (Android 13) belassen** — deckt sich mit der offiziellen Support-Policy (iOS 18+/Android 13+). Auf einem AVD mit der min-Version testen.
-4. **Persistente Runtime:** Laravel-Kernel lebt über Requests hinweg → Singletons/statischer State können leaken; `reset_instances` ist an, bei Problemen `gc_between_dispatches=true` oder `NATIVEPHP_RUNTIME_MODE=classic`.
-5. **Mindestens v3.3.5/3.3.6 verwenden:** Fixes für Livewire-4-⚡-Emoji-Dateien (iOS-Extraktion), Hot Reload der persistenten Runtime, Android-POST/`$_POST` (Livewire-Requests!), Cold-Launch-Races.
-6. **Berechtigungen schlagen still fehl:** Kamera/Mikrofon/Scanner liefern bei verweigerter Permission keinen Fehler — UX mit Timeout/Fallback bauen; Scanner-/Camera-Permission in `config/nativephp.php` aktivieren.
-7. **Native Ergebnisse sind asynchron:** Nie auf Rückgabewerte von `Camera::getPhoto()`, `Biometrics::prompt()` etc. bauen — immer `#[OnNative]`-Handler; Events werden zusätzlich auch an JS in der WebView zugestellt (keine Doppelverarbeitung).
-8. **Dateipfade:** `storage_path()` zeigt auf Mobile **außerhalb** des App-Roots; nutzersichtbare Dateien über Disk `mobile_public` (Symlink `public/storage`), sonst gehen sie bei App-Updates verloren. Android-Kamera-Cachedateien sofort persistent wegkopieren.
-9. **Migrationen laufen bei jedem App-Start:** Eine fehlerhafte Migration in einem Update kann Nutzerdaten zerstören — vor Release auf Produktions-Build testen. App-Deinstallation löscht die gesamte SQLite-DB.
-10. **Secrets:** Die `.env` wird mit ausgeliefert → alles Sensible in `cleanup_env_keys`; pro Gerät einzigartige Schlüssel, Sanctum-Tokens kurzlebig; mit `Crypt` verschlüsselte Daten sind an den gerätespezifischen `APP_KEY` gebunden (Geräteverlust = Daten unentschlüsselbar).
-11. **Kein MySQL/PostgreSQL, kein Remote-DB-Zugriff, kein Redis-Queue, keine echten Background-Tasks** (nur Roadmap) — Architektur strikt API-First gegen das Portal.
-12. **EDGE-Einschränkungen:** nur Top-Bar/Bottom-Nav/Side-Nav/Icons, kein Tailwind-Styling, `active`-State pro Route serverseitig setzen, Links = volle Postbacks, falsche Icon-Namen ergeben stumm ein Kreis-Icon.
-13. **Jump:** Gast-WLANs mit Client-Isolation funktionieren nicht; mDNS ggf. mit `--no-mdns` umgehen; Jump ersetzt keine Release-Tests (`native:run`/`native:package`).
-14. **iOS generell nur auf macOS** (Build, Simulator, Packaging); Push-Notifications funktionieren nicht im iOS-Simulator; WSL wird nicht unterstützt (für Linux nativ irrelevant).
-15. **Plugins:** `composer require` allein reicht nicht — ohne `native:plugin:register` + Rebuild kein nativer Code; `native:run` warnt bei unregistrierten Plugins. Premium-Plugins prüfen: Livewire-v4-Kompatibilität laut Marketplace.
+**Variant A — Jump (fastest loop, real device, no build):**
+```bash
+yarn dev                          # Terminal 1: Vite with HMR (automatically proxied over port 3003)
+php artisan native:jump           # Terminal 2: QR code → scan with the Jump app
+# Options: --ip=192.168.x.x (with multiple interfaces), --no-mdns, ports --http-port/--ws-port/--bridge-port/--vite-proxy-port
+# Bridge logs: tail -f storage/logs/jump-bridge.log
+```
+Most native APIs (dialogs, camera, scanner …) work in Jump; **not** reliable: anything with long-lived device state (queues/background) → use Variant B for that.
+
+**Variant B — real build in the emulator/on device:**
+```bash
+yarn build --mode=android                 # ALWAYS before compiling (otherwise old assets in the bundle!)
+php artisan native:run android            # builds + deploys; ./native run android as the short form
+php artisan native:run android --watch    # with hot reloading (or separately: php artisan native:watch android)
+php artisan native:tail                   # Laravel logs of the running Android app
+php artisan native:open android           # open Android Studio with the native project (debugging)
+php artisan native:debug                  # diagnostics of the mobile environment
+```
+- Leave `NATIVEPHP_APP_VERSION=DEBUG` in dev → the Laravel bundle is reloaded on every start.
+- HMR on a real device: device + machine on the same Wi-Fi; full hot reloading works best in the emulator.
+- After plugin installation/registration or a NativePHP minor update: **rebuild mandatory** (`php artisan native:install --force` + `native:run`).
 
 ---
 
-## 7) Updates, Versionierung & App-Store-Releases
+## 6) Pitfalls & limitations
 
-### 7.1 Paket-Updates (nativephp/mobile)
-- Constraint pinnen: `"nativephp/mobile": "~3.3.6"` (Tilde: Patches automatisch, Minors bewusst).
-- **Patch-Release** (nur PHP-Code): `composer update` genügt — kein Rebuild, keine Store-Submission.
-- **Minor-Release** (kann Kotlin/Swift ändern): `composer update` → **`php artisan native:install --force`** (kompletter Rebuild) → `native:run` testen → neue Store-Submission nötig. Migration Guides beachten.
-- Flux Pro/Livewire normal über Composer aktualisieren; danach `yarn build --mode=android` nicht vergessen.
+1. **Set `NATIVEPHP_APP_ID` before the first `native:install`** and never change it afterward (= the bundle ID in both stores).
+2. **`nativephp/` is ephemeral** — never commit it, never edit it manually (it is lost on `native:install --force`); likewise put `public/ios-hot`/`public/android-hot` in `.gitignore`.
+3. **Tailwind v4 vs. old Android WebViews:** `@theme` & modern CSS features do not run on old system WebViews. Since Flux UI Pro requires Tailwind v4: **keep `min_sdk` at 33 (Android 13)** — this aligns with the official support policy (iOS 18+/Android 13+). Test on an AVD with the minimum version.
+4. **Persistent runtime:** the Laravel kernel lives across requests → singletons/static state can leak; `reset_instances` is on, for problems use `gc_between_dispatches=true` or `NATIVEPHP_RUNTIME_MODE=classic`.
+5. **Use at least v3.3.5/3.3.6:** fixes for Livewire 4 ⚡ emoji files (iOS extraction), hot reload of the persistent runtime, Android POST/`$_POST` (Livewire requests!), cold-launch races.
+6. **Permissions fail silently:** camera/microphone/scanner return no error when permission is denied — build UX with a timeout/fallback; enable the scanner/camera permission in `config/nativephp.php`.
+7. **Native results are asynchronous:** never rely on return values from `Camera::getPhoto()`, `Biometrics::prompt()` etc. — always use `#[OnNative]` handlers; events are additionally delivered to JS in the WebView (no double processing).
+8. **File paths:** `storage_path()` points **outside** the app root on mobile; serve user-visible files via the `mobile_public` disk (symlink `public/storage`), otherwise they are lost on app updates. Copy Android camera cache files away to a persistent location immediately.
+9. **Migrations run on every app start:** a faulty migration in an update can destroy user data — test against a production build before release. Uninstalling the app deletes the entire SQLite DB.
+10. **Secrets:** the `.env` is shipped along → put everything sensitive in `cleanup_env_keys`; keys are unique per device, Sanctum tokens short-lived; data encrypted with `Crypt` is bound to the device-specific `APP_KEY` (device loss = data undecryptable).
+11. **No MySQL/PostgreSQL, no remote DB access, no Redis queue, no true background tasks** (roadmap only) — strictly API-first architecture against the Portal.
+12. **EDGE limitations:** only top-bar/bottom-nav/side-nav/icons, no Tailwind styling, set the `active` state per route server-side, links = full postbacks, wrong icon names silently produce a circle icon.
+13. **Jump:** guest Wi-Fi networks with client isolation don't work; work around mDNS with `--no-mdns` if needed; Jump does not replace release tests (`native:run`/`native:package`).
+14. **iOS generally only on macOS** (build, simulator, packaging); push notifications don't work in the iOS simulator; WSL is not supported (irrelevant for native Linux).
+15. **Plugins:** `composer require` alone is not enough — without `native:plugin:register` + rebuild there is no native code; `native:run` warns about unregistered plugins. Check premium plugins: Livewire v4 compatibility per the marketplace.
 
-### 7.2 App-Versionierung
-- `NATIVEPHP_APP_VERSION` (öffentlich, SemVer empfohlen) und `NATIVEPHP_APP_VERSION_CODE` (interne Build-Nummer, muss pro Store-Upload strikt steigen) **nie manuell editieren**, sondern:
+---
+
+## 7) Updates, versioning & App Store releases
+
+### 7.1 Package updates (nativephp/mobile)
+- Pin the constraint: `"nativephp/mobile": "~3.3.6"` (tilde: patches automatically, minors deliberately).
+- **Patch release** (PHP code only): `composer update` is enough — no rebuild, no store submission.
+- **Minor release** (can change Kotlin/Swift): `composer update` → **`php artisan native:install --force`** (complete rebuild) → test `native:run` → a new store submission is required. Follow the migration guides.
+- Update Flux Pro/Livewire normally via Composer; afterward don't forget `yarn build --mode=android`.
+
+### 7.2 App versioning
+- **Never edit manually** `NATIVEPHP_APP_VERSION` (public, SemVer recommended) and `NATIVEPHP_APP_VERSION_CODE` (internal build number, must strictly increase per store upload), but instead:
 ```bash
-php artisan native:release patch|minor|major   # bumpt Version + Build-Nummer in .env
-php artisan native:check-build-number          # validiert/schlägt Build-Nummern vor
+php artisan native:release patch|minor|major   # bumps version + build number in .env
+php artisan native:check-build-number          # validates/suggests build numbers
 ```
 
-### 7.3 Android-Release (Play Store) — auf Linux komplett möglich
+### 7.3 Android release (Play Store) — fully possible on Linux
 ```bash
-# Einmalig: Keystore generieren (schreibt ANDROID_* in .env + .gitignore)
+# One-time: generate the keystore (writes ANDROID_* into .env + .gitignore)
 php artisan native:credentials android
 
-# Release-Build testen
+# Test the release build
 php artisan native:run android --build=release
 
-# Signiertes App-Bundle für den Play Store
+# Signed app bundle for the Play Store
 yarn build --mode=android
 php artisan native:package android --build-type=bundle
-#   Artefakt: nativephp/android/app/build/outputs/bundle/release/app-release.aab
+#   Artifact: nativephp/android/app/build/outputs/bundle/release/app-release.aab
 
-# Optional: direkter Upload (Google-Service-Account-JSON nötig)
+# Optional: direct upload (Google service account JSON required)
 php artisan native:package android --build-type=bundle \
   --upload-to-play-store --play-store-track=internal \
-  --google-service-key=/pfad/service-account.json
+  --google-service-key=/path/service-account.json
 ```
-- Für Store-Builds in `config/nativephp.php`: `minify_enabled=true`, `shrink_resources=true` (kleinere APK/AAB).
-- Mit `--google-service-key` wird die Build-Nummer automatisch gegen den Play Store inkrementiert; CI: `--no-tty` + Credentials als Env-Variablen (`ANDROID_KEYSTORE_FILE/_PASSWORD`, `ANDROID_KEY_ALIAS/_PASSWORD`).
-- Keystore-Probleme debuggen: `keytool -list -v -keystore <pfad>`.
-- **Keystore sicher backuppen** — Verlust = keine Updates der App mehr möglich.
+- For store builds in `config/nativephp.php`: `minify_enabled=true`, `shrink_resources=true` (smaller APK/AAB).
+- With `--google-service-key` the build number is automatically incremented against the Play Store; CI: `--no-tty` + credentials as env variables (`ANDROID_KEYSTORE_FILE/_PASSWORD`, `ANDROID_KEY_ALIAS/_PASSWORD`).
+- Debug keystore problems: `keytool -list -v -keystore <path>`.
+- **Back up the keystore securely** — losing it = no more app updates are possible.
 
-### 7.4 🍎 iOS-Release (nur macOS)
-- Voraussetzungen: Apple Developer Program, Distribution-Zertifikat (.p12), Provisioning-Profil, App-Store-Connect-API-Key (.p8 — nur einmal herunterladbar!).
-- `php artisan native:package ios --export-method=app-store --upload-to-app-store …` mit `APP_STORE_API_KEY_PATH/_ID/ISSUER_ID`, `IOS_DISTRIBUTION_CERTIFICATE_*`, `IOS_TEAM_ID` in `.env` (und in `cleanup_env_keys`!).
-- Hilfsflags: `--validate-profile`, `--validate-only`, `--test-upload`, `--clean-caches`, `--rebuild`.
+### 7.4 🍎 iOS release (macOS only)
+- Prerequisites: Apple Developer Program, distribution certificate (.p12), provisioning profile, App Store Connect API key (.p8 — downloadable only once!).
+- `php artisan native:package ios --export-method=app-store --upload-to-app-store …` with `APP_STORE_API_KEY_PATH/_ID/ISSUER_ID`, `IOS_DISTRIBUTION_CERTIFICATE_*`, `IOS_TEAM_ID` in `.env` (and in `cleanup_env_keys`!).
+- Helper flags: `--validate-profile`, `--validate-only`, `--test-upload`, `--clean-caches`, `--rebuild`.
 
-### 7.5 Wichtige Release-Regeln
-- Vor jedem Update-Release: Migrationen gegen einen Produktions-Build testen (laufen beim ersten Start beim Nutzer!).
-- Support-Ziel: iOS 18+/Android 13+; Feature-Verfügbarkeit pro OS-Version einzeln testen.
-- Optional: Bifrost-Dienst von NativePHP übernimmt Zertifikate/Keystores und bietet OTA-Updates (kommerzielles Add-on, nicht erforderlich).
+### 7.5 Important release rules
+- Before every update release: test migrations against a production build (they run on the user's first start!).
+- Support target: iOS 18+/Android 13+; test feature availability per OS version individually.
+- Optional: NativePHP's Bifrost service takes over certificates/keystores and offers OTA updates (commercial add-on, not required).
 
 ---
 
-## Abarbeitungs-Checkliste (Kurzfassung)
+## Execution checklist (short version)
 
-1. ☐ Lizenzen klären (Flux-Pro-Key bereitlegen; Premium-Plugins kaufen falls Biometrie/Scanner/Push/SecureStorage gewünscht)
-2. ☐ Toolchain: PHP 8.4 + gd (2G memory_limit), JDK 17, Android Studio + SDK API 36 + Build/Platform-Tools, AVD anlegen, `JAVA_HOME`/`ANDROID_HOME`/PATH, `java -version` & `adb devices` ok
-3. ☐ `laravel new einundzwanzig-mobile-app` (Livewire-Kit) → Flux Pro via Composer-Repo → `composer require nativephp/mobile:~3.3.6`
+1. ☐ Clarify licenses (have the Flux Pro key ready; buy premium plugins if Biometrics/Scanner/Push/SecureStorage are desired)
+2. ☐ Toolchain: PHP 8.4 + gd (2G memory_limit), JDK 17, Android Studio + SDK API 36 + Build/Platform-Tools, create AVD, `JAVA_HOME`/`ANDROID_HOME`/PATH, `java -version` & `adb devices` ok
+3. ☐ `laravel new einundzwanzig-mobile-app` (Livewire kit) → Flux Pro via Composer repo → `composer require nativephp/mobile:~3.3.6`
 4. ☐ `.env`: `NATIVEPHP_APP_ID`, `NATIVEPHP_APP_VERSION=DEBUG`, `QUEUE_CONNECTION=database`, `NATIVEPHP_START_URL`
-5. ☐ `php artisan native:install android` (ohne ICU) → `.gitignore` (nativephp/, *-hot)
-6. ☐ `vite.config.js` mit `nativephpMobile()`/`nativephpHotFile()`; `config/nativephp.php` (watch_paths + resources, cleanup_env_keys, min_sdk 33)
-7. ☐ `public/icon.png` (1024², opak) + `public/splash(.dark).png` (1080×1920)
-8. ☐ App-Shell: Layout mit viewport-fit=cover, `nativephp-safe-area`, `keyboard-visible`-Variante, EDGE-Bottom-Nav/Top-Bar; Screens Dashboard/Meetups/Profil/Login (Flux)
-9. ☐ Auth: Sanctum-Token-Flow gegen Portal-API, Token-Storage (SecureStorage oder Crypt), Token-Expiration + Rate-Limit serverseitig
-10. ☐ Dev-Loop: `yarn build --mode=android` → `php artisan native:run android --watch`; parallel Jump für Echtgerät-Tests
-11. ☐ Pest-Tests für Livewire-Komponenten; `vendor/bin/pint --dirty`
-12. ☐ Release: `native:release` → `native:credentials android` → `native:package android --build-type=bundle` → Play-Store-Track `internal`
+5. ☐ `php artisan native:install android` (without ICU) → `.gitignore` (nativephp/, *-hot)
+6. ☐ `vite.config.js` with `nativephpMobile()`/`nativephpHotFile()`; `config/nativephp.php` (watch_paths + resources, cleanup_env_keys, min_sdk 33)
+7. ☐ `public/icon.png` (1024², opaque) + `public/splash(.dark).png` (1080×1920)
+8. ☐ App shell: layout with viewport-fit=cover, `nativephp-safe-area`, `keyboard-visible` variant, EDGE bottom-nav/top-bar; screens Dashboard/Meetups/Profile/Login (Flux)
+9. ☐ Auth: Sanctum token flow against the Portal API, token storage (SecureStorage or Crypt), token expiration + rate limit server-side
+10. ☐ Dev loop: `yarn build --mode=android` → `php artisan native:run android --watch`; Jump in parallel for real-device tests
+11. ☐ Pest tests for Livewire components; `vendor/bin/pint --dirty`
+12. ☐ Release: `native:release` → `native:credentials android` → `native:package android --build-type=bundle` → Play Store track `internal`
 
 ---
 
-# Anhang: Vollständigkeits-Review
+# Appendix: Completeness Review
 
-## Vollständigkeits-Review: Plan vs. Doku-Korpus
+## Completeness review: plan vs. documentation corpus
 
-Gesamturteil: Der Plan ist sehr vollständig und in den kritischen Punkten (App-ID, ephemeres `nativephp/`, Tailwind-v4/min_sdk, Async-Events, Plugin-Lizenzen, Release-Flow) korrekt. Es gibt aber einige konkrete Korrekturen und Lücken:
+Overall verdict: The plan is very complete and correct on the critical points (App ID, ephemeral `nativephp/`, Tailwind v4/min_sdk, async events, plugin licenses, release flow). However, there are a few concrete corrections and gaps:
 
-### Korrekturen (falsch oder ungenau wiedergegeben)
+### Corrections (stated incorrectly or imprecisely)
 
-1. **Plugin-Registrierung ist Pflicht, nicht „ggf." — und ein Schritt fehlt:** Vor der ersten Registrierung muss der Provider publiziert werden: `php artisan vendor:publish --tag=nativephp-plugins-provider` (erzeugt `app/Providers/NativeServiceProvider.php`). Erst danach `php artisan native:plugin:register vendor/plugin-name`. Dieser publish-Schritt fehlt im Plan komplett (§4-Intro sagt nur „ggf. registrieren"). Auch die Free-Core-Plugins (z. B. Camera) müssen laut Plugin-Doku explizit registriert werden.
-2. **Rebuild nach Plugin-Installation:** Die Doku (Using Plugins) verlangt nach Registrierung nur einen Rebuild via `php artisan native:run` — nicht `native:install --force`. `--force` ist laut Doku nötig bei Minor-Upgrades von nativephp/mobile und bei Änderungen am nativen Code lokaler Plugins. Plan-Gotcha 15 ist hier strenger als die Doku (nicht schädlich, aber falsch begründet).
-3. **`hot_reload.watch_paths`-Behauptung widersprüchlich zur Doku:** Die Configuration-Seite nennt als Default `['app','resources','routes','config','public']` — `resources` ist also laut Config-Referenz bereits enthalten; nur das Beispiel auf der Development-Seite zeigt es ohne `resources`. Die Plan-Aussage „Default enthält es nicht" sollte zu „im Vendor-Default prüfen, ggf. ergänzen" abgeschwächt werden.
-4. **WS-Port-Angaben:** Config-Default für `server.ws_port` ist laut Configuration-Seite **8081**, während `native:jump --ws-port` Default 3001 nutzt. Der Plan nennt pauschal „Ports 3000–3003" — bei Nutzung der Config-Defaults (ohne Flags) kann zusätzlich 8081 relevant sein.
-5. **Firebase-Plugin (Plan §4 Nr. 14) unvollständig/teils ungenau:** Es fehlen die Pflicht-Setup-Schritte: `google-services.json` (Android) und `GoogleService-Info.plist` (iOS) ins **Projekt-Root**, Service-Account-JSON via env `FIREBASE_CREDENTIALS`, sowie `checkPermission()` (Status granted/denied/not_determined/provisional/ephemeral; empfohlener Flow: erst checken, UI-Erklärung, dann `enroll()`). Wichtiger Architektur-Punkt fehlt: `#[OnNative]` greift **nur im Foreground bei gemounteter Komponente**; für Hintergrund-Verarbeitung von Data-only-Messages braucht es einen klassischen `Event::listen()`-Listener im ServiceProvider (läuft in ephemerer PHP-Runtime, background-safe). Ferner: Android-Permission-Dialog erst ab API 33 (`POST_NOTIFICATIONS`), `clearBadge()`-Plattformunterschied, und Notifications **mit** `notification`-Block lösen kein PHP-Event aus (nur Data-only mit `event`-Key).
+1. **Plugin registration is mandatory, not "if needed" — and one step is missing:** Before the first registration, the provider must be published: `php artisan vendor:publish --tag=nativephp-plugins-provider` (creates `app/Providers/NativeServiceProvider.php`). Only then `php artisan native:plugin:register vendor/plugin-name`. This publish step is missing entirely from the plan (the §4 intro only says "register if needed"). The free core plugins (e.g. Camera) also have to be registered explicitly per the plugin docs.
+2. **Rebuild after plugin installation:** The docs (Using Plugins) require only a rebuild via `php artisan native:run` after registration — not `native:install --force`. According to the docs, `--force` is necessary for minor upgrades of nativephp/mobile and for changes to the native code of local plugins. Plan gotcha 15 is stricter here than the docs (not harmful, but incorrectly justified).
+3. **`hot_reload.watch_paths` claim contradicts the docs:** The Configuration page names the default as `['app','resources','routes','config','public']` — so per the config reference `resources` is already included; only the example on the Development page shows it without `resources`. The plan's claim "the default does not include it" should be softened to "check in the vendor default, add if needed".
+4. **WS port details:** The config default for `server.ws_port` is **8081** per the Configuration page, while `native:jump --ws-port` uses default 3001. The plan generally names "ports 3000–3003" — when using the config defaults (without flags), 8081 may also be relevant.
+5. **Firebase plugin (plan §4 no. 14) incomplete/partly inaccurate:** The mandatory setup steps are missing: `google-services.json` (Android) and `GoogleService-Info.plist` (iOS) in the **project root**, the service account JSON via env `FIREBASE_CREDENTIALS`, as well as `checkPermission()` (status granted/denied/not_determined/provisional/ephemeral; recommended flow: check first, UI explanation, then `enroll()`). An important architectural point is missing: `#[OnNative]` only fires **in the foreground when the component is mounted**; for background processing of data-only messages you need a classic `Event::listen()` listener in the ServiceProvider (runs in the ephemeral PHP runtime, background-safe). Furthermore: the Android permission dialog only from API 33 (`POST_NOTIFICATIONS`), the `clearBadge()` platform difference, and notifications **with** a `notification` block do not trigger a PHP event (only data-only with an `event` key).
 
-### Fehlende dokumentierte Punkte (Ergänzungen)
+### Missing documented points (additions)
 
-6. **Offizielles Starter-Kit als Alternative:** `laravel new my-app --using=nativephp/mobile-starter` (Quick-Start-Seite) wird im Plan nicht erwähnt — bewusste Entscheidung für das Livewire-Kit wäre okay, sollte aber als Alternative genannt werden.
-7. **ICU non-interactive:** Statt des Prompts kann `php artisan native:install android --without-icu` verwendet werden (passt zum geplanten skriptbaren Ablauf; Plan-Konvention `--no-interaction`).
-8. **`JUMP_BRIDGE_PORT=3002`:** Pflicht-Env, wenn man mit `--no-serve` einen eigenen Laravel-Server betreibt — fehlt in §5 Variante A.
-9. **Deep-Link-Gotchas (§4 Nr. 19):** Associated Domains funktionieren typischerweise **nicht im Simulator**; das OS **cached das Verifikationsergebnis** (bei Problemen App löschen + neu installieren); Custom Scheme muss eindeutig sein, `https` u. a. sind reserviert. Außerdem dokumentiert die Doku **keine** PHP-API zum Verarbeiten eingehender Deep-Links — der Plan sollte das nicht stillschweigend voraussetzen.
-10. **Config-Keys in §3.2 unvollständig:** `orientation.android` (Default: nur Portrait — relevant, falls Landscape gewünscht) und `cleanup_exclude_files` (Logs/Temp-Dateien vor Bundling entfernen) fehlen. `ipad => true` inkl. „Once iPad, Always iPad"-Falle fehlt — auf Linux/Android egal, aber bei späterem iOS-Release irreversibel.
-11. **Token-Strategie:** Die Doku empfiehlt konkret **Single-Use-Refresh-Tokens (~30 Tage)** zusätzlich zu kurzlebigen Auth-Tokens — der Plan sagt nur generisch „Refresh-Strategie".
-12. **App-Boot-Verhalten:** Bei jedem App-Start laufen nicht nur Migrationen, sondern auch **Cache-Clearing und Anlegen der Storage-Symlinks** (Overview-Seite) — relevant fürs mentale Modell (z. B. keine persistenten Caches einplanen).
-13. **Befehle, die fehlen:** `native:version` (installierte Version), `native:plugin:list` (zeigt registrierte Plugins **inkl. benötigter Berechtigungen** — nützlich für Play-Store-Privacy-Angaben), `native:run --start-url=` (Override der Start-URL pro Run), `native:jump --laravel-port=`.
-14. **Plugin-Mindestversionen:** Alle Core-/Premium-Plugins verlangen laut Plugin-Seiten **iOS 18.2+ und Android API 26+** — mit min_sdk 33 unkritisch, gehört aber zur Plugin-Kaufentscheidung in §0.
-15. **JS-Bridge-Einbindung:** Falls native Aufrufe aus Alpine/JS gewünscht: Einbindung der typisierten JS-Library erfolgt **nicht via npm**, sondern per `package.json`-`imports`-Eintrag (`"#nativephp": "./vendor/nativephp/mobile/resources/dist/native.js"`) — Composer-Install muss vor dem JS-Build vorhanden sein. Fehlt im Plan (für reinen Livewire-Weg optional).
-16. **Top-Bar-Details (§3.5):** Max. 10 Actions steht im Plan, aber nicht das Overflow-Verhalten (Android: nur erste 3 als Icon-Buttons, Rest im ⋮-Menü; iOS: Overflow ab >5) und dass `label` dort als Anzeigetext dient; `elevation` wirkt nur auf Android; `subtitle` wird im Doku-Beispiel genutzt, ist aber nicht offiziell in der Props-Liste dokumentiert.
-17. **Geolocation-Permission-Events (§4 Nr. 11):** Neben `LocationReceived` existieren `PermissionStatusReceived` und `PermissionRequestResult` mit Sonderwert `permanently_denied` (Nutzer muss in System-Einstellungen → via `System::appSettings()` dorthin leiten). Fehlt im Plan.
-18. **Pest/PHPUnit-Hinweis stimmt, aber konkreter:** Die Doku nennt explizit den `function_exists('nativephp_call')`-Guard als Pattern, damit Code im Web-/Test-Kontext sauber degradiert — der Plan erwähnt das, sollte es aber auch für eigene Service-Wrapper (Token-Storage-Fallback) vorschreiben.
+6. **Official starter kit as an alternative:** `laravel new my-app --using=nativephp/mobile-starter` (Quick Start page) is not mentioned in the plan — a deliberate decision for the Livewire kit would be fine, but it should be mentioned as an alternative.
+7. **ICU non-interactive:** Instead of the prompt, you can use `php artisan native:install android --without-icu` (fits the intended scriptable flow; plan convention `--no-interaction`).
+8. **`JUMP_BRIDGE_PORT=3002`:** Mandatory env when running your own Laravel server with `--no-serve` — missing in §5 Variant A.
+9. **Deep-link gotchas (§4 no. 19):** Associated Domains typically do **not** work in the simulator; the OS **caches the verification result** (for problems delete + reinstall the app); the custom scheme must be unique, `https` among others is reserved. Furthermore, the docs document **no** PHP API for handling incoming deep links — the plan should not silently assume one.
+10. **Config keys in §3.2 incomplete:** `orientation.android` (default: portrait only — relevant if landscape is desired) and `cleanup_exclude_files` (remove logs/temp files before bundling) are missing. `ipad => true` including the "Once iPad, Always iPad" trap is missing — irrelevant on Linux/Android, but irreversible for a later iOS release.
+11. **Token strategy:** The docs specifically recommend **single-use refresh tokens (~30 days)** in addition to short-lived auth tokens — the plan only generically says "refresh strategy".
+12. **App boot behavior:** On every app start, not only migrations run, but also **cache clearing and creation of the storage symlinks** (Overview page) — relevant for the mental model (e.g. don't plan for persistent caches).
+13. **Missing commands:** `native:version` (installed version), `native:plugin:list` (shows registered plugins **including required permissions** — useful for Play Store privacy declarations), `native:run --start-url=` (override the start URL per run), `native:jump --laravel-port=`.
+14. **Plugin minimum versions:** All core/premium plugins require **iOS 18.2+ and Android API 26+** per the plugin pages — unproblematic with min_sdk 33, but it belongs in the plugin purchase decision in §0.
+15. **JS bridge integration:** If native calls from Alpine/JS are desired: the typed JS library is integrated **not via npm**, but via a `package.json` `imports` entry (`"#nativephp": "./vendor/nativephp/mobile/resources/dist/native.js"`) — the Composer install must be present before the JS build. Missing from the plan (optional for the pure Livewire path).
+16. **Top-bar details (§3.5):** Max. 10 actions is stated in the plan, but not the overflow behavior (Android: only the first 3 as icon buttons, the rest in the ⋮ menu; iOS: overflow above >5) and that `label` serves as the display text there; `elevation` only takes effect on Android; `subtitle` is used in the doc example but is not officially documented in the props list.
+17. **Geolocation permission events (§4 no. 11):** Besides `LocationReceived`, there are `PermissionStatusReceived` and `PermissionRequestResult` with the special value `permanently_denied` (the user must be directed to the system settings → via `System::appSettings()`). Missing from the plan.
+18. **Pest/PHPUnit note is correct, but more concretely:** The docs explicitly name the `function_exists('nativephp_call')` guard as a pattern so that code degrades cleanly in the web/test context — the plan mentions it but should also prescribe it for your own service wrappers (token storage fallback).
 
-### Kleinigkeiten
+### Minor points
 
-- §1.1 „NativePHP bündelt PHP 8.4" + „PHP 8.3–8.5": korrekt laut Doku (Overview vs. Changelog), Formulierung okay.
-- ICU-Größenangabe: +~30 MB gilt für Android, iOS wären +~100 MB — bei Android-only-Plan irrelevant, im iOS-Abschnitt aber erwähnenswert.
-- Der Versioning-Doku-Beispiel-Constraint ist `~2.0.0` (veraltetes Beispiel); Plan macht es mit `~3.3.6` richtig.
+- §1.1 "NativePHP bundles PHP 8.4" + "PHP 8.3–8.5": correct per the docs (Overview vs. Changelog), wording fine.
+- ICU size figure: +~30 MB applies to Android, iOS would be +~100 MB — irrelevant in an Android-only plan, but worth mentioning in the iOS section.
+- The versioning doc example constraint is `~2.0.0` (outdated example); the plan does it correctly with `~3.3.6`.
 
-Kein Punkt im Plan ist gravierend falsch; die wichtigsten Fixes sind **(1) publish des NativeServiceProvider + verpflichtende Plugin-Registrierung**, **(5) Firebase-Setup-Details inkl. Foreground/Background-Event-Unterschied** und **(3) die watch_paths-Behauptung**.
+No point in the plan is seriously wrong; the most important fixes are **(1) publishing the NativeServiceProvider + mandatory plugin registration**, **(5) Firebase setup details including the foreground/background event difference**, and **(3) the watch_paths claim**.

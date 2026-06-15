@@ -83,7 +83,7 @@ new class extends Component {
             @if ($profile && ($profile['avatar'] ?? null))
                 <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
             @else
-                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'EINUNDZWANZIG' }}"/>
+                <flux:avatar size="lg" name="{{ $profile['name'] ?? 'TWENTY ONE' }}"/>
             @endif
             <div class="min-w-0">
                 <flux:heading size="lg">{{ $profile['name'] ?? __('Verbunden') }}</flux:heading>

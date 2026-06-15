@@ -206,7 +206,7 @@ it('unwraps the data wrapper of my-meetups and casts dates and booleans', functi
 
 it('maps my course events including course and venue summaries', function () {
     withPortalToken();
-    MockClient::global([GetMyCourseEventsRequest::class => MockResponse::make([courseEventFixture()])]);
+    MockClient::global([GetMyCourseEventsRequest::class => MockResponse::make(['data' => [courseEventFixture()]])]);
 
     $events = portalApi()->myCourseEvents(5);
 
@@ -283,7 +283,6 @@ it('returns empty results for my-data without a portal connection', function () 
     expect($api->myMeetups())->toBeEmpty()
         ->and($api->myCourseEvents())->toBeEmpty()
         ->and($api->myCourses())->toBeEmpty()
-        ->and($api->memberMeetups())->toBeEmpty()
         ->and($api->user())->toBeNull();
 
     MockClient::global()->assertNothingSent();

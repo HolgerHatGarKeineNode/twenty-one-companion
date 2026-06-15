@@ -3,6 +3,7 @@
 use App\Http\Integrations\Portal\Requests\CreateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
 use App\Http\Integrations\Portal\Requests\UpdateLecturerRequest;
+use App\Http\Integrations\Portal\Requests\UploadLecturerAvatarRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -140,4 +141,57 @@ it('does not send a write without a portal token', function () {
         ->set('form.name', 'Toni Stack')
         ->call('save')
         ->assertNotDispatched('teaching-changed');
+});
+
+it('uploads the selected avatar to the new lecturer after creating', function () {
+    withPortalToken();
+    MockClient::global([
+        CreateLecturerRequest::class => MockResponse::make(['data' => myLecturerFixture(['id' => 99])], 201),
+        UploadLecturerAvatarRequest::class => MockResponse::make(['data' => myLecturerFixture(['id' => 99])], 200),
+    ]);
+
+    Livewire::test('lecturer-editor')
+        ->call('open')
+        ->set('form.name', 'Toni Stack')
+        ->set('imagePath', fakeImagePath())
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('teaching-changed');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadLecturerAvatarRequest
+        && $request->resolveEndpoint() === '/lecturers/99/avatar');
+});
+
+it('uploads the selected avatar to the existing lecturer when editing', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyLecturersRequest::class => MockResponse::make(['data' => [myLecturerFixture(['id' => 3])]]),
+        UpdateLecturerRequest::class => MockResponse::make(['data' => myLecturerFixture(['id' => 3])], 200),
+        UploadLecturerAvatarRequest::class => MockResponse::make(['data' => myLecturerFixture(['id' => 3])], 200),
+    ]);
+
+    Livewire::test('lecturer-editor')
+        ->call('open', 3)
+        ->set('imagePath', fakeImagePath())
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('teaching-changed');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadLecturerAvatarRequest
+        && $request->resolveEndpoint() === '/lecturers/3/avatar');
+});
+
+it('does not upload an avatar when none was selected', function () {
+    withPortalToken();
+    MockClient::global([
+        CreateLecturerRequest::class => MockResponse::make(['data' => myLecturerFixture(['id' => 99])], 201),
+    ]);
+
+    Livewire::test('lecturer-editor')
+        ->call('open')
+        ->set('form.name', 'Toni Stack')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    MockClient::global()->assertNotSent(UploadLecturerAvatarRequest::class);
 });

@@ -1,35 +1,31 @@
-// EINUNDZWANZIG Mobile — HEADLESS Release-Ankündigung als Nostr-Note (kind 1, reines Node).
+// TWENTY ONE Companion — HEADLESS release announcement as a Nostr note (kind 1, pure Node).
 //
-//   node scripts/announce-release.cjs --version 1.1.0            # Preview (Dry-Run, EN)
-//   node scripts/announce-release.cjs --version 1.1.0 --lang de  # Deutsches Layout
-//   node scripts/announce-release.cjs --version 1.1.0 --go       # LIVE veröffentlichen!
-//   node scripts/announce-release.cjs --text-file <datei> …      # Text-Pfad überschreiben
+//   node scripts/announce-release.cjs --version 1.1.0            # Preview (dry run)
+//   node scripts/announce-release.cjs --version 1.1.0 --go       # LIVE publish!
+//   node scripts/announce-release.cjs --text-file <file> …       # Override the text path
 //
-// --lang en|de steuert NUR die festen Bausteine (Header, Download-Labels). Der
-// Body aus announce.txt muss in der passenden Sprache verfasst sein. Standard: en.
+// What it does:
+//   Builds an announcement note for a new app release. The release text itself is
+//   read from dist/v<version>/announce.txt (placed there beforehand by Claude as a
+//   short, marketing-friendly text; --text-file overrides the path). Below it, all
+//   download channels (Zapstore, Obtainium, GitHub) are appended automatically with
+//   emojis in a clean layout. All published texts are English (consistent with the
+//   English-only release policy from v1.1.0 on).
 //
-// Was es tut:
-//   Baut eine Ankündigungs-Note für ein neues App-Release. Der eigentliche
-//   Release-Text wird aus dist/v<version>/announce.txt gelesen (von Claude als
-//   kurzer, marketing-tauglicher Text vorab dort abgelegt; --text-file übersteuert
-//   den Pfad). Darunter werden automatisch alle Download-Kanäle (Zapstore,
-//   Obtainium, GitHub) mit Emojis in sauberem Layout angehängt. Sprache der festen
-//   Bausteine: Englisch (konsistent mit der englischen Release-Politik ab v1.1.0).
+// Signing is done via NIP-46 (Amber bunker) with NOSTR_CLIENT_SK + NOSTR_BUNKER_URL from .env.
+// Broadcast follows the gossip/NIP-65 strategy: the publisher's outbox relays (kind 10002)
+// are loaded; the fallback is the default relays below.
 //
-// Signiert wird per NIP-46 (Amber-Bunker) mit NOSTR_CLIENT_SK + NOSTR_BUNKER_URL aus .env.
-// Broadcast folgt der Gossip-/NIP-65-Strategie: die Outbox-Relays (kind 10002)
-// des Publishers werden geladen; Fallback sind die Default-Relays unten.
+// Gates (always run, before signing):
+//   - release text is non-empty and ≤ 1000 characters
+//   - version is a real version (not "DEBUG"/empty)
+// With --go additionally:
+//   - the signer pubkey must match PUBLISHER_NPUB (only announce as the official
+//     publisher), then relay verification via the event ID.
 //
-// Gates (laufen IMMER, vor dem Signieren):
-//   - Release-Text nicht leer und ≤ 1000 Zeichen
-//   - Version ist eine echte Version (nicht "DEBUG"/leer)
-// Bei --go zusätzlich:
-//   - Signer-Pubkey muss dem PUBLISHER_NPUB entsprechen (nur als offizieller
-//     Herausgeber ankündigen), danach Relay-Verifikation über die Event-ID.
+// Preview is the built-in dry run: without --go NOTHING is signed/sent.
 //
-// Preview ist der eingebaute Dry-Run: ohne --go wird NICHTS signiert/gesendet.
-//
-// Voraussetzung bei --go: NOSTR_BUNKER_URL + NOSTR_CLIENT_SK in .env, Amber online.
+// Requirement for --go: NOSTR_BUNKER_URL + NOSTR_CLIENT_SK in .env, Amber online.
 const fs = require('fs')
 const path = require('path')
 const ROOT = path.join(__dirname, '..')
@@ -38,8 +34,8 @@ const { BunkerSigner, parseBunkerInput } = require('nostr-tools/nip46')
 const nip19 = require('nostr-tools/nip19')
 if (typeof WebSocket !== 'undefined') useWebSocketImplementation(WebSocket)
 
-// ── Projekt-Konstanten (Single Source of Truth für die Links) ───────────────
-const REPO = 'https://github.com/HolgerHatGarKeineNode/einundzwanzig-mobile-app'
+// ── Project constants (single source of truth for the links) ────────────────
+const REPO = 'https://github.com/HolgerHatGarKeineNode/twenty-one-companion'
 const PUBLISHER_NPUB = 'npub1pt0kw36ue3w2g4haxq3wgm6a2fhtptmzsjlc2j2vphtcgle72qesgpjyc6'
 const LINKS = {
   github: REPO + '/releases/latest',
@@ -47,30 +43,20 @@ const LINKS = {
   zapstore: 'https://zapstore.dev',
   source: REPO,
 }
-// Topic-Tags (NIP-12 t-Tags) + zugehörige Hashtags im content.
+// Topic tags (NIP-12 t-tags) + matching hashtags in the content.
 const TOPICS = ['bitcoin', 'nostr', 'einundzwanzig', 'android']
 
-// Feste Layout-Bausteine je Sprache (--lang en|de). Standard: en (Release-Politik).
-// Funktionen erhalten die Version; ${...}-Links kommen aus LINKS.
+// Fixed layout building blocks (English-only, per the release policy).
+// Functions receive the version; ${...} links come from LINKS.
 const L10N = {
-  en: {
-    header: (v) => `🟧⚡ EINUNDZWANZIG Mobile v${v} is out! 🎉`,
-    downloadsIntro: '📥 Get it / update now:',
-    zapstore: `⚡ Zapstore (Nostr-signed, auto-verified):\n   ${LINKS.zapstore} — search for "EINUNDZWANZIG"`,
-    obtainium: `📦 Obtainium (auto-updates from GitHub):\n   ${LINKS.obtainium}`,
-    github: `🐙 GitHub release (APK + verification):\n   ${LINKS.github}`,
-    source: `🛠️ Source code (open source, MIT):\n   ${LINKS.source}`,
-  },
-  de: {
-    header: (v) => `🟧⚡ EINUNDZWANZIG Mobile v${v} ist da! 🎉`,
-    downloadsIntro: '📥 Jetzt installieren / aktualisieren:',
-    zapstore: `⚡ Zapstore (Nostr-signiert, automatisch verifiziert):\n   ${LINKS.zapstore} — nach "EINUNDZWANZIG" suchen`,
-    obtainium: `📦 Obtainium (automatische Updates aus GitHub):\n   ${LINKS.obtainium}`,
-    github: `🐙 GitHub-Release (APK + Verifikation):\n   ${LINKS.github}`,
-    source: `🛠️ Quellcode (Open Source, MIT):\n   ${LINKS.source}`,
-  },
+  header: (v) => `🟧⚡ TWENTY ONE Companion v${v} is out! 🎉`,
+  downloadsIntro: '📥 Get it / update now:',
+  zapstore: `⚡ Zapstore (Nostr-signed, auto-verified):\n   ${LINKS.zapstore} — search for "TWENTY ONE"`,
+  obtainium: `📦 Obtainium (auto-updates from GitHub):\n   ${LINKS.obtainium}`,
+  github: `🐙 GitHub release (APK + verification):\n   ${LINKS.github}`,
+  source: `🛠️ Source code (open source, MIT):\n   ${LINKS.source}`,
 }
-// Default-Broadcast-Relays, falls der Publisher kein kind 10002 hat.
+// Default broadcast relays in case the publisher has no kind 10002.
 const DEFAULT_RELAYS = [
   'wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.einundzwanzig.space',
   'wss://relay.nostr.band', 'wss://relay.primal.net',
@@ -99,36 +85,34 @@ function hexToBytes(hex) {
 const args = process.argv.slice(2)
 const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined }
 const GO = args.includes('--go')
-const lang = (get('--lang') || 'en').toLowerCase()
-if (!L10N[lang]) { console.error('GATE FAIL: --lang muss "en" oder "de" sein'); process.exit(1) }
 let version = get('--version')
 
 const env = loadEnv()
 if (!version) version = env.NATIVEPHP_APP_VERSION
 if (!version || version === 'DEBUG') {
-  console.error('GATE FAIL: keine echte Version (--version <x.y.z> übergeben oder NATIVEPHP_APP_VERSION in .env setzen)')
+  console.error('GATE FAIL: no real version (pass --version <x.y.z> or set NATIVEPHP_APP_VERSION in .env)')
   process.exit(1)
 }
 
-// Default-Textpfad folgt der dist-Konvention; --text-file übersteuert ihn.
+// The default text path follows the dist convention; --text-file overrides it.
 const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announce.txt')
 
 ;(async () => {
-  // 1) Release-Text laden + lokale Gates.
+  // 1) Load the release text + local gates.
   const textPath = path.resolve(textFile)
   if (!fs.existsSync(textPath)) {
-    console.error('GATE FAIL: Announce-Text fehlt: ' + textPath)
-    console.error('  → Erst den marketing-tauglichen Release-Text dort ablegen (Claude erzeugt ihn aus dist/v' + version + '/).')
+    console.error('GATE FAIL: announce text missing: ' + textPath)
+    console.error('  → First place the marketing-ready release text there (Claude generates it from dist/v' + version + '/).')
     process.exit(1)
   }
   const text = fs.readFileSync(textPath, 'utf8').trim()
   if (!text || text.length > 1000) {
-    console.error('GATE FAIL (Text): ' + JSON.stringify({ empty: !text, len: text.length, max: 1000 }))
+    console.error('GATE FAIL (text): ' + JSON.stringify({ empty: !text, len: text.length, max: 1000 }))
     process.exit(1)
   }
 
-  // 2) content im festen Layout bauen (Release-Text + Download-Kanäle + Hashtags).
-  const t = L10N[lang]
+  // 2) Build the content in the fixed layout (release text + download channels + hashtags).
+  const t = L10N
   const header = t.header(version)
   const downloads = [
     t.downloadsIntro,
@@ -144,13 +128,13 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
   const hashtags = TOPICS.map(topic => '#' + topic).join(' ')
   const content = `${header}\n\n${text}\n\n${downloads}\n\n${hashtags}`
 
-  // 3) Tags: client + Topic-t-Tags.
+  // 3) Tags: client + topic t-tags.
   const tags = [
-    ['client', 'EINUNDZWANZIG'],
+    ['client', 'TWENTY ONE Companion'],
     ...TOPICS.map(topic => ['t', topic]),
   ]
 
-  // 4) Preview (kein Signieren) — eingebauter Dry-Run.
+  // 4) Preview (no signing) — built-in dry run.
   if (!GO) {
     console.log(JSON.stringify({
       ok: true, stage: 'preview', version,
@@ -163,28 +147,28 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     process.exit(0)
   }
 
-  // 5) Signer aus .env (Amber-Bunker).
+  // 5) Signer from .env (Amber bunker).
   const bunkerUrl = process.env.NOSTR_BUNKER_URL || env.NOSTR_BUNKER_URL
   const clientSk = process.env.NOSTR_CLIENT_SK || env.NOSTR_CLIENT_SK
-  if (!bunkerUrl || !clientSk) { console.error('NOSTR_BUNKER_URL/NOSTR_CLIENT_SK fehlen (.env)'); process.exit(1) }
+  if (!bunkerUrl || !clientSk) { console.error('NOSTR_BUNKER_URL/NOSTR_CLIENT_SK missing (.env)'); process.exit(1) }
   const bp = await parseBunkerInput(bunkerUrl)
-  if (!bp) { console.error('ungültige bunker://-URL'); process.exit(1) }
+  if (!bp) { console.error('invalid bunker:// URL'); process.exit(1) }
 
   const pool = new SimplePool()
   const signer = BunkerSigner.fromBunker(hexToBytes(clientSk), bp, { pool, onauth: (u) => console.error('⚠ Amber auth_url: ' + u) })
-  console.error('▶ Verbinde mit Bunker (Amber)…')
+  console.error('▶ Connecting to the bunker (Amber)…')
   await Promise.race([signer.connect(), new Promise((_, r) => setTimeout(() => r(new Error('connect timeout 60s')), 60000))])
   const pubkey = await signer.getPublicKey()
 
-  // 6) Gate: nur als offizieller Publisher ankündigen.
+  // 6) Gate: only announce as the official publisher.
   const expected = nip19.decode(PUBLISHER_NPUB).data
   if (pubkey !== expected) {
-    console.error('GATE FAIL: Signer ' + pubkey.slice(0, 12) + '… ist nicht der Publisher (' + PUBLISHER_NPUB.slice(0, 16) + '…)')
+    console.error('GATE FAIL: signer ' + pubkey.slice(0, 12) + '… is not the publisher (' + PUBLISHER_NPUB.slice(0, 16) + '…)')
     process.exit(1)
   }
 
-  // 7) NIP-65: Outbox-Relays des Publishers laden (Gossip-Strategie).
-  console.error('▶ Lade NIP-65 Outbox-Relays (kind 10002)…')
+  // 7) NIP-65: load the publisher's outbox relays (gossip strategy).
+  console.error('▶ Loading NIP-65 outbox relays (kind 10002)…')
   const relayListEvs = await pool.querySync(BOOTSTRAP, { kinds: [10002], authors: [pubkey], limit: 1 }, { maxWait: 8000 })
   relayListEvs.sort((a, b) => b.created_at - a.created_at)
   let broadcastRelays
@@ -192,20 +176,20 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     broadcastRelays = relayListEvs[0].tags
       .filter(t => t[0] === 'r' && (!t[2] || t[2] === 'write'))
       .map(t => t[1])
-    console.error('Outbox-Relays:', broadcastRelays.join(', '))
+    console.error('Outbox relays:', broadcastRelays.join(', '))
   } else {
-    console.error('kein kind 10002 gefunden — Fallback auf Default-Relays')
+    console.error('no kind 10002 found — falling back to default relays')
     broadcastRelays = DEFAULT_RELAYS
   }
   if (!broadcastRelays.length) { broadcastRelays = DEFAULT_RELAYS }
 
-  // 8) Signieren + Broadcast.
+  // 8) Sign + broadcast.
   const signed = await signer.signEvent({ kind: 1, created_at: Math.floor(Date.now() / 1000), tags, content })
   const sends = await Promise.allSettled(pool.publish(broadcastRelays, signed))
   const accepted = []
   sends.forEach((s, i) => { if (s.status === 'fulfilled') accepted.push(broadcastRelays[i]) })
 
-  // 9) Relay-Verifikation über die Event-ID.
+  // 9) Relay verification via the event ID.
   await new Promise(r => setTimeout(r, 800))
   const verify = await pool.querySync((accepted.length ? accepted : broadcastRelays).slice(0, 4), { ids: [signed.id] }, { maxWait: 5000 })
   const verified = verify.some(e => e.id === signed.id)

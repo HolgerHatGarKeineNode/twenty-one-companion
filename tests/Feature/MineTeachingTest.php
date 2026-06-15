@@ -76,7 +76,7 @@ it('lists own course events on the termine tab', function () {
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5, 'name' => 'Bitcoin, Blockchain und Geld'])]),
-        GetMyCourseEventsRequest::class => MockResponse::make([myCourseEventFixture(['id' => 9, 'course_id' => 5])]),
+        GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture(['id' => 9, 'course_id' => 5])]]),
     ]);
 
     Livewire::test('pages::mine.teaching', ['tab' => 'termine'])

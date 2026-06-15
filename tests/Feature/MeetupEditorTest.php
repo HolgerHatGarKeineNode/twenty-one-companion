@@ -6,6 +6,7 @@ use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
+use App\Http\Integrations\Portal\Requests\UploadMeetupLogoRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -202,4 +203,44 @@ it('is not reachable without a portal token via the writer gate', function () {
         ->assertNotDispatched('meetup-saved');
 
     MockClient::global()->assertNotSent(CreateMeetupRequest::class);
+});
+
+it('uploads the selected logo to the new meetup after creating', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+        CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 99])], 201),
+        UploadMeetupLogoRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 99])], 200),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Musterstadt')
+        ->call('selectCity', 7, 'Musterstadt')
+        ->set('imagePath', fakeImagePath('logo.jpg'))
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadMeetupLogoRequest
+        && $request->resolveEndpoint() === '/meetup/99/logo');
+});
+
+it('uploads the selected logo to the existing meetup when editing', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        UpdateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 21])], 200),
+        UploadMeetupLogoRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 21])], 200),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->call('open', 21)
+        ->set('imagePath', fakeImagePath('logo.jpg'))
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadMeetupLogoRequest
+        && $request->resolveEndpoint() === '/meetup/21/logo');
 });

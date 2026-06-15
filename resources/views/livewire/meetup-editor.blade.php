@@ -3,10 +3,12 @@
 use App\Data\Portal\CityData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Livewire\Concerns\HandlesImageUpload;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\MeetupForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
+use App\Services\WriteResult;
 use App\Support\Markdown;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -27,7 +29,7 @@ use Livewire\Component;
  * Form-Felder gemappt, Erfolg/Fehler über Toast + Haptik bestätigt.
  */
 new class extends Component {
-    use HandlesPortalWriteFeedback;
+    use HandlesImageUpload, HandlesPortalWriteFeedback;
 
     public MeetupForm $form;
 
@@ -60,6 +62,11 @@ new class extends Component {
         }
     }
 
+    protected function imageUploadKey(): string
+    {
+        return 'meetup-logo';
+    }
+
     private function resetEditor(): void
     {
         $this->form->reset();
@@ -67,6 +74,7 @@ new class extends Component {
         $this->cityQuery = '';
         $this->showPreview = false;
         $this->ignoreDuplicates = false;
+        $this->resetImageState();
         $this->resetErrorBag();
     }
 
@@ -88,6 +96,7 @@ new class extends Component {
         }
 
         $this->editingId = $meetup->id;
+        $this->setCurrentImageUrl($meetup->logo);
         $this->form->setMeetup($meetup);
         // Stadtname netzwerkfrei aus den gecachten Karten-Meetups (per Slug).
         $this->form->cityName = $this->cachedMapMeetups()
@@ -277,12 +286,21 @@ new class extends Component {
             : $writer->updateMeetup($this->editingId, $payload);
 
         if ($result->successful()) {
+            // Zweistufig: das Meetup existiert jetzt, das Logo geht separat raus.
+            $logoFailed = $this->uploadSelectedImage($this->editingId ?? $result->createdId());
+
             $this->handleSuccess();
+            $this->warnIfImageUploadFailed($logoFailed);
 
             return;
         }
 
         $this->reportWriteFailure($result, __('Du darfst dieses Meetup nicht bearbeiten.'));
+    }
+
+    protected function uploadImage(int $id, string $filePath): WriteResult
+    {
+        return app(PortalWriter::class)->uploadMeetupLogo($id, $filePath);
     }
 
     private function handleSuccess(): void
@@ -365,6 +383,14 @@ new class extends Component {
                 @endif
             @endif
         </div>
+
+        <x-image-picker
+            :label="__('Logo')"
+            :current-url="$currentImageUrl"
+            :has-selected="$this->hasSelectedImage()"
+            shape="square"
+            :hint="__('JPEG, PNG, WebP oder AVIF, max. 5 MB.')"
+        />
 
         {{-- Beschreibung mit Markdown-Vorschau-Toggle (Phase 4.5). --}}
         <div class="flex flex-col gap-2">

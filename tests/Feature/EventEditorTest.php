@@ -36,6 +36,20 @@ it('creates an event for the selected meetup and sends the combined start payloa
         && $request->body()->all()['location'] === 'Bitcoin-Bar');
 });
 
+it('preselects the only own meetup when creating from the FAB', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    // Der native Select zeigt den ersten Eintrag an — ohne Vorauswahl bliebe
+    // meetup_id ungebunden (Bug, auf dem Emulator gefunden). Jetzt ist es gesetzt.
+    Livewire::test('event-editor')
+        ->call('open')
+        ->assertSet('form.meetup_id', 21)
+        ->assertSet('meetupLocked', false);
+});
+
 it('requires a meetup, date and time before sending', function () {
     withPortalToken();
     MockClient::global([
@@ -44,6 +58,8 @@ it('requires a meetup, date and time before sending', function () {
 
     Livewire::test('event-editor')
         ->call('open')
+        // Vorauswahl zurücknehmen, um die Pflichtfeld-Regeln zu prüfen.
+        ->set('form.meetup_id', null)
         ->call('save')
         ->assertHasErrors(['form.meetup_id' => 'required', 'form.date' => 'required', 'form.time' => 'required'])
         ->assertNotDispatched('meetup-event-saved');
@@ -185,4 +201,116 @@ it('does not send a write without a portal token', function () {
         ->set('form.time', '19:00')
         ->call('save')
         ->assertNotDispatched('meetup-event-saved');
+});
+
+it('creates a weekly recurring series with the recurrence payload', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        CreateMeetupEventRequest::class => MockResponse::make(['data' => [myMeetupEventFixture(['id' => 99])]], 201),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-01')
+        ->set('form.time', '19:00')
+        ->set('form.repeats', true)
+        ->set('form.recurrence_type', 'weekly')
+        ->set('form.recurrence_day_of_week', 'tuesday')
+        ->set('form.recurrence_end_date', '2026-12-31')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-event-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateMeetupEventRequest
+        && $request->body()->all()['recurrence_type'] === 'weekly'
+        && $request->body()->all()['recurrence_day_of_week'] === 'tuesday'
+        && $request->body()->all()['recurrence_end_date'] === '2026-12-31');
+});
+
+it('creates a custom monthly-weekday series with day and position', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        CreateMeetupEventRequest::class => MockResponse::make(['data' => [myMeetupEventFixture(['id' => 99])]], 201),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-01')
+        ->set('form.time', '19:00')
+        ->set('form.repeats', true)
+        ->set('form.recurrence_type', 'custom')
+        ->set('form.recurrence_day_of_week', 'tuesday')
+        ->set('form.recurrence_day_position', 'second')
+        ->set('form.recurrence_end_date', '2027-06-30')
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('meetup-event-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateMeetupEventRequest
+        && $request->body()->all()['recurrence_type'] === 'custom'
+        && $request->body()->all()['recurrence_day_of_week'] === 'tuesday'
+        && $request->body()->all()['recurrence_day_position'] === 'second');
+});
+
+it('requires a type and end date when the series toggle is on', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-01')
+        ->set('form.time', '19:00')
+        ->set('form.repeats', true)
+        ->call('save')
+        ->assertHasErrors(['form.recurrence_type', 'form.recurrence_end_date'])
+        ->assertNotDispatched('meetup-event-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupEventRequest::class);
+});
+
+it('rejects a series end date before the start date', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-15')
+        ->set('form.time', '19:00')
+        ->set('form.repeats', true)
+        ->set('form.recurrence_type', 'weekly')
+        ->set('form.recurrence_end_date', '2026-12-01')
+        ->call('save')
+        ->assertHasErrors('form.recurrence_end_date')
+        ->assertNotDispatched('meetup-event-saved');
+
+    MockClient::global()->assertNotSent(CreateMeetupEventRequest::class);
+});
+
+it('does not send recurrence fields for a single event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        CreateMeetupEventRequest::class => MockResponse::make(myMeetupEventFixture(['id' => 99]), 201),
+    ]);
+
+    Livewire::test('event-editor')
+        ->call('open')
+        ->set('form.meetup_id', 21)
+        ->set('form.date', '2026-12-01')
+        ->set('form.time', '19:00')
+        ->call('save')
+        ->assertHasNoErrors();
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateMeetupEventRequest
+        && ! array_key_exists('recurrence_type', $request->body()->all()));
 });

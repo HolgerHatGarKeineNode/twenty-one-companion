@@ -437,3 +437,86 @@ it('creates (idempotent) and updates a course event against the live portal', fu
 
     expect($updated->status)->toBe(WriteStatus::Success);
 })->group('integration');
+
+it('creates a recurring meetup-event series against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Das vom Meetup-Schreibtest angelegte EIGENE Meetup (nicht ->first(): das
+    // könnte ein per addToMine übernommenes Fremd-Meetup sein).
+    $meetup = app(PortalApi::class)->myMeetups()->firstWhere('name', 'Integrationstest Meetup (mobile)');
+    expect($meetup)->not->toBeNull('Kein eigenes Test-Meetup vorhanden — bitte zuerst den Meetup-Schreibtest laufen lassen.');
+
+    // Idempotent über einen Orts-Marker: nur anlegen, wenn die Serie noch fehlt
+    // (Recurrence erzeugt mehrere Records — Mehrfachläufe sollen nicht häufen).
+    $marker = 'Integrationstest-Serie';
+    $already = app(PortalApi::class)->myMeetupEvents()
+        ->where('meetup_id', $meetup->id)
+        ->firstWhere('location', $marker);
+
+    if ($already === null) {
+        $created = app(PortalWriter::class)->createMeetupEvent([
+            'meetup_id' => $meetup->id,
+            'start' => now()->addWeek()->setTime(19, 0)->format('Y-m-d H:i'),
+            'location' => $marker,
+            'description' => 'Automatisch durch den Integrationstest angelegt (Serie).',
+            'recurrence_type' => 'weekly',
+            'recurrence_end_date' => now()->addWeeks(4)->format('Y-m-d'),
+        ]);
+
+        expect($created->status)->toBe(WriteStatus::Success)
+            ->and($created->successful())->toBeTrue()
+            // Serie ⇒ data-gewrappte Liste mit mehreren Einzelterminen.
+            ->and($created->data['data'] ?? [])->toBeArray();
+
+        Cache::flush();
+    }
+
+    $series = app(PortalApi::class)->myMeetupEvents()
+        ->where('meetup_id', $meetup->id)
+        ->where('location', $marker);
+
+    expect($series->count())->toBeGreaterThan(1, 'Die Serie sollte mehrere Einzeltermine erzeugt haben.');
+})->group('integration');
+
+it('uploads a logo to an own meetup against the live portal', function () {
+    $token = env('PORTAL_TEST_TOKEN');
+
+    if (blank($token)) {
+        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
+    }
+
+    withPortalToken((string) $token);
+    SecureStorage::shouldReceive('set')->andReturnTrue();
+
+    // Das vom Meetup-Schreibtest angelegte EIGENE Meetup — der Logo-Upload
+    // verlangt strikt Eigentum (MeetupPolicy::update), ->first() könnte ein per
+    // addToMine übernommenes Fremd-Meetup liefern (→ 403).
+    $meetup = app(PortalApi::class)->myMeetups()->firstWhere('name', 'Integrationstest Meetup (mobile)');
+    expect($meetup)->not->toBeNull('Kein eigenes Test-Meetup vorhanden — bitte zuerst den Meetup-Schreibtest laufen lassen.');
+
+    // Ein echtes, frisch via GD erzeugtes PNG — das Portal validiert nicht nur
+    // image|mimes|dimensions, sondern erzeugt auch Spatie-Thumbnails (libpng,
+    // strikte CRC-Prüfung); ein hartkodiertes Mini-PNG fiele dort durch.
+    if (! function_exists('imagecreatetruecolor')) {
+        test()->markTestSkipped('GD-Extension nicht verfügbar — Upload-Test übersprungen.');
+    }
+
+    $image = imagecreatetruecolor(16, 16);
+    imagefill($image, 0, 0, imagecolorallocate($image, 247, 147, 26));
+    $path = tempnam(sys_get_temp_dir(), 'logo').'.png';
+    imagepng($image, $path);
+
+    $result = app(PortalWriter::class)->uploadMeetupLogo($meetup->id, $path);
+
+    expect($result->status)->toBe(WriteStatus::Success)
+        ->and($result->successful())->toBeTrue();
+
+    @unlink($path);
+})->group('integration');

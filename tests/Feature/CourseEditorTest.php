@@ -4,6 +4,7 @@ use App\Http\Integrations\Portal\Requests\CreateCourseRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseRequest;
+use App\Http\Integrations\Portal\Requests\UploadCourseLogoRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -14,7 +15,7 @@ afterEach(fn () => MockClient::destroyGlobal());
 it('creates a course with the selected lecturer and sends the payload', function () {
     withPortalToken();
     MockClient::global([
-        CreateCourseRequest::class => MockResponse::make(['id' => 99, 'name' => 'Bitcoin 101'], 201),
+        CreateCourseRequest::class => MockResponse::make(['data' => ['id' => 99, 'name' => 'Bitcoin 101']], 201),
     ]);
 
     Livewire::test('course-editor')
@@ -31,6 +32,46 @@ it('creates a course with the selected lecturer and sends the payload', function
         && $request->body()->all()['name'] === 'Bitcoin 101'
         && $request->body()->all()['lecturer_id'] === 3
         && $request->body()->all()['description'] === 'Grundlagen.');
+});
+
+it('uploads the selected logo to the new course after creating', function () {
+    withPortalToken();
+    MockClient::global([
+        CreateCourseRequest::class => MockResponse::make(['data' => ['id' => 99, 'name' => 'Bitcoin 101']], 201),
+        UploadCourseLogoRequest::class => MockResponse::make(['data' => ['id' => 99, 'name' => 'Bitcoin 101']], 200),
+    ]);
+
+    Livewire::test('course-editor')
+        ->call('open')
+        ->set('form.name', 'Bitcoin 101')
+        ->call('selectLecturer', 3, 'Toni Stack')
+        ->set('imagePath', fakeImagePath('logo.jpg'))
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('teaching-changed');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadCourseLogoRequest
+        && $request->resolveEndpoint() === '/courses/99/logo');
+});
+
+it('uploads the selected logo to the existing course when editing', function () {
+    withPortalToken();
+    withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
+    MockClient::global([
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
+        UpdateCourseRequest::class => MockResponse::make(['data' => ['id' => 5]], 200),
+        UploadCourseLogoRequest::class => MockResponse::make(['data' => ['id' => 5]], 200),
+    ]);
+
+    Livewire::test('course-editor')
+        ->call('open', 5)
+        ->set('imagePath', fakeImagePath('logo.jpg'))
+        ->call('save')
+        ->assertHasNoErrors()
+        ->assertDispatched('teaching-changed');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UploadCourseLogoRequest
+        && $request->resolveEndpoint() === '/courses/5/logo');
 });
 
 it('requires a name and lecturer before sending', function () {

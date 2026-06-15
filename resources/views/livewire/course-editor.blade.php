@@ -2,10 +2,12 @@
 
 use App\Data\Portal\CourseData;
 use App\Data\Portal\LecturerData;
+use App\Livewire\Concerns\HandlesImageUpload;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\CourseForm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
+use App\Services\WriteResult;
 use App\Support\Markdown;
 use Flux\Flux;
 use Illuminate\Support\Collection;
@@ -25,7 +27,7 @@ use Livewire\Component;
  * {@see PortalWriter}; 422-Feldfehler werden an die Form-Felder gemappt.
  */
 new class extends Component {
-    use HandlesPortalWriteFeedback;
+    use HandlesImageUpload, HandlesPortalWriteFeedback;
 
     public CourseForm $form;
 
@@ -48,12 +50,18 @@ new class extends Component {
         }
     }
 
+    protected function imageUploadKey(): string
+    {
+        return 'course-logo';
+    }
+
     private function resetEditor(): void
     {
         $this->form->reset();
         $this->editingId = null;
         $this->lecturerQuery = '';
         $this->showPreview = false;
+        $this->resetImageState();
         $this->resetErrorBag();
     }
 
@@ -70,6 +78,7 @@ new class extends Component {
         }
 
         $this->editingId = $course->id;
+        $this->setCurrentImageUrl($course->imageOrNull());
         $this->form->setCourse($course, $course->lecturerOrNull()?->name ?? '');
     }
 
@@ -144,12 +153,21 @@ new class extends Component {
             : $writer->updateCourse($this->editingId, $payload);
 
         if ($result->successful()) {
+            // Zweistufig: der Kurs existiert jetzt, das Logo geht separat raus.
+            $logoFailed = $this->uploadSelectedImage($this->editingId ?? $result->createdId());
+
             $this->handleSuccess();
+            $this->warnIfImageUploadFailed($logoFailed);
 
             return;
         }
 
         $this->reportWriteFailure($result, __('Du darfst diesen Kurs nicht bearbeiten.'));
+    }
+
+    protected function uploadImage(int $id, string $filePath): WriteResult
+    {
+        return app(PortalWriter::class)->uploadCourseLogo($id, $filePath);
     }
 
     private function handleSuccess(): void
@@ -176,6 +194,14 @@ new class extends Component {
             :label="__('Kursname')"
             :placeholder="__('z. B. Bitcoin, Blockchain und Geld')"
             required
+        />
+
+        <x-image-picker
+            :label="__('Logo')"
+            :current-url="$currentImageUrl"
+            :has-selected="$this->hasSelectedImage()"
+            shape="square"
+            :hint="__('JPEG, PNG, WebP oder AVIF, max. 5 MB.')"
         />
 
         {{-- Referent: gewählter Referent als Chip, sonst Suche. --}}

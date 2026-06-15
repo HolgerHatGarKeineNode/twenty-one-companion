@@ -72,6 +72,20 @@ new class extends Component {
             $this->form->meetupName = $this->myMeetups
                 ->first(fn (MeetupData $meetup): bool => $meetup->id === $meetupId)?->name ?? '';
             $this->meetupLocked = true;
+
+            return;
+        }
+
+        // Den ersten eigenen Meetup vorauswählen: die native Select-Box zeigt
+        // ohnehin den ersten Eintrag an, bindet wire:model aber erst bei einer
+        // echten Änderung (change-Event). Ohne Vorauswahl bliebe meetup_id null,
+        // obwohl ein Meetup sichtbar gewählt ist → „meetup_id required" beim
+        // Speichern. Der Nutzer kann jederzeit auf ein anderes wechseln.
+        $first = $this->myMeetups->first();
+
+        if ($first !== null) {
+            $this->form->meetup_id = $first->id;
+            $this->form->meetupName = $first->name;
         }
     }
 
@@ -149,6 +163,10 @@ new class extends Component {
             return;
         }
 
+        if ($this->editingId === null && $this->hasInvalidRecurrence()) {
+            return;
+        }
+
         $writer = app(PortalWriter::class);
 
         $result = $this->editingId === null
@@ -170,13 +188,52 @@ new class extends Component {
         return Clock::localIsPast($this->form->date.' '.$this->form->time);
     }
 
+    /**
+     * Prüft die Serien-Eingaben und mappt fehlende/falsche Felder zurück an die
+     * Form. Greift nur im Serien-Modus (repeats); gibt true zurück, wenn die
+     * Serie unvollständig ist und nicht gesendet werden darf.
+     */
+    private function hasInvalidRecurrence(): bool
+    {
+        if (! $this->form->repeats) {
+            return false;
+        }
+
+        $invalid = false;
+
+        if ($this->form->recurrence_type === '') {
+            $this->addError('form.recurrence_type', __('Bitte wähle einen Wiederhol-Typ.'));
+            $invalid = true;
+        }
+
+        if ($this->form->recurrence_end_date === '') {
+            $this->addError('form.recurrence_end_date', __('Bitte wähle ein Enddatum für die Serie.'));
+            $invalid = true;
+        } elseif ($this->form->recurrence_end_date < $this->form->date) {
+            $this->addError('form.recurrence_end_date', __('Das Enddatum muss nach dem Startdatum liegen.'));
+            $invalid = true;
+        }
+
+        // „Benutzerdefiniert" (z. B. „2. Dienstag im Monat") braucht Wochentag + Position.
+        if ($this->form->recurrence_type === 'custom'
+            && ($this->form->recurrence_day_of_week === '' || $this->form->recurrence_day_position === '')) {
+            $this->addError('form.recurrence_day_position', __('Bitte wähle Wochentag und Position.'));
+            $invalid = true;
+        }
+
+        return $invalid;
+    }
+
     private function handleSuccess(): void
     {
         $created = $this->editingId === null;
+        $series = $created && $this->form->repeats;
 
         Flux::modal('create-event')->close();
         Flux::toast(
-            text: $created ? __('Termin angelegt.') : __('Termin aktualisiert.'),
+            text: $series
+                ? __('Terminserie angelegt.')
+                : ($created ? __('Termin angelegt.') : __('Termin aktualisiert.')),
             variant: 'success',
         );
 
@@ -281,6 +338,69 @@ new class extends Component {
             </div>
 
             <flux:input wire:model="form.link" :label="__('Online-Link')" type="url" placeholder="https://…"/>
+
+            {{-- Wiederkehrender Termin (nur beim Anlegen): das Portal expandiert die
+                 Regel über die gemeinsame Action in einzelne Termine (max. 100). --}}
+            @if (! $editingId)
+                <div class="flex flex-col gap-3 rounded-tile border border-zinc-200 p-4 dark:border-zinc-800">
+                    <flux:switch
+                        wire:model.live="form.repeats"
+                        :label="__('Wiederkehrender Termin')"
+                        :description="__('Als Serie einzelner Termine anlegen.')"
+                    />
+
+                    @if ($form->repeats)
+                        <div class="flex flex-col gap-2">
+                            <flux:select wire:model.live="form.recurrence_type" :label="__('Wiederholung')" :placeholder="__('Typ wählen …')">
+                                <flux:select.option value="weekly">{{ __('Wöchentlich') }}</flux:select.option>
+                                <flux:select.option value="monthly">{{ __('Monatlich (gleiches Datum)') }}</flux:select.option>
+                                <flux:select.option value="custom">{{ __('Monatlich (an einem Wochentag)') }}</flux:select.option>
+                            </flux:select>
+                            @error('form.recurrence_type')
+                                <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                            @enderror
+                        </div>
+
+                        @if (in_array($form->recurrence_type, ['weekly', 'custom'], true))
+                            <flux:select
+                                wire:model="form.recurrence_day_of_week"
+                                :label="$form->recurrence_type === 'custom' ? __('Wochentag') : __('Wochentag (optional)')"
+                                :placeholder="__('Wochentag wählen …')"
+                            >
+                                <flux:select.option value="monday">{{ __('Montag') }}</flux:select.option>
+                                <flux:select.option value="tuesday">{{ __('Dienstag') }}</flux:select.option>
+                                <flux:select.option value="wednesday">{{ __('Mittwoch') }}</flux:select.option>
+                                <flux:select.option value="thursday">{{ __('Donnerstag') }}</flux:select.option>
+                                <flux:select.option value="friday">{{ __('Freitag') }}</flux:select.option>
+                                <flux:select.option value="saturday">{{ __('Samstag') }}</flux:select.option>
+                                <flux:select.option value="sunday">{{ __('Sonntag') }}</flux:select.option>
+                            </flux:select>
+                        @endif
+
+                        @if ($form->recurrence_type === 'custom')
+                            <div class="flex flex-col gap-2">
+                                <flux:select wire:model="form.recurrence_day_position" :label="__('Position im Monat')" :placeholder="__('Position wählen …')">
+                                    <flux:select.option value="first">{{ __('Erster') }}</flux:select.option>
+                                    <flux:select.option value="second">{{ __('Zweiter') }}</flux:select.option>
+                                    <flux:select.option value="third">{{ __('Dritter') }}</flux:select.option>
+                                    <flux:select.option value="fourth">{{ __('Vierter') }}</flux:select.option>
+                                    <flux:select.option value="last">{{ __('Letzter') }}</flux:select.option>
+                                </flux:select>
+                                @error('form.recurrence_day_position')
+                                    <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                                @enderror
+                            </div>
+                        @endif
+
+                        <div class="flex flex-col gap-2">
+                            <flux:input wire:model="form.recurrence_end_date" type="date" :label="__('Endet am')"/>
+                            @error('form.recurrence_end_date')
+                                <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                            @enderror
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             <div class="flex gap-2 pt-1">
                 <flux:spacer/>

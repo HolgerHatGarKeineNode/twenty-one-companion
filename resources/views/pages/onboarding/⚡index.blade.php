@@ -160,14 +160,11 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         <div class="step-enter flex flex-1 flex-col justify-center gap-8 p-6">
             @if ($step === AppPreferences::STEP_WELCOME)
                 {{-- 3.2 Welcome mit Wertversprechen. --}}
-                <div class="flex flex-col items-center gap-4 text-center">
-                    <x-brand-logo aria-hidden="true" class="size-20 text-zinc-900 dark:text-zinc-100"/>
-                    <div>
-                        <flux:heading size="xl" level="1" class="tracking-wide">EINUNDZWANZIG</flux:heading>
-                        <flux:text class="mt-2 max-w-xs">
-                            {{ __('Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.') }}
-                        </flux:text>
-                    </div>
+                <div class="flex flex-col items-center gap-5 text-center">
+                    <x-brand-wordmark aria-label="TWENTY ONE Companion" class="h-24 w-auto text-zinc-900 dark:text-zinc-100"/>
+                    <flux:text class="max-w-xs">
+                        {{ __('Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.') }}
+                    </flux:text>
                 </div>
 
                 <div class="list-stagger flex flex-col gap-3">
@@ -239,7 +236,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                     <div>
                         <flux:heading size="xl" level="1">{{ __('Alles bereit!') }}</flux:heading>
                         <flux:text class="mx-auto mt-2 max-w-xs">
-                            {{ __('Viel Spaß beim Entdecken der EINUNDZWANZIG-Community.') }}
+                            {{ __('Viel Spaß beim Entdecken der Bitcoin-Community.') }}
                         </flux:text>
                     </div>
                 </div>

@@ -61,6 +61,18 @@ new class extends Component {
             $this->form->courseName = $this->myCourses
                 ->first(fn (CourseData $course): bool => $course->id === $courseId)?->name ?? '';
             $this->courseLocked = true;
+
+            return;
+        }
+
+        // Ersten eigenen Kurs vorauswählen: die native Select-Box zeigt sonst den
+        // ersten Eintrag an, ohne wire:model zu binden (kein change-Event) →
+        // „course_id required" beim Speichern. Der Nutzer kann wechseln.
+        $first = $this->myCourses->first();
+
+        if ($first !== null) {
+            $this->form->course_id = $first->id;
+            $this->form->courseName = $first->name;
         }
     }
 
@@ -160,6 +172,12 @@ new class extends Component {
     public function save(): void
     {
         $payload = $this->form->payload();
+
+        if ($this->form->endsBeforeOrAtStart()) {
+            $this->addError('form.to_time', __('Das Ende muss nach dem Beginn liegen.'));
+
+            return;
+        }
 
         if ($this->editingId === null && $this->startsInPast()) {
             $this->addError('form.date', __('Der Termin darf nicht in der Vergangenheit liegen.'));
@@ -333,6 +351,16 @@ new class extends Component {
                         @enderror
                     </div>
                 </div>
+                {{-- Optionales End-Datum für mehrtägige Kurs-Events; leer = selber Tag. --}}
+                <flux:input
+                    wire:model="form.to_date"
+                    type="date"
+                    :label="__('End-Datum (optional)')"
+                    :description="__('Nur für mehrtägige Termine — leer lassen für eintägige.')"
+                />
+                @error('form.to_date')
+                    <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
+                @enderror
             </div>
 
             <flux:input wire:model="form.link" :label="__('Anmelde-Link')" type="url" placeholder="https://…" required/>
