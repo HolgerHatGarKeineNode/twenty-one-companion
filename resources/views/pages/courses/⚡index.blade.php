@@ -43,7 +43,8 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
 
     /**
      * Alle Referenten, nach Suchbegriff (Name/Untertitel) gefiltert;
-     * Referenten mit kommenden Kurs-Events zuerst, danach alphabetisch.
+     * wie im Portal: Referenten mit dem nächsten kommenden Kurs-Event
+     * zuerst (frühestes Datum vorn), danach alphabetisch.
      *
      * @return Collection<int, LecturerData>
      */
@@ -58,7 +59,8 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
                 || str_contains(mb_strtolower($lecturer->name), $search)
                 || str_contains(mb_strtolower($lecturer->subtitleOrNull() ?? ''), $search))
             ->sortBy(fn (LecturerData $lecturer): array => [
-                $lecturer->futureEventsCount() === 0,
+                $lecturer->nextEvent() === null,
+                $lecturer->nextEvent()?->getTimestamp() ?? 0,
                 mb_strtolower($lecturer->name),
             ])
             ->values();

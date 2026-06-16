@@ -63,6 +63,22 @@ it('lists lecturers on the referenten tab with future event count', function () 
         ->assertSee(route('lecturers.show', 3));
 });
 
+it('lists lecturers with the soonest upcoming event first, then by name', function () {
+    withoutPortalToken();
+    // Toni (Default): früher Termin 2026-07-01, Hash: später Termin, Zoe: kein Termin.
+    $hash = detailedLecturerFixture(['id' => 4, 'name' => 'Hash Rate', 'next_event' => '2026-09-01 18:00:00']);
+    $zoe = detailedLecturerFixture(['id' => 5, 'name' => 'Aaron Zoe', 'next_event' => null, 'future_events_count' => 0]);
+
+    MockClient::global([
+        GetCoursesRequest::class => MockResponse::make([]),
+        GetLecturersRequest::class => MockResponse::make([$hash, $zoe, detailedLecturerFixture()]),
+    ]);
+
+    Livewire::test('pages::courses.index')
+        ->set('tab', 'referenten')
+        ->assertSeeInOrder(['Toni Stack', 'Hash Rate', 'Aaron Zoe']);
+});
+
 it('hides the my-courses tab for guests and non-lecturers', function () {
     withoutPortalToken();
     MockClient::global([

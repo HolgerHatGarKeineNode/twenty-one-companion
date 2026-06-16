@@ -139,10 +139,14 @@
                             {{-- Entdecken --}}
                             <flux:navlist class="p-2">
                                 <flux:navlist.group :heading="__('Entdecken')">
-                                    <flux:navlist.item href="{{ route('courses') }}" wire:navigate icon="academic-cap">
+                                    {{-- Kurse & Referenten teilen die /courses-Route (Tab via ?tab).
+                                         Flux erkennt „current" sonst nur am Pfad → beide Items leuchten
+                                         gleichzeitig. Daher explizites :current am Query-Param. --}}
+                                    @php($onCourses = request()->routeIs('courses'))
+                                    <flux:navlist.item href="{{ route('courses') }}" :current="$onCourses && request('tab') !== 'referenten'" wire:navigate icon="academic-cap">
                                         {{ __('Kurse') }}
                                     </flux:navlist.item>
-                                    <flux:navlist.item href="{{ route('courses', ['tab' => 'referenten']) }}" wire:navigate icon="user">
+                                    <flux:navlist.item href="{{ route('courses', ['tab' => 'referenten']) }}" :current="$onCourses && request('tab') === 'referenten'" wire:navigate icon="user">
                                         {{ __('Referenten') }}
                                     </flux:navlist.item>
                                     <flux:navlist.item href="{{ route('map', ['tab' => 'staedte']) }}" wire:navigate icon="building-office-2">

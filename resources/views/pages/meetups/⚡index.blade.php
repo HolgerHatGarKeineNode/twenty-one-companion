@@ -62,7 +62,13 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             ->filter(fn (MapMeetupData $meetup): bool => $search === ''
                 || str_contains(mb_strtolower($meetup->name), $search)
                 || str_contains(mb_strtolower($meetup->city), $search))
-            ->sortBy(fn (MapMeetupData $meetup): string => mb_strtolower($meetup->name))
+            // Wie im Portal: Meetups mit dem nächsten kommenden Termin zuerst
+            // (frühestes Datum vorn), Meetups ohne Termin ans Ende, dann nach Name.
+            ->sortBy(fn (MapMeetupData $meetup): array => [
+                $meetup->next_event === null,
+                $meetup->next_event?->start->getTimestamp() ?? 0,
+                mb_strtolower($meetup->name),
+            ])
             ->values();
     }
 

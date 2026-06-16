@@ -27,14 +27,23 @@ function viennaMeetupFixture(): array
     ]);
 }
 
-it('lists the map meetups alphabetically with city and country', function () {
+it('lists the map meetups with the soonest upcoming event first, then by name', function () {
     withoutPortalToken();
+    // Wien: späterer Termin, Berlin: kein Termin, Aschaffenburg (Default): frühester Termin (2026-06-19).
+    $wien = mapMeetupFixture([
+        'name' => 'Einundzwanzig Wien',
+        'city' => 'Wien',
+        'country' => 'AT',
+        'next_event' => ['id' => 1, 'start' => '2026-08-01T18:00:00.000000Z', 'portalLink' => 'x', 'location' => null, 'description' => null, 'link' => null, 'attendees' => 0, 'might_attendees' => 0, 'nostr_note' => ''],
+    ]);
+    $berlin = mapMeetupFixture(['name' => 'Einundzwanzig Berlin', 'city' => 'Berlin', 'next_event' => null]);
+
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture(), mapMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([$wien, $berlin, mapMeetupFixture()]),
     ]);
 
     Livewire::test('pages::meetups.index')
-        ->assertSeeInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien'])
+        ->assertSeeInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien', 'Einundzwanzig Berlin'])
         ->assertSee('Aschaffenburg · DE')
         ->assertSee('Wien · AT')
         ->assertSee(route('meetups.show', 'aschaffenburg'));

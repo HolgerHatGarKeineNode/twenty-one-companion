@@ -325,6 +325,7 @@ function detailedLecturerFixture(array $overrides = []): array
         'subtitle' => 'Bitcoin-Educator',
         'image' => 'https://portal.einundzwanzig.space/storage/3/conversions/avatar-thumb.jpg',
         'future_events_count' => 2,
+        'next_event' => '2026-07-01 18:00:00',
     ], $overrides);
 }
 
