@@ -27,7 +27,7 @@
             clearTimeout(this._t);
             this._t = setTimeout(() => { this.animating = false; this.visible = false; }, 2000);
         },
-    }}
+    }"
     @brand-changed.window="celebrate($event.detail)"
     x-show="visible"
     x-cloak

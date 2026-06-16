@@ -34,9 +34,9 @@ final class AppPreferences
      * weil onboardingStep() denselben Index persistiert und Seiten/Tests
      * sich darauf beziehen.
      */
-    public const STEP_WELCOME = 0;
+    public const STEP_LANGUAGE = 0;
 
-    public const STEP_LANGUAGE = 1;
+    public const STEP_WELCOME = 1;
 
     public const STEP_REGION = 2;
 
@@ -111,14 +111,20 @@ final class AppPreferences
     {
         $locale = $this->get(self::KEY_LOCALE);
 
-        return in_array($locale, self::SUPPORTED_LOCALES, true) ? $locale : self::DEFAULT_LOCALE;
+        return self::isValidLocale($locale) ? $locale : self::DEFAULT_LOCALE;
     }
 
     public function setLocale(string $locale): void
     {
-        if (in_array($locale, self::SUPPORTED_LOCALES, true)) {
+        if (self::isValidLocale($locale)) {
             $this->set(self::KEY_LOCALE, $locale);
         }
+    }
+
+    /** Ob der Code eine von der App unterstützte Sprache ist. */
+    public static function isValidLocale(?string $locale): bool
+    {
+        return in_array($locale, self::SUPPORTED_LOCALES, true);
     }
 
     /**

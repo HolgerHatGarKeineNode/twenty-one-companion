@@ -58,7 +58,7 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
 
     public function updatedLocale(AppPreferences $preferences): void
     {
-        if (! in_array($this->locale, AppPreferences::SUPPORTED_LOCALES, true)) {
+        if (! AppPreferences::isValidLocale($this->locale)) {
             $this->locale = $preferences->locale();
 
             return;

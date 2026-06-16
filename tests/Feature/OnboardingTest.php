@@ -48,17 +48,27 @@ it('keeps the deep-link auth callbacks outside the onboarding gate and returns t
         ->assertSessionHas('portal-connected');
 });
 
-it('starts at the welcome step and shows the value proposition', function () {
+it('starts at the language step so the user picks a language before reading anything', function () {
     resetOnboarding();
     withoutPortalToken();
 
     $this->get(route('onboarding'))
         ->assertOk()
-        ->assertSee('TWENTY ONE')
-        ->assertSee(__('Meetups finden'))
-        ->assertSee(__('Termine im Kalender'))
-        ->assertSee(__('Eigene Community pflegen'))
-        ->assertSee(__('Los geht’s'));
+        ->assertSee(__('Deine Sprache'))
+        ->assertSee('Deutsch')
+        ->assertSee('English')
+        ->assertSee(__('Weiter'));
+});
+
+it('applies the chosen language immediately on the first step', function () {
+    resetOnboarding();
+    withoutPortalToken();
+
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_LANGUAGE)
+        ->set('locale', 'en');
+
+    expect(app(AppPreferences::class)->locale())->toBe('en');
 });
 
 it('walks through the pager and completes the onboarding', function () {
@@ -67,10 +77,11 @@ it('walks through the pager and completes the onboarding', function () {
     mockOnboardingMeetups();
 
     Livewire::test('pages::onboarding.index')
-        ->assertSet('step', AppPreferences::STEP_WELCOME)
-        ->call('next') // → Sprache
         ->assertSet('step', AppPreferences::STEP_LANGUAGE)
         ->assertSee(__('Deine Sprache'))
+        ->call('next') // → Welcome
+        ->assertSet('step', AppPreferences::STEP_WELCOME)
+        ->assertSee(__('Meetups finden'))
         ->call('next') // → Region
         ->assertSet('step', AppPreferences::STEP_REGION)
         ->assertSee(__('Deine Region'))
@@ -122,10 +133,11 @@ it('can step back through the pager', function () {
     withoutPortalToken();
 
     Livewire::test('pages::onboarding.index')
-        ->call('next')
         ->assertSet('step', AppPreferences::STEP_LANGUAGE)
+        ->call('next')
+        ->assertSet('step', AppPreferences::STEP_WELCOME)
         ->call('back')
-        ->assertSet('step', AppPreferences::STEP_WELCOME);
+        ->assertSet('step', AppPreferences::STEP_LANGUAGE);
 });
 
 it('shows the connected state on the portal step when a token is present', function () {

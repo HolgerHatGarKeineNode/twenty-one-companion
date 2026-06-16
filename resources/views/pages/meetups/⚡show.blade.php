@@ -15,7 +15,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Native\Mobile\Facades\Share;
 
-new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'back' => '/meetups'])] class extends PortalPage {
+new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] class extends PortalPage {
     use InteractsWithEventRsvp;
 
     public string $slug;
@@ -40,6 +40,16 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'heading' => 'Meetup', 'ba
         return app(PortalApi::class)
             ->mapMeetups(withIntro: true, withLogos: true)
             ->first(fn (MapMeetupData $meetup): bool => $meetup->slug() === $this->slug);
+    }
+
+    /**
+     * Setzt den sticky Header-Titel auf den Meetup-Namen statt des generischen
+     * „Meetup". Das #[Layout]-Attribut ist statisch, deshalb hier dynamisch
+     * über die Layout-Daten — der Name steht erst nach dem API-Call fest.
+     */
+    public function rendering(\Illuminate\View\View $view): void
+    {
+        $view->layoutData(['heading' => $this->meetup?->name ?? __('Meetup')]);
     }
 
     /**

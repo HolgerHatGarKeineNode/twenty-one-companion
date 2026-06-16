@@ -11,11 +11,31 @@ use Livewire\Component;
 use Native\Mobile\Facades\PushNotifications;
 
 new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] class extends Component {
-    public int $step = AppPreferences::STEP_WELCOME;
+    public int $step = AppPreferences::STEP_LANGUAGE;
 
     public string $locale = AppPreferences::DEFAULT_LOCALE;
 
     public string $country = AppPreferences::DEFAULT_COUNTRY;
+
+    /**
+     * Hält die gewählte App-Sprache über den gesamten Onboarding-Flow aktiv.
+     * Läuft bei jedem Livewire-Request (auch Updates) — die EnsureOnboarded-
+     * Middleware greift hier noch nicht. Ohne das fielen Schritte nach der
+     * Sprachwahl auf die Default-Sprache zurück.
+     */
+    public function boot(AppPreferences $preferences): void
+    {
+        app()->setLocale($preferences->locale());
+    }
+
+    /** Sprachauswahl (Schritt 1) wirkt sofort: persistieren + Live-Render. */
+    public function updatedLocale(AppPreferences $preferences): void
+    {
+        if (AppPreferences::isValidLocale($this->locale)) {
+            $preferences->setLocale($this->locale);
+            app()->setLocale($this->locale);
+        }
+    }
 
     public function mount(AppPreferences $preferences): void
     {
@@ -67,11 +87,10 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
     public function next(AppPreferences $preferences, CountryOptions $countryOptions): void
     {
         // Schritt-spezifische Validierung + Persistenz der Auswahl, damit ein
-        // Resume die bereits getroffene Wahl behält.
+        // Resume die bereits getroffene Wahl behält. Die Sprache wird bereits
+        // live in updatedLocale() persistiert — hier reicht die Schluss-Validierung.
         if ($this->step === AppPreferences::STEP_LANGUAGE) {
             $this->validate(['locale' => ['required', 'in:'.implode(',', AppPreferences::SUPPORTED_LOCALES)]]);
-            $preferences->setLocale($this->locale);
-            app()->setLocale($this->locale);
         }
 
         if ($this->step === AppPreferences::STEP_REGION) {
@@ -84,7 +103,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
 
     public function back(AppPreferences $preferences): void
     {
-        $this->goToStep(max($this->step - 1, AppPreferences::STEP_WELCOME), $preferences);
+        $this->goToStep(max($this->step - 1, AppPreferences::STEP_LANGUAGE), $preferences);
     }
 
     /** Optionalen Schritt (Portal/Push) ohne Aktion überspringen (Phase 3.4/3.5). */
@@ -136,7 +155,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
 
     {{-- Fortschritts-Dots + Zurück (Phase 3.1/3.6). --}}
     <div class="relative flex h-14 items-center justify-between px-6">
-        @if ($step > AppPreferences::STEP_WELCOME && $step < AppPreferences::STEP_DONE)
+        @if ($step > AppPreferences::STEP_LANGUAGE && $step < AppPreferences::STEP_DONE)
             <flux:button
                 wire:click="back"
                 variant="ghost"
@@ -151,7 +170,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         @endif
 
         <div class="flex items-center gap-2" role="presentation" aria-hidden="true">
-            @for ($i = AppPreferences::STEP_WELCOME; $i <= AppPreferences::LAST_STEP; $i++)
+            @for ($i = AppPreferences::STEP_LANGUAGE; $i <= AppPreferences::LAST_STEP; $i++)
                 <span @class([
                     'h-1.5 rounded-full transition-all duration-300 ease-spring',
                     'w-6 bg-brand-500' => $i === $step,
@@ -192,13 +211,19 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                     @endforeach
                 </div>
             @elseif ($step === AppPreferences::STEP_LANGUAGE)
-                <div class="flex flex-col gap-2 text-center">
-                    <flux:heading size="xl" level="1">{{ __('Deine Sprache') }}</flux:heading>
-                    <flux:text class="mx-auto max-w-xs">
-                        {{ __('In welcher Sprache möchtest du die App nutzen?') }}
-                    </flux:text>
+                <div class="flex flex-col items-center gap-4 text-center">
+                    <span class="relative flex size-16 items-center justify-center rounded-tile bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                        <span class="absolute -inset-3 rounded-full bg-brand-500/20 blur-2xl" aria-hidden="true"></span>
+                        <flux:icon name="language" class="relative size-8"/>
+                    </span>
+                    <div>
+                        <flux:heading size="xl" level="1">{{ __('Deine Sprache') }}</flux:heading>
+                        <flux:text class="mx-auto mt-2 max-w-xs">
+                            {{ __('In welcher Sprache möchtest du die App nutzen?') }}
+                        </flux:text>
+                    </div>
                 </div>
-                <x-locale-radio-group wire:model="locale" class="self-center"/>
+                <x-locale-radio-group wire:model.live="locale" class="self-center"/>
             @elseif ($step === AppPreferences::STEP_REGION)
                 <div class="flex flex-col gap-2 text-center">
                     <flux:heading size="xl" level="1">{{ __('Deine Region') }}</flux:heading>

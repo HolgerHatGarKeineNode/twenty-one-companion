@@ -196,7 +196,14 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
                             popupAnchor: [0, -32],
                         });
 
-                        this.layer = L.layerGroup().addTo(this.map);
+                        // Clustering: dichte Marker-Wolken (z. B. ganz DE) werden zu
+                        // zählenden Clustern zusammengefasst, die beim Zoom/Klick
+                        // aufbrechen — statt eines unleserlichen Pin-Klumpens.
+                        this.layer = L.markerClusterGroup({
+                            maxClusterRadius: 50,
+                            showCoverageOnHover: false,
+                            chunkedLoading: true,
+                        }).addTo(this.map);
                         this.render(@js($this->markers));
                     },
                     render(markers) {
@@ -206,19 +213,16 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
                             return;
                         }
 
-                        const points = [];
-
-                        markers.forEach((marker) => {
+                        this.layer.addLayers(markers.map((marker) =>
                             L.marker([marker.lat, marker.lng], { icon: this.icon })
                                 .bindPopup(marker.popup)
-                                .addTo(this.layer);
-                            points.push([marker.lat, marker.lng]);
-                        });
+                        ));
 
                         // fitBounds zentriert UND zoomt automatisch auf die Marker:
                         // dichte Länder (z. B. Ungarn) bekommen mehr Zoom als eine
                         // weltweite Verteilung — ganz ohne Koordinaten-Tabelle. Der
                         // maxZoom-Deckel verhindert Über-Zoom bei nur einem Marker.
+                        const points = markers.map((marker) => [marker.lat, marker.lng]);
                         this.map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 12 });
                     },
                 }"

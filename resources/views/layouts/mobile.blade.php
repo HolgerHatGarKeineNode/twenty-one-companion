@@ -47,7 +47,7 @@
                                 x-on:click="$haptic('light')"
                                 class="-ms-2 cursor-pointer"
                             />
-                            <flux:heading size="lg" class="!leading-none tracking-wide">{{ $heading ? __($heading) : $brand->label() }}</flux:heading>
+                            <flux:heading size="lg" class="min-w-0 truncate !leading-none tracking-wide">{{ $heading ? __($heading) : $brand->label() }}</flux:heading>
                         @else
                             {{-- Top-Level: markenspezifische Wortmarke als Branding (Seitenkontext
                                  liefert die Bottom-Nav). Wechselt live auf Regionswechsel. --}}
