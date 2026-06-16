@@ -22,6 +22,15 @@ final class VenueData extends Data
     ) {}
 
     /**
+     * Ländercode (lowercase) der Stadt für den Regionsfilter; null, wenn
+     * die Stadt (course-events liefern nur id/name) oder ihr Ländercode fehlt.
+     */
+    public function countryCode(): ?string
+    {
+        return $this->city instanceof CityData ? $this->city->countryCode() : null;
+    }
+
+    /**
      * description („Stadt, Straße") ohne den hängenden Trenner, den das
      * Portal bei leerer Straße liefert; null wenn nichts übrig bleibt.
      */

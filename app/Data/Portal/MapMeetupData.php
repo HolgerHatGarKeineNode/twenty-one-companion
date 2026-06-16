@@ -47,6 +47,12 @@ final class MapMeetupData extends Data
         return $this->markdownToHtml($this->intro);
     }
 
+    /** Ländercode (lowercase) für den Regionsfilter. */
+    public function countryCode(): string
+    {
+        return mb_strtolower($this->country);
+    }
+
     /**
      * Externe Links des Meetups als [Label => URL], z. B. für Link-Listen.
      * url ist im Karten-Format telegram_link ?? webpage (siehe Portal-

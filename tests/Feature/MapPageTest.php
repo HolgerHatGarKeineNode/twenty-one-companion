@@ -47,6 +47,7 @@ it('lists all cities with country and flag on the staedte tab', function () {
 
     Livewire::test('pages::map.index')
         ->set('tab', 'staedte')
+        ->set('country', '')
         ->assertSee('Regensburg')
         ->assertSee('Germany')
         ->assertSee('country-de.svg')
@@ -67,12 +68,52 @@ it('filters cities by city or country name', function () {
 
     Livewire::test('pages::map.index')
         ->set('tab', 'staedte')
+        ->set('country', '')
         ->set('search', 'austria')
         ->assertSee('Wien')
         ->assertDontSee('Regensburg')
         ->set('search', 'regens')
         ->assertSee('Regensburg')
         ->assertDontSee('Wien');
+});
+
+it('filters cities by the selected region', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetCitiesRequest::class => MockResponse::make([
+            cityFixture(),
+            cityFixture(['id' => 81, 'name' => 'Wien', 'country' => ['id' => 2, 'name' => 'Austria', 'code' => 'at']]),
+        ]),
+    ]);
+
+    // Region DE (Onboarding-Default): nur deutsche Städte, kein Wien.
+    Livewire::test('pages::map.index')
+        ->set('tab', 'staedte')
+        ->set('country', 'de')
+        ->assertSee('Regensburg')
+        ->assertDontSee('Wien')
+        ->set('country', 'at')
+        ->assertSee('Wien')
+        ->assertDontSee('Regensburg');
+});
+
+it('filters map markers by region and re-fits the map on change', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([
+            mapMeetupFixture(),
+            mapMeetupFixture(['name' => 'Einundzwanzig Wien', 'country' => 'AT', 'city' => 'Wien']),
+        ]),
+    ]);
+
+    $component = Livewire::test('pages::map.index')->set('country', 'de');
+
+    expect($component->instance()->markers())->toHaveCount(1);
+
+    $component->set('country', '')->assertDispatched('map-country-changed');
+
+    expect($component->instance()->markers())->toHaveCount(2);
 });
 
 it('lists venues with trimmed description on the orte tab and filters them', function () {

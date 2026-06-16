@@ -128,10 +128,16 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
   const hashtags = TOPICS.map(topic => '#' + topic).join(' ')
   const content = `${header}\n\n${text}\n\n${downloads}\n\n${hashtags}`
 
-  // 3) Tags: client + topic t-tags.
+  // 3) Tags: client + topic t-tags + p-tags for every nostr:npub mentioned in the
+  //    text (NIP-27), so the mentioned profiles actually get notified.
+  const mentionPubkeys = [...new Set((content.match(/nostr:(npub1[0-9a-z]+)/g) || [])
+    .map(m => m.replace('nostr:', '')))]
+    .map(npub => { try { return nip19.decode(npub).data } catch (e) { return null } })
+    .filter(Boolean)
   const tags = [
     ['client', 'TWENTY ONE Companion'],
     ...TOPICS.map(topic => ['t', topic]),
+    ...mentionPubkeys.map(pk => ['p', pk]),
   ]
 
   // 4) Preview (no signing) — built-in dry run.

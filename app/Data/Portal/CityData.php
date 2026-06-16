@@ -19,4 +19,13 @@ final class CityData extends Data
         public CountryData $country,
         public string|Optional $flag,
     ) {}
+
+    /**
+     * Ländercode (lowercase) für den Regionsfilter; null, wenn das Portal
+     * im verschachtelten country-Objekt keinen Code mitliefert.
+     */
+    public function countryCode(): ?string
+    {
+        return is_string($this->country->code) ? mb_strtolower($this->country->code) : null;
+    }
 }

@@ -4,6 +4,7 @@ use App\Data\Portal\CityData;
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\VenueData;
 use App\Livewire\PortalPage;
+use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -17,19 +18,42 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     #[Url(as: 'q')]
     public string $search = '';
 
+    /** Länder-/Regionsfilter (Code); leer = „Alle Länder“ (Welt-Modus). */
+    #[Url]
+    public string $country = '';
+
+    public function mount(): void
+    {
+        $this->country = $this->defaultCountry();
+    }
+
+    /**
+     * Region wechseln: Marke synchronisieren (Logo + Animation) und die
+     * Karte neu einpassen. Die Map selbst ist wire:ignore, deshalb bekommt
+     * Alpine die frisch gefilterten Marker per Browser-Event und ruft
+     * fitBounds auf — das zentriert und zoomt automatisch aufs Land.
+     */
+    public function updatedCountry(): void
+    {
+        $this->syncBrand($this->country);
+        $this->dispatch('map-country-changed', markers: $this->markers());
+    }
+
     /**
      * Marker für die Leaflet-Karte: Koordinaten plus serverseitig
-     * escaptes Popup-HTML (Name, Stadt, Link zum Meetup-Detail).
-     * Nutzt denselben withIntro/withLogos-Call wie die Meetup-Liste,
-     * damit beide Seiten einen gemeinsamen Cache-Eintrag teilen.
+     * escaptes Popup-HTML (Name, Stadt, Link zum Meetup-Detail), gefiltert
+     * nach Region. Nutzt denselben withIntro/withLogos-Call wie die
+     * Meetup-Liste, damit beide Seiten einen gemeinsamen Cache-Eintrag teilen.
      *
      * @return list<array{lat: float, lng: float, popup: string}>
      */
     #[Computed]
     public function markers(): array
     {
-        return app(PortalApi::class)
-            ->mapMeetups(withIntro: true, withLogos: true)
+        $country = $this->selectedCountry();
+
+        return $this->allMeetups()
+            ->filter(fn (MapMeetupData $meetup): bool => $country === '' || $meetup->countryCode() === $country)
             ->map(fn (MapMeetupData $meetup): array => [
                 'lat' => $meetup->latitude,
                 'lng' => $meetup->longitude,
@@ -45,9 +69,30 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
             ->all();
     }
 
+    /** Ob das Portal überhaupt Karten-Meetups liefert (Gate für den Fehler-State). */
+    #[Computed]
+    public function hasMeetups(): bool
+    {
+        return $this->allMeetups()->isNotEmpty();
+    }
+
     /**
-     * Alle Städte (withDetails hebt das 10er-Limit des Portals auf),
-     * gefiltert nach Suchbegriff in Stadt- oder Landesname.
+     * Ländercodes aller Meetups für den Regionsfilter.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function countries(): array
+    {
+        return CountryOptions::filterCodes(
+            $this->allMeetups()->map(fn (MapMeetupData $meetup): string => $meetup->country),
+            $this->country,
+        );
+    }
+
+    /**
+     * Städte (withDetails hebt das 10er-Limit des Portals auf), gefiltert
+     * nach Region (Ländercode der verschachtelten country) und Suchbegriff.
      *
      * @return Collection<int, CityData>
      */
@@ -55,9 +100,11 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     public function cities(): Collection
     {
         $search = mb_strtolower(trim($this->search));
+        $country = $this->selectedCountry();
 
         return app(PortalApi::class)
             ->cities(withDetails: true)
+            ->filter(fn (CityData $city): bool => $country === '' || $city->countryCode() === $country)
             ->filter(fn (CityData $city): bool => $search === ''
                 || str_contains(mb_strtolower($city->name), $search)
                 || str_contains(mb_strtolower($city->country->name), $search))
@@ -65,8 +112,8 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     }
 
     /**
-     * Alle Veranstaltungsorte (withDetails hebt das 10er-Limit auf),
-     * gefiltert nach Suchbegriff in Name oder Beschreibung (Stadt, Straße).
+     * Veranstaltungsorte (withDetails hebt das 10er-Limit auf), gefiltert
+     * nach Region (Ländercode der verschachtelten Stadt) und Suchbegriff.
      *
      * @return Collection<int, VenueData>
      */
@@ -74,13 +121,35 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     public function venues(): Collection
     {
         $search = mb_strtolower(trim($this->search));
+        $country = $this->selectedCountry();
 
         return app(PortalApi::class)
             ->venues(withDetails: true)
+            ->filter(fn (VenueData $venue): bool => $country === '' || $venue->countryCode() === $country)
             ->filter(fn (VenueData $venue): bool => $search === ''
                 || str_contains(mb_strtolower($venue->name), $search)
                 || (is_string($venue->description) && str_contains(mb_strtolower($venue->description), $search)))
             ->values();
+    }
+
+    /** Aktuell gewählte Region als Kleinbuchstaben-Code; leer = alle Länder (Welt-Modus). */
+    private function selectedCountry(): string
+    {
+        return mb_strtolower($this->country);
+    }
+
+    /** @var Collection<int, MapMeetupData>|null */
+    private ?Collection $memoizedMeetups = null;
+
+    /**
+     * Pro Request memoisiert: markers() und countries() lesen beide die
+     * volle Karten-Antwort, das DTO-Mapping soll aber nur einmal laufen.
+     *
+     * @return Collection<int, MapMeetupData>
+     */
+    protected function allMeetups(): Collection
+    {
+        return $this->memoizedMeetups ??= app(PortalApi::class)->mapMeetups(withIntro: true, withLogos: true);
     }
 };
 ?>
@@ -92,38 +161,68 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
         <flux:tab name="orte">{{ __('Orte') }}</flux:tab>
     </flux:tabs>
 
+    {{-- Regionsfilter steuert Karte, Städte und Orte. „Alle Länder“ = Welt-Modus. --}}
+    <flux:select wire:model.live="country">
+        <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
+        @foreach ($this->countries as $code)
+            <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
+        @endforeach
+    </flux:select>
+
     @if ($tab === 'karte')
-        @if ($this->markers === [])
+        @if (! $this->hasMeetups)
             <x-error-state :heading="__('Karte nicht verfügbar')"/>
         @else
             <div
                 wire:key="meetup-map"
                 wire:ignore
                 x-data="{
-                    initializeMap() {
-                        const map = L.map(this.$refs.map).setView([50.9, 10.3], 5);
+                    map: null,
+                    layer: null,
+                    icon: null,
+                    init() {
+                        this.map = L.map(this.$refs.map).setView([50.9, 10.3], 5);
 
                         L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
                             minZoom: 2,
                             maxZoom: 18,
                             attribution: @js('&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'),
-                        }).addTo(map);
+                        }).addTo(this.map);
 
-                        const icon = L.icon({
+                        this.icon = L.icon({
                             iconUrl: @js(asset('img/btc_marker.png')),
                             iconSize: [32, 32],
                             iconAnchor: [16, 32],
                             popupAnchor: [0, -32],
                         });
 
-                        @js($this->markers).forEach((marker) => {
-                            L.marker([marker.lat, marker.lng], { icon })
+                        this.layer = L.layerGroup().addTo(this.map);
+                        this.render(@js($this->markers));
+                    },
+                    render(markers) {
+                        this.layer.clearLayers();
+
+                        if (! markers.length) {
+                            return;
+                        }
+
+                        const points = [];
+
+                        markers.forEach((marker) => {
+                            L.marker([marker.lat, marker.lng], { icon: this.icon })
                                 .bindPopup(marker.popup)
-                                .addTo(map);
+                                .addTo(this.layer);
+                            points.push([marker.lat, marker.lng]);
                         });
+
+                        // fitBounds zentriert UND zoomt automatisch auf die Marker:
+                        // dichte Länder (z. B. Ungarn) bekommen mehr Zoom als eine
+                        // weltweite Verteilung — ganz ohne Koordinaten-Tabelle. Der
+                        // maxZoom-Deckel verhindert Über-Zoom bei nur einem Marker.
+                        this.map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 12 });
                     },
                 }"
-                x-init="initializeMap()"
+                @map-country-changed.window="render($event.detail.markers)"
             >
                 <div
                     x-ref="map"
