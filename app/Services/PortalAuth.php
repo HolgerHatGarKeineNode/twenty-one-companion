@@ -193,10 +193,21 @@ final class PortalAuth
         $profile = $response->json();
 
         if (is_array($profile)) {
-            Cache::put(self::PROFILE_CACHE_KEY, $profile, now()->addDays(self::PROFILE_CACHE_TTL_DAYS));
+            $this->cacheProfile($profile);
         }
 
         return $profile;
+    }
+
+    /**
+     * Persists a profile array in the local cache (same TTL as a live fetch),
+     * so a profile change written through the API is reflected offline too.
+     *
+     * @param  array<string, mixed>  $profile
+     */
+    public function cacheProfile(array $profile): void
+    {
+        Cache::put(self::PROFILE_CACHE_KEY, $profile, now()->addDays(self::PROFILE_CACHE_TTL_DAYS));
     }
 
     /**

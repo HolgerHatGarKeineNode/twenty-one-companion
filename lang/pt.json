@@ -448,5 +448,10 @@
     "Verify your email address": "Verify your email address",
     "Whoops!": "Ops!",
     "You are receiving this email because we received a password reset request for your account.": "Recebeu esse e-mail porque foi solicitada a redefinição da palavra-passe da sua conta.",
-    "Willkommen bei": "Bem-vindo a"
+    "Willkommen bei": "Bem-vindo a",
+    "Anzeigename": "Nome de exibição",
+    "Anzeigename ändern": "Alterar nome de exibição",
+    "Leiter": "Líder",
+    "Speichern fehlgeschlagen.": "Falha ao salvar.",
+    "Bitte überprüfe deine Eingabe.": "Verifique sua entrada."
 }

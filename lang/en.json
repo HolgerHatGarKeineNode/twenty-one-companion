@@ -380,5 +380,10 @@
     "In :city existiert dieses Meetup bereits. Lege kein Duplikat an — füge es stattdessen zu deinen Meetups hinzu.": "This meetup already exists in :city. Don't create a duplicate — add it to your meetups instead.",
     "Zu meinen Meetups hinzufügen": "Add to my meetups",
     "Such zuerst dein Meetup — gibt es das in deiner Stadt schon, füge es zu „Meine“ hinzu, statt ein Duplikat anzulegen.": "Search for your meetup first — if it already exists in your city, add it to “Mine” instead of creating a duplicate.",
-    "Willkommen bei": "Welcome to"
+    "Willkommen bei": "Welcome to",
+    "Anzeigename": "Display name",
+    "Anzeigename ändern": "Change display name",
+    "Leiter": "Leader",
+    "Speichern fehlgeschlagen.": "Saving failed.",
+    "Bitte überprüfe deine Eingabe.": "Please check your input."
 }

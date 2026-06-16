@@ -24,7 +24,7 @@
 - [x] **B.5 RSVP/attend** — "I'm coming" / "maybe" / "can't make it" status for the next event on the meetup detail. New portal API (`GET`/`POST /api/meetup-events/{id}/rsvp`, Sanctum); display name taken from the profile automatically. App: `RsvpMeetupEventRequest` + `PortalWriter::rsvpMeetupEvent()`, status hydrated once and updated from the write response (no map refetch).
 - [ ] **B.6 Push notifications** — reminders before events of your own/saved meetups; new events in your region (NativePHP Push, permission priming from onboarding 3.5 already built).
 - [ ] **B.7 "Nearby"** — geo-sorting of meetups/events by device location (NativePHP Location, opt-in).
-- [ ] **B.8 Profile expansion** — avatar, bio, own contributions, connection status, "Log out / renew token".
+- [x] **B.8 Profile expansion** — avatar, own contributions, connection status, "Log out / renew token" plus role badges (`is_lecturer`/`is_leader`, read-only), a tappable npub (opens njump), and inline **display-name editing** via a new portal write endpoint (`PATCH /api/user`, name only — roles are not user-settable; app: `UpdateUserProfileRequest` + `PortalWriter::updateUserProfile()`, cached profile refreshed from the response). *Bio dropped: the portal has no bio field/column.*
 - [ ] **B.9 Pull-to-refresh & cache status** — a unified refresh gesture + a visible "last updated / offline" hint (builds on `servedStaleData`).
 - [ ] **B.10 Widget/quick action** — Android shortcut "Next event". *(Stretch.)*
 - [ ] **B.11 Review localization** — all new strings via `__()` + `lang/` files (de/en).

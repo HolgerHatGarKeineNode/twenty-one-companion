@@ -508,14 +508,14 @@ function fakeImagePath(string $name = 'image.jpg'): string
 }
 
 /**
- * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
- * HTTP-Call lesen können.
+ * Profil-Shape von GET /api/user (Token-Inhaber).
  *
  * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
  */
-function withCachedPortalProfile(array $overrides = []): void
+function userProfileFixture(array $overrides = []): array
 {
-    Cache::put(PortalAuth::PROFILE_CACHE_KEY, array_merge([
+    return array_merge([
         'id' => 7,
         'name' => 'Satoshi',
         'email' => 'satoshi@example.com',
@@ -523,5 +523,16 @@ function withCachedPortalProfile(array $overrides = []): void
         'is_lecturer' => false,
         'is_leader' => false,
         'avatar' => null,
-    ], $overrides));
+    ], $overrides);
+}
+
+/**
+ * Profil-Cache von PortalAuth füllen, damit Seiten id/is_lecturer ohne
+ * HTTP-Call lesen können.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function withCachedPortalProfile(array $overrides = []): void
+{
+    Cache::put(PortalAuth::PROFILE_CACHE_KEY, userProfileFixture($overrides));
 }

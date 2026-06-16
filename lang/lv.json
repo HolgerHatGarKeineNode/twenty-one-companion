@@ -448,5 +448,10 @@
     "Verify your email address": "Apstipriniet savu e-pasta adresi",
     "Whoops!": "Ak vai!",
     "You are receiving this email because we received a password reset request for your account.": "Jūs saņemat šo e-pastu, jo saņēmām paroles atiestatīšanas pieprasījumu jūsu kontam.",
-    "Willkommen bei": "Laipni lūdzam"
+    "Willkommen bei": "Laipni lūdzam",
+    "Anzeigename": "Attēlojamais vārds",
+    "Anzeigename ändern": "Mainīt attēlojamo vārdu",
+    "Leiter": "Vadītājs",
+    "Speichern fehlgeschlagen.": "Saglabāšana neizdevās.",
+    "Bitte überprüfe deine Eingabe.": "Lūdzu, pārbaudi ievadi."
 }

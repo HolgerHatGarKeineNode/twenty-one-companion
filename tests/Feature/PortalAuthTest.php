@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\UpdateUserProfileRequest;
 use App\Services\PortalAuth;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
@@ -186,4 +187,64 @@ it('skips the revoke call when no token is stored', function () {
     app(PortalAuth::class)->logout();
 
     Http::assertNothingSent();
+});
+
+it('shows the name, role badges, nostr key and own-content link when connected', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(
+            userProfileFixture(['name' => 'Satoshi', 'is_lecturer' => true, 'is_leader' => true]),
+        ),
+    ]);
+
+    Livewire\Livewire::test('portal.connect')
+        ->assertSee('Satoshi')
+        ->assertSee(__('Referent'))
+        ->assertSee(__('Leiter'))
+        ->assertSee('npub1xyz')
+        ->assertSee(__('Meine Inhalte'));
+});
+
+it('saves a changed display name and refreshes the cached profile', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(userProfileFixture(['name' => 'Satoshi'])),
+    ]);
+    MockClient::global([
+        UpdateUserProfileRequest::class => MockResponse::make(userProfileFixture(['name' => 'Hal Finney'])),
+    ]);
+
+    Livewire\Livewire::test('portal.connect')
+        ->call('startEditingName')
+        ->set('name', 'Hal Finney')
+        ->call('saveName')
+        ->assertHasNoErrors()
+        ->assertSet('editingName', false)
+        ->assertSet('profile.name', 'Hal Finney');
+
+    expect(app(PortalAuth::class)->cachedProfile())->toMatchArray(['name' => 'Hal Finney']);
+});
+
+it('rejects an empty display name without calling the portal', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(userProfileFixture()),
+    ]);
+
+    Livewire\Livewire::test('portal.connect')
+        ->call('startEditingName')
+        ->set('name', '')
+        ->call('saveName')
+        ->assertHasErrors(['name'])
+        ->assertSet('editingName', true);
+});
+
+it('opens the own nostr profile on njump in the system browser', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(userProfileFixture(['nostr' => 'npub1xyz'])),
+    ]);
+    Browser::shouldReceive('open')->once()->with('https://njump.me/npub1xyz');
+
+    Livewire\Livewire::test('portal.connect')->call('openNostr');
 });

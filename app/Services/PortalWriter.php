@@ -20,6 +20,7 @@ use App\Http\Integrations\Portal\Requests\UpdateCourseRequest;
 use App\Http\Integrations\Portal\Requests\UpdateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
+use App\Http\Integrations\Portal\Requests\UpdateUserProfileRequest;
 use App\Http\Integrations\Portal\Requests\UpdateVenueRequest;
 use App\Http\Integrations\Portal\Requests\UploadCourseLogoRequest;
 use App\Http\Integrations\Portal\Requests\UploadLecturerAvatarRequest;
@@ -120,6 +121,24 @@ final class PortalWriter
     public function rsvpMeetupEvent(int $id, string $status): WriteResult
     {
         return $this->send(new RsvpMeetupEventRequest($id, ['status' => $status]));
+    }
+
+    /**
+     * Ändert den eigenen Anzeigenamen. Rollen sind serverseitig nicht
+     * änderbar. Bei Erfolg trägt die Antwort das frische Profil, das direkt
+     * in den lokalen Profil-Cache geschrieben wird (sofort sichtbar, auch offline).
+     *
+     * @param  array<string, mixed>  $payload  array{ name: string }
+     */
+    public function updateUserProfile(array $payload): WriteResult
+    {
+        $result = $this->send(new UpdateUserProfileRequest($payload));
+
+        if ($result->successful() && $result->data !== []) {
+            $this->portalAuth->cacheProfile($result->data);
+        }
+
+        return $result;
     }
 
     /**

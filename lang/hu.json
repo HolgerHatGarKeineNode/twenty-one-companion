@@ -448,5 +448,10 @@
     "Verify your email address": "Igazolja e-mail címét",
     "Whoops!": "Hoppá!",
     "You are receiving this email because we received a password reset request for your account.": "Azért kapja ezt az üzenetet, mert a fiókjára jelszó helyreállítási kérés érkezett.",
-    "Willkommen bei": "Üdvözlünk itt:"
+    "Willkommen bei": "Üdvözlünk itt:",
+    "Anzeigename": "Megjelenített név",
+    "Anzeigename ändern": "Megjelenített név módosítása",
+    "Leiter": "Vezető",
+    "Speichern fehlgeschlagen.": "A mentés sikertelen.",
+    "Bitte überprüfe deine Eingabe.": "Kérjük, ellenőrizd a bevitelt."
 }
