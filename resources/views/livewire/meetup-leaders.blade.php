@@ -207,10 +207,21 @@ new class extends Component
                     />
                     <span class="flex min-w-0 flex-1 flex-col">
                         <span class="truncate font-semibold">{{ $leader->name }}</span>
+                        {{-- npub antippen, um ihn in die Zwischenablage zu kopieren
+                             (nur wenn vorhanden). navigator.clipboard wie im 2FA-Setup. --}}
                         @if ($leader->nostr)
-                            <span class="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                                {{ \Illuminate\Support\Str::substr($leader->nostr, 0, 12).'…'.\Illuminate\Support\Str::substr($leader->nostr, -6) }}
-                            </span>
+                            @php($npubShort = \Illuminate\Support\Str::substr($leader->nostr, 0, 12).'…'.\Illuminate\Support\Str::substr($leader->nostr, -6))
+                            <button
+                                type="button"
+                                x-data="{ copied: false }"
+                                x-on:click.stop="navigator.clipboard.writeText(@js($leader->nostr)).then(() => { copied = true; $haptic('light'); setTimeout(() => copied = false, 1500); })"
+                                :class="copied && 'text-green-600 dark:text-green-400'"
+                                aria-label="{{ __('npub kopieren') }}"
+                                class="pressable flex w-fit max-w-full items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"
+                            >
+                                <flux:icon name="clipboard-document" class="size-3.5 shrink-0"/>
+                                <span class="truncate font-mono" x-text="copied ? '{{ __('Kopiert!') }}' : '{{ $npubShort }}'">{{ $npubShort }}</span>
+                            </button>
                         @endif
                     </span>
 

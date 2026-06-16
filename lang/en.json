@@ -7,6 +7,8 @@
     "Diesen Leader kannst du nicht entziehen.": "You can't remove this leader.",
     "Ersteller": "Creator",
     "Fertig": "Done",
+    "Kopiert!": "Copied!",
+    "npub kopieren": "Copy npub",
     "Frag die Person nach ihrem Nostr-Schlüssel (npub). Sie findet ihn in ihrer Nostr-App oder in ihrem Portal-Profil — er beginnt mit „npub1…“.": "Ask the person for their Nostr key (npub). They'll find it in their Nostr app or in their portal profile — it starts with “npub1…”.",
     "Leader dürfen dieses Meetup bearbeiten und selbst weitere Leader einsetzen. Setze nur Personen ein, denen du vertraust.": "Leaders can edit this meetup and appoint additional leaders themselves. Only appoint people you trust.",
     "Leader eingesetzt.": "Leader appointed.",

@@ -31,7 +31,9 @@ it('lists the current leaders of a meetup', function () {
         ->call('open', 21, 'Einundzwanzig Aschaffenburg')
         ->assertSee('Satoshi')
         ->assertSee('Hal')
-        ->assertSee(__('Ersteller'));
+        ->assertSee(__('Ersteller'))
+        // npub eines Leaders ist als Kopier-Affordance vorhanden.
+        ->assertSee(__('npub kopieren'));
 });
 
 it('appoints a leader by npub and refreshes the list', function () {
