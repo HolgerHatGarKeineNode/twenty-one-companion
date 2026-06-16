@@ -17,7 +17,7 @@ description: |
   - Courses & lecturers
   - Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. Amber)
   - Offline-ready: recently loaded data stays available
-  - German & English
+  - 8 languages: German, English, Spanish, Portuguese, Dutch, Polish, Hungarian, Latvian
 
 tags:
   - bitcoin
@@ -29,7 +29,7 @@ tags:
 
 website: https://portal.einundzwanzig.space
 
-release_notes: ./dist/v1.2.1/zapstore-changelog.md
+release_notes: ./dist/v1.2.2/zapstore-changelog.md
 
 icon: ./public/icon.png
 

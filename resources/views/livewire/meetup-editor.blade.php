@@ -28,13 +28,17 @@ use Livewire\Component;
  * Schreibt über den {@see PortalWriter}; 422-Feldfehler werden zurück an die
  * Form-Felder gemappt, Erfolg/Fehler über Toast + Haptik bestätigt.
  */
-new class extends Component {
+new class extends Component
+{
     use HandlesImageUpload, HandlesPortalWriteFeedback;
 
     public MeetupForm $form;
 
     /** Null = Anlegen, sonst die ID des bearbeiteten eigenen Meetups. */
     public ?int $editingId = null;
+
+    /** Darf der Nutzer für dieses Meetup Leader verwalten (ist selbst Leader)? */
+    public bool $canManageLeaders = false;
 
     /** Suchbegriff für die Stadt-Auswahl (eigenes Feld, nicht Teil der Payload). */
     public string $cityQuery = '';
@@ -71,6 +75,7 @@ new class extends Component {
     {
         $this->form->reset();
         $this->editingId = null;
+        $this->canManageLeaders = false;
         $this->cityQuery = '';
         $this->showPreview = false;
         $this->ignoreDuplicates = false;
@@ -96,6 +101,7 @@ new class extends Component {
         }
 
         $this->editingId = $meetup->id;
+        $this->canManageLeaders = $meetup->is_leader;
         $this->setCurrentImageUrl($meetup->logo);
         $this->form->setMeetup($meetup);
         // Stadtname netzwerkfrei aus den gecachten Karten-Meetups (per Slug).
@@ -431,6 +437,24 @@ new class extends Component {
             <flux:switch wire:model="form.is_active" :label="__('Aktiv')" :description="__('Inaktive Meetups bleiben verborgen.')"/>
             <flux:switch wire:model="form.visible_on_map" :label="__('Auf der Karte zeigen')"/>
         </div>
+
+        {{-- Leader verwalten (Leader-Delegation): nur beim Bearbeiten und nur,
+             wenn der Nutzer selbst Leader ist. Öffnet das gestapelte
+             `meetup-leaders`-Sheet (wie der inline „Stadt anlegen“-Flow). --}}
+        @if ($editingId && $canManageLeaders)
+            <button
+                type="button"
+                x-on:click="$haptic('medium'); $flux.modal('meetup-leaders').show(); Livewire.dispatch('open-meetup-leaders', { id: {{ $editingId }}, name: @js($form->name) })"
+                class="pressable flex w-full items-center gap-3 rounded-tile border border-zinc-200 p-4 text-start active:bg-zinc-100 dark:border-zinc-800 dark:active:bg-zinc-800"
+            >
+                <flux:icon name="user-group" class="size-6 shrink-0 text-brand-600 dark:text-brand-400"/>
+                <span class="flex min-w-0 flex-1 flex-col">
+                    <span class="font-semibold">{{ __('Leader verwalten') }}</span>
+                    <flux:text class="text-sm">{{ __('Andere Personen per npub als Leader einsetzen.') }}</flux:text>
+                </span>
+                <flux:icon name="chevron-right" class="size-5 shrink-0 text-zinc-400"/>
+            </button>
+        @endif
 
         {{-- Harte Duplikat-Sperre (Phase 4.3): exakter Name+Stadt-Treffer. Statt
              ein Duplikat anzulegen, das bestehende Meetup zu „Meine“ übernehmen. --}}

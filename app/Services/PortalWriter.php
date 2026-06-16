@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\RsvpStatus;
 use App\Http\Integrations\Portal\PortalConnector;
+use App\Http\Integrations\Portal\Requests\AddMeetupLeaderRequest;
 use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
 use App\Http\Integrations\Portal\Requests\CreateCourseEventRequest;
@@ -13,6 +14,7 @@ use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
+use App\Http\Integrations\Portal\Requests\RemoveMeetupLeaderRequest;
 use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseEventRequest;
@@ -88,6 +90,28 @@ final class PortalWriter
     public function removeMeetupFromMine(string $slug): WriteResult
     {
         return $this->send(new RemoveMeetupFromMineRequest($slug), ['my-meetups']);
+    }
+
+    /**
+     * Setzt einen weiteren Leader für ein Meetup per npub ein. Existiert noch
+     * kein Account, legt das Portal ihn an (greift beim ersten Login). Bei
+     * Erfolg trägt die Antwort die frische Leader-Liste (data-Wrapper).
+     * Invalidiert die eigene Meetup-Liste, falls sich die eigene is_leader-Sicht
+     * ändert.
+     */
+    public function addMeetupLeader(int $meetupId, string $npub): WriteResult
+    {
+        return $this->send(new AddMeetupLeaderRequest($meetupId, $npub), ['my-meetups']);
+    }
+
+    /**
+     * Entzieht einem Nutzer die Leader-Rolle für ein Meetup (Demote; bleibt
+     * Mitglied). Der Ersteller ist serverseitig geschützt. Bei Erfolg trägt die
+     * Antwort die frische Leader-Liste (data-Wrapper).
+     */
+    public function removeMeetupLeader(int $meetupId, int $userId): WriteResult
+    {
+        return $this->send(new RemoveMeetupLeaderRequest($meetupId, $userId), ['my-meetups']);
     }
 
     /**

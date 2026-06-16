@@ -14,6 +14,7 @@ use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MeetupEventRsvpData;
+use App\Data\Portal\MeetupLeaderData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
@@ -31,6 +32,7 @@ use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMeetupLeadersRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
@@ -483,6 +485,33 @@ final class PortalApi
 
         /** @var MeetupEventRsvpData */
         return $response->dtoOrFail();
+    }
+
+    /**
+     * Leader eines Meetups (auth) — ungecacht, weil die Leader-Verwaltung ein
+     * reiner Online-Vorgang ist und nach jedem Einsetzen/Entziehen sofort
+     * frisch sein muss. Ohne Token oder bei Netz-/Serverfehler eine leere
+     * Collection; der Aufrufer zeigt dann den Lade-/Fehlerzustand.
+     *
+     * @return Collection<int, MeetupLeaderData>
+     */
+    public function meetupLeaders(int $meetupId): Collection
+    {
+        if (! $this->portalAuth->hasToken()) {
+            return new Collection;
+        }
+
+        try {
+            $response = $this->connector->send(new GetMeetupLeadersRequest($meetupId));
+        } catch (FatalRequestException|RequestException) {
+            return new Collection;
+        }
+
+        if ($response->failed()) {
+            return new Collection;
+        }
+
+        return GetMeetupLeadersRequest::collectData($response->json('data') ?? []);
     }
 
     /**

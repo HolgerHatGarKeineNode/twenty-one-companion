@@ -8,7 +8,7 @@ meetups, events, courses, lecturers and places of the Bitcoin community — righ
 - 🎓 Courses & lecturers
 - ⚡ Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. [Amber](https://github.com/greenart7c3/Amber))
 - 📦 Offline-ready: recently loaded data stays available
-- 🌐 German & English
+- 🌐 8 languages: German, English, Spanish, Portuguese, Dutch, Polish, Hungarian, Latvian
 
 Built with [NativePHP Mobile](https://nativephp.com/mobile), Laravel, Livewire and Flux UI.
 

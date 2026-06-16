@@ -254,14 +254,19 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                                 @endif
                             </span>
                         </a>
-                        <flux:button
-                            type="button"
-                            variant="ghost"
-                            icon="pencil-square"
-                            :aria-label="__('Meetup bearbeiten')"
-                            x-on:click="$haptic('light'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor', { id: {{ $meetup->id }} })"
-                            class="shrink-0 cursor-pointer"
-                        />
+                        {{-- Bearbeiten nur für Leader dieses Meetups (Leader-Modell).
+                             Nicht-Leader-Mitglieder sehen Karte + Entfernen, aber
+                             keinen Edit-Button. --}}
+                        @if ($meetup->is_leader)
+                            <flux:button
+                                type="button"
+                                variant="ghost"
+                                icon="pencil-square"
+                                :aria-label="__('Meetup bearbeiten')"
+                                x-on:click="$haptic('light'); $flux.modal('create-meetup').show(); Livewire.dispatch('open-meetup-editor', { id: {{ $meetup->id }} })"
+                                class="shrink-0 cursor-pointer"
+                            />
+                        @endif
                         {{-- Aus „Meine“ entfernen (Phase 1.2.1): löst nur die Pivot-
                              Zuordnung, die Stammdaten bleiben. Bestätigung gegen
                              versehentliches Entfernen. --}}

@@ -223,6 +223,26 @@ function myMeetupFixture(array $overrides = []): array
         'created_by' => 7,
         'created_at' => '2022-01-01T00:00:00.000000Z',
         'updated_at' => '2026-06-01T00:00:00.000000Z',
+        // Token-Inhaber ist standardmäßig Leader des eigenen Meetups (darf
+        // bearbeiten + Leader verwalten). Tests für Nicht-Leader überschreiben.
+        'is_leader' => true,
+    ], $overrides);
+}
+
+/**
+ * Ein Leader aus GET /api/meetup/{id}/leaders (data-Wrapper).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function meetupLeaderFixture(array $overrides = []): array
+{
+    return array_merge([
+        'id' => 7,
+        'name' => 'Satoshi',
+        'nostr' => 'npub1satoshixxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+        'avatar' => null,
+        'is_creator' => true,
     ], $overrides);
 }
 

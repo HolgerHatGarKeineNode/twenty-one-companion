@@ -185,8 +185,8 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
                 <flux:button wire:click="openLink({{ Js::from($this->meetup->portalLink) }})" size="sm" variant="ghost" icon="arrow-top-right-on-square" class="cursor-pointer">
                     {{ __('Im Portal öffnen') }}
                 </flux:button>
-                @if ($this->ownMeetup)
-                    {{-- Bearbeiten des eigenen Meetups (Phase 4.2) — analog zu courses.show/lecturers.show. --}}
+                @if ($this->ownMeetup?->is_leader)
+                    {{-- Bearbeiten nur für Leader (Leader-Modell) — analog zu courses.show/lecturers.show. --}}
                     <flux:button
                         size="sm"
                         variant="ghost"
@@ -200,10 +200,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
             </div>
         </section>
 
-        {{-- Termin-Verwaltung (Phase 5.3): nur für das eigene Meetup. Anlegen
-             öffnet den Editor mit vorgewähltem Meetup, jede eigene Zeile bietet
-             eine Inline-Edit-Affordance; kommende vs. vergangene Termine getrennt. --}}
-        @if ($this->ownMeetup)
+        {{-- Termin-Verwaltung (Phase 5.3): nur für Leader des Meetups (Leader-
+             Modell — die Portal-API verlangt is_leader). Anlegen öffnet den Editor
+             mit vorgewähltem Meetup, jede eigene Zeile bietet eine Inline-Edit-
+             Affordance; kommende vs. vergangene Termine getrennt. --}}
+        @if ($this->ownMeetup?->is_leader)
             <section class="surface-card p-6">
                 <div class="flex items-center justify-between gap-3">
                     <flux:heading size="lg" level="2">{{ __('Meine Termine') }}</flux:heading>

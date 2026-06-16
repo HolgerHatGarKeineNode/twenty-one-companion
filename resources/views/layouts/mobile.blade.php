@@ -98,6 +98,9 @@
                          Duplikate anzulegen. --}}
                     <livewire:meetup-picker/>
                     <livewire:meetup-editor/>
+                    {{-- Leader-Delegation: Sheet hinter dem „Leader verwalten“-Button
+                         im Meetup-Editor (öffnet via open-meetup-leaders). --}}
+                    <livewire:meetup-leaders/>
                     <livewire:event-editor/>
                     <livewire:venue-editor/>
                     <livewire:city-editor/>

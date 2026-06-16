@@ -32,5 +32,8 @@ final class MeetupData extends Data
         public ?CarbonImmutable $created_at,
         public ?CarbonImmutable $updated_at,
         public ?string $logo = null,
+        // Ist der Token-Inhaber Leader dieses Meetups? Nur aus /api/my-meetups
+        // gesetzt (Pivot geladen); steuert Edit- und Leader-Verwaltung.
+        public bool $is_leader = false,
     ) {}
 }
