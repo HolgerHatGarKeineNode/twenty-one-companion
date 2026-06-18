@@ -53,8 +53,8 @@ new #[Layout('layouts::mobile', ['title' => 'Referent', 'heading' => 'Referent',
             <flux:text class="max-w-xs">
                 {{ __('Dieses Profil existiert nicht mehr.') }}
             </flux:text>
-            <flux:button :href="route('courses')" wire:navigate icon="arrow-left" size="sm">
-                {{ __('Zu den Kursen') }}
+            <flux:button :href="route('courses', ['tab' => 'referenten'])" wire:navigate icon="arrow-left" size="sm">
+                {{ __('Zu den Referenten') }}
             </flux:button>
         </x-portal-empty-state>
     @else
