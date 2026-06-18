@@ -22,6 +22,11 @@ final class AppPreferences
      */
     public const DEFAULT_TIMEZONE = 'Europe/Berlin';
 
+    /** Listendichte der Browse-Listen (Phase C2): „compact“ verdichtet sie. */
+    public const DEFAULT_DENSITY = 'comfortable';
+
+    public const DENSITIES = ['comfortable', 'compact'];
+
     /**
      * Unterstützte App-Sprachen. Deutsche Quell-Strings + je eine lang/*.json
      * pro Locale (de nutzt die Quell-Strings direkt). Von der Region/Marke
@@ -55,6 +60,8 @@ final class AppPreferences
     private const KEY_COUNTRY = 'country';
 
     private const KEY_TIMEZONE = 'timezone';
+
+    private const KEY_DENSITY = 'density';
 
     private const KEY_ONBOARDING_STEP = 'onboarding_step';
 
@@ -163,6 +170,24 @@ final class AppPreferences
     {
         if (in_array($timezone, timezone_identifiers_list(), true)) {
             $this->set(self::KEY_TIMEZONE, $timezone);
+        }
+    }
+
+    /**
+     * Listendichte der Browse-Listen; fällt auf „comfortable“ zurück, solange
+     * nichts Gültiges gespeichert ist.
+     */
+    public function density(): string
+    {
+        $density = $this->get(self::KEY_DENSITY);
+
+        return in_array($density, self::DENSITIES, true) ? $density : self::DEFAULT_DENSITY;
+    }
+
+    public function setDensity(string $density): void
+    {
+        if (in_array($density, self::DENSITIES, true)) {
+            $this->set(self::KEY_DENSITY, $density);
         }
     }
 

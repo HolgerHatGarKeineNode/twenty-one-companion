@@ -39,4 +39,73 @@ window.haptic = function (pattern = 'light') {
 document.addEventListener('alpine:init', () => {
     // Nutzung im Markup: x-on:click="$haptic('success')"
     window.Alpine?.magic('haptic', () => window.haptic);
+
+    /**
+     * App-Refresh (Phase A2/A3): Header-Refresh-Button UND Pull-to-Refresh am
+     * scrollbaren <main>. Das Layout-Chrome liegt ausserhalb der Seiten-
+     * Livewire-Komponente, daher löst die Geste einen GLOBALEN Livewire-Event
+     * `portal-refresh` aus (die Seite verwirft ihren Cache und rendert neu);
+     * `portal-refreshed` kommt zurück und stoppt den Spinner.
+     *
+     * `pull`/`dragging` treiben den PTR-Indikator (wächst beim Ziehen, dreht
+     * beim Aktualisieren), `refreshing` den Header-Icon-Spin.
+     */
+    window.Alpine?.data('appRefresh', () => ({
+        refreshing: false,
+        pull: 0,
+        dragging: false,
+        startY: 0,
+        threshold: 64,
+        max: 96,
+
+        trigger() {
+            if (this.refreshing) {
+                return;
+            }
+            this.refreshing = true;
+            window.haptic('medium');
+            window.Livewire?.dispatch('portal-refresh');
+        },
+
+        onDone() {
+            this.refreshing = false;
+            this.pull = 0;
+            this.dragging = false;
+        },
+
+        onStart(e) {
+            if (this.refreshing || e.currentTarget.scrollTop > 0) {
+                return;
+            }
+            this.dragging = true;
+            this.startY = e.touches[0].clientY;
+        },
+
+        onMove(e) {
+            if (!this.dragging || this.refreshing) {
+                return;
+            }
+            const dy = e.touches[0].clientY - this.startY;
+            if (dy <= 0 || e.currentTarget.scrollTop > 0) {
+                this.pull = 0;
+
+                return;
+            }
+            // Gummiband-Widerstand: je weiter gezogen, desto zäher.
+            this.pull = Math.min(dy * 0.5, this.max);
+        },
+
+        onEnd() {
+            this.dragging = false;
+            if (this.refreshing) {
+                return;
+            }
+            if (this.pull >= this.threshold) {
+                this.pull = this.threshold;
+                this.trigger();
+            } else {
+                this.pull = 0;
+            }
+        },
+    }));
 });

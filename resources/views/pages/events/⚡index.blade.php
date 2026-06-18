@@ -225,7 +225,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                     >
                         <x-meetup-avatar :logo="$event->meetup->logo" :name="$event->meetup->name"/>
                         <span class="flex min-w-0 flex-col gap-0.5">
-                            <span class="truncate font-semibold">{{ $event->meetup->name }}</span>
+                            <x-meetup-name :name="$event->meetup->name"/>
                             <flux:text class="truncate text-sm">
                                 {{ $event->start->forDisplay()->format('H:i') }}{{ $event->location ? ' · '.$event->location : '' }}
                             </flux:text>

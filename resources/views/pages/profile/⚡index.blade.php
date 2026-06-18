@@ -31,11 +31,14 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
 
     public string $timezone = AppPreferences::DEFAULT_TIMEZONE;
 
+    public string $density = AppPreferences::DEFAULT_DENSITY;
+
     public function mount(AppPreferences $preferences): void
     {
         $this->locale = $preferences->locale();
         $this->country = $preferences->country();
         $this->timezone = $preferences->timezone();
+        $this->density = $preferences->density();
 
         // Landeplatz nach dem Login-Deep-Link: Rückmeldung als Toast.
         if (session()->pull('portal-connected')) {
@@ -120,6 +123,18 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
         Flux::toast(text: __('Gespeichert.'), variant: 'success');
     }
 
+    public function updatedDensity(AppPreferences $preferences): void
+    {
+        if (! in_array($this->density, AppPreferences::DENSITIES, true)) {
+            $this->density = $preferences->density();
+
+            return;
+        }
+
+        $preferences->setDensity($this->density);
+        Flux::toast(text: __('Gespeichert.'), variant: 'success');
+    }
+
     public function openPortal(PortalAuth $portalAuth): void
     {
         $this->openLink($portalAuth->baseUrl());
@@ -156,6 +171,11 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
                 <flux:radio value="dark" :label="__('Dunkel')"/>
                 <flux:radio value="light" :label="__('Hell')"/>
                 <flux:radio value="system" :label="__('System')"/>
+            </flux:radio.group>
+
+            <flux:radio.group wire:model.live="density" :label="__('Listendichte')" variant="segmented">
+                <flux:radio value="comfortable" :label="__('Normal')"/>
+                <flux:radio value="compact" :label="__('Kompakt')"/>
             </flux:radio.group>
         </div>
     </section>

@@ -43,7 +43,7 @@ it('lists the map meetups with the soonest upcoming event first, then by name', 
     ]);
 
     Livewire::test('pages::meetups.index')
-        ->assertSeeInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien', 'Einundzwanzig Berlin'])
+        ->assertSeeTextInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien', 'Einundzwanzig Berlin'])
         ->assertSee('Aschaffenburg · DE')
         ->assertSee('Wien · AT')
         ->assertSee(route('meetups.show', 'aschaffenburg'));
@@ -57,12 +57,12 @@ it('filters meetups by search term and country', function () {
 
     Livewire::test('pages::meetups.index')
         ->set('search', 'wien')
-        ->assertSee('Einundzwanzig Wien')
-        ->assertDontSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertDontSeeText('Einundzwanzig Aschaffenburg')
         ->set('search', '')
         ->set('country', 'DE')
-        ->assertSee('Einundzwanzig Aschaffenburg')
-        ->assertDontSee('Einundzwanzig Wien');
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
+        ->assertDontSeeText('Einundzwanzig Wien');
 });
 
 it('applies the onboarding region as default country filter', function () {
@@ -74,8 +74,8 @@ it('applies the onboarding region as default country filter', function () {
 
     Livewire::test('pages::meetups.index')
         ->assertSet('country', 'at')
-        ->assertSee('Einundzwanzig Wien')
-        ->assertDontSee('Einundzwanzig Aschaffenburg');
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertDontSeeText('Einundzwanzig Aschaffenburg');
 });
 
 it('hides the my-meetups tab for guests', function () {
@@ -100,7 +100,7 @@ it('shows the own meetups on the my-meetups tab when connected', function () {
     Livewire::test('pages::meetups.index')
         ->assertSee('Meine Meetups')
         ->set('tab', 'meine')
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee(route('meetups.show', 'aschaffenburg'));
 });
 
@@ -113,7 +113,7 @@ it('shows an edit affordance and status badge on own meetups', function () {
 
     Livewire::test('pages::meetups.index')
         ->set('tab', 'meine')
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Aktiv')
         ->assertSee('Meetup bearbeiten');
 });
@@ -183,7 +183,7 @@ it('refreshes the own meetups after a save event', function () {
     Livewire::test('pages::meetups.index')
         ->set('tab', 'meine')
         ->dispatch('meetup-saved')
-        ->assertSee('Einundzwanzig Aschaffenburg');
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
 });
 
 it('renders the meetups page over http', function () {
@@ -194,7 +194,7 @@ it('renders the meetups page over http', function () {
 
     $this->get(route('meetups'))
         ->assertOk()
-        ->assertSee('Einundzwanzig Aschaffenburg');
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
 });
 
 it('shows the meetup detail with next event, intro and links', function () {
@@ -207,7 +207,7 @@ it('shows the meetup detail with next event, intro and links', function () {
     ]);
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Nächster Termin')
         ->assertSee('Mainaschaff')
         ->assertSee('jeden Monat')
@@ -249,7 +249,7 @@ it('hides the own-event management section for non-owners', function () {
     ]);
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertDontSee(__('Meine Termine'))
         ->assertDontSee(__('Bearbeiten'));
 });

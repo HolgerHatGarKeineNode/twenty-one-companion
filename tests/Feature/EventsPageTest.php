@@ -38,7 +38,7 @@ it('lists the upcoming events of the current month from today on', function () {
     ]);
 
     Livewire::test('pages::events.index')
-        ->assertSeeInOrder(['Einundzwanzig Franken', 'Einundzwanzig Wien'])
+        ->assertSeeTextInOrder(['Einundzwanzig Franken', 'Einundzwanzig Wien'])
         ->assertSee('19:00')
         ->assertSee('20:30');
 
@@ -162,8 +162,8 @@ it('applies the onboarding region as default country filter', function () {
 
     Livewire::test('pages::events.index')
         ->assertSet('country', 'at')
-        ->assertSee('Einundzwanzig Wien')
-        ->assertDontSee('Einundzwanzig Franken');
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertDontSeeText('Einundzwanzig Franken');
 });
 
 it('filters the events by country and resets the selection', function () {
@@ -177,8 +177,8 @@ it('filters the events by country and resets the selection', function () {
         ->set('country', 'at')
         ->assertSet('selected', null)
         ->assertSet('showEvent', false)
-        ->assertSee('Einundzwanzig Wien')
-        ->assertDontSee('Einundzwanzig Franken');
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertDontSeeText('Einundzwanzig Franken');
 });
 
 it('renders the events page over http', function () {
@@ -189,5 +189,5 @@ it('renders the events page over http', function () {
 
     $this->get(route('events'))
         ->assertOk()
-        ->assertSee('Einundzwanzig Franken');
+        ->assertSeeText('Einundzwanzig Franken');
 });

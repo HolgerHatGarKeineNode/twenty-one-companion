@@ -6,6 +6,7 @@ use App\Services\AppPreferences;
 use App\Services\PortalApi;
 use App\Support\Brand;
 use Illuminate\Support\Str;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Device;
@@ -42,6 +43,27 @@ abstract class PortalPage extends Component
     public function retry(): void
     {
         $this->retrying = true;
+    }
+
+    /**
+     * Manueller Refresh über den Header-Button bzw. Pull-to-Refresh. Das
+     * Layout-Chrome (Header/Main) liegt AUSSERHALB der Seiten-Komponente,
+     * `wire:click` würde dort nicht binden — daher löst die Geste einen
+     * GLOBALEN Livewire-Event aus, den nur die aktuelle Seite (als einzige
+     * PortalPage mit diesem Listener) behandelt.
+     *
+     * refresh() erhöht die Cache-Generation (verwirft den Fresh-Cache); der
+     * Re-Render holt frisch. `portal-refreshed` bestätigt dem Layout-Alpine
+     * den Abschluss (Spinner stoppen). Das native Feedback („Aktualisiert.“
+     * bzw. Offline-/Fehler-Hinweis) läuft über denselben dehydrate()-Pfad
+     * wie retry().
+     */
+    #[On('portal-refresh')]
+    public function refreshPortalData(): void
+    {
+        app(PortalApi::class)->refresh();
+        $this->retrying = true;
+        $this->dispatch('portal-refreshed');
     }
 
     /**

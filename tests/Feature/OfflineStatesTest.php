@@ -53,7 +53,7 @@ it('shows the stale-data banner when the api fails but a stale copy exists', fun
     MockClient::global([MockResponse::make([], 500)]);
 
     Livewire::test('pages::meetups.index')
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Verbindungsproblem — Daten sind möglicherweise nicht aktuell.')
         ->assertDontSee('Erneut versuchen');
 });
@@ -66,7 +66,7 @@ it('shows the offline banner with the last loaded data when the device is offlin
 
     Livewire::test('pages::meetups.index')
         ->assertSee('Offline — du siehst zuletzt geladene Daten.')
-        ->assertSee('Einundzwanzig Aschaffenburg');
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
 
     MockClient::global()->assertNothingSent();
 });
@@ -119,7 +119,7 @@ it('confirms a successful retry with a native toast', function () {
     Livewire::test('pages::meetups.index')
         ->assertSee('Erneut versuchen')
         ->call('retry')
-        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertDontSee('Erneut versuchen');
 });
 

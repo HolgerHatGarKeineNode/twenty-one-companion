@@ -17,6 +17,9 @@
 
     // Marke aus der gewählten Region (vom UI-Sprach-Locale entkoppelt).
     $brand = app(BrandResolver::class)->current();
+
+    // Listendichte (Phase C2): „compact“ verdichtet die Browse-Listen.
+    $density = app(\App\Services\AppPreferences::class)->density();
 @endphp
 
 <!DOCTYPE html>
@@ -32,7 +35,13 @@
         {{-- Vollbild-Zelebrierung beim Regionswechsel (Marke wechselt). --}}
         <x-brand-switch-overlay/>
 
-        <div class="flex min-h-dvh flex-col">
+        <div
+            @class(['flex min-h-dvh flex-col', 'density-compact' => $density === 'compact'])
+            @if ($chrome)
+                x-data="appRefresh"
+                @portal-refreshed.window="onDone()"
+            @endif
+        >
             @if ($chrome)
                 <header class="pt-safe px-safe sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
                     <div class="flex h-14 items-center gap-3 px-4">
@@ -55,6 +64,19 @@
                         @endif
                         <flux:spacer/>
                         {{ $actions ?? '' }}
+                        {{-- Manueller Refresh (Phase A2): löst den globalen portal-refresh-
+                             Event aus (Layout-Chrome liegt ausserhalb der Seiten-Komponente,
+                             wire:click bände hier nicht). Icon dreht, bis portal-refreshed
+                             zurückkommt. --}}
+                        <flux:button
+                            x-on:click="trigger()"
+                            x-bind:disabled="refreshing"
+                            x-bind:class="refreshing && '[&_svg]:animate-spin'"
+                            variant="ghost"
+                            icon="arrow-path"
+                            :aria-label="__('Aktualisieren')"
+                            class="cursor-pointer"
+                        />
                         <flux:modal.trigger name="global-search">
                             <flux:button variant="ghost" icon="magnifying-glass" :aria-label="__('Suche')" class="cursor-pointer"/>
                         </flux:modal.trigger>
@@ -65,7 +87,31 @@
                 </header>
             @endif
 
-            <main class="px-safe flex-1 overflow-y-auto">
+            <main
+                class="px-safe flex-1 overflow-y-auto"
+                @if ($chrome)
+                    @touchstart.passive="onStart($event)"
+                    @touchmove.passive="onMove($event)"
+                    @touchend="onEnd()"
+                @endif
+            >
+                @if ($chrome)
+                    {{-- Pull-to-Refresh-Indikator (Phase A3): wächst beim Ziehen, das Icon
+                         dreht proportional und spinnt während des Aktualisierens. --}}
+                    <div
+                        class="flex items-center justify-center overflow-hidden"
+                        x-bind:class="!dragging && 'transition-[height] duration-300 ease-out'"
+                        x-bind:style="`height:${pull}px`"
+                        aria-hidden="true"
+                    >
+                        <flux:icon
+                            name="arrow-path"
+                            class="size-6 text-zinc-400"
+                            x-bind:class="refreshing && 'animate-spin'"
+                            x-bind:style="!refreshing && `transform: rotate(${pull * 3}deg)`"
+                        />
+                    </div>
+                @endif
                 <div @class(['page-enter', 'p-4 pb-8' => $chrome])>
                     {{ $slot }}
                 </div>

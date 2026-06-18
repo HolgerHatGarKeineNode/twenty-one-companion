@@ -193,7 +193,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                         >
                             <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
                             <span class="flex min-w-0 flex-col gap-0.5">
-                                <span class="truncate font-semibold">{{ $meetup->name }}</span>
+                                <x-meetup-name :name="$meetup->name"/>
                                 <flux:text class="truncate text-sm">{{ $meetup->city }} · {{ $meetup->country }}</flux:text>
                                 @if ($meetup->next_event)
                                     <flux:badge color="orange" size="sm" class="mt-1 w-fit">
@@ -252,7 +252,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                         >
                             <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
                             <span class="flex min-w-0 flex-col gap-1">
-                                <span class="truncate font-semibold">{{ $meetup->name }}</span>
+                                <x-meetup-name :name="$meetup->name"/>
                                 @if ($meetup->is_active)
                                     <flux:badge color="green" size="sm" class="w-fit">{{ __('Aktiv') }}</flux:badge>
                                 @else

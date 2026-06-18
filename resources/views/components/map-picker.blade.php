@@ -28,11 +28,8 @@
 
             this.map = L.map(this.$refs.picker).setView(start, hasStart ? 13 : 5);
 
-            L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
-                minZoom: 2,
-                maxZoom: 18,
-                attribution: @js('&copy; <a href=\'https://www.openstreetmap.org/copyright\'>OpenStreetMap</a> contributors'),
-            }).addTo(this.map);
+            {{-- Dunkle Tiles, zentral aus config/maps.php (dark-only Chrome). --}}
+            L.tileLayer(@js(config('maps.tiles.url')), @js(config('maps.tiles.options'))).addTo(this.map);
 
             const icon = L.icon({
                 iconUrl: @js(asset('img/btc_marker.png')),

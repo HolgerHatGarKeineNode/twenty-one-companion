@@ -35,6 +35,33 @@ enum Brand: string
     }
 
     /**
+     * Trennt einen führenden Marken-Präfix (egal welche Länder-Variante) vom
+     * restlichen Namen — für Listen, die den unterscheidenden Teil (Stadt/Ort)
+     * führen lassen, ohne den vollen Namen zu verlieren. Greift nur, wenn nach
+     * dem Präfix noch Text folgt (sonst bleibt der Name ungeteilt).
+     *
+     * @return array{prefix: ?string, rest: string}
+     */
+    public static function splitDisplayName(string $name): array
+    {
+        foreach (self::cases() as $brand) {
+            $label = $brand->label();
+
+            if (mb_stripos($name, $label.' ') !== 0) {
+                continue;
+            }
+
+            $rest = ltrim(mb_substr($name, mb_strlen($label)));
+
+            if ($rest !== '') {
+                return ['prefix' => mb_substr($name, 0, mb_strlen($label)), 'rest' => $rest];
+            }
+        }
+
+        return ['prefix' => null, 'rest' => $name];
+    }
+
+    /**
      * Voller App-Name = Wortmarke + „ Companion". „Companion" bleibt bewusst
      * international (Englisch), siehe App-Umbenennung.
      */

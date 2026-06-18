@@ -388,6 +388,17 @@
     }
 }
 
+/* Kompakte Listendichte (Phase C2): verdichtet die Browse-Listen (.list-stagger),
+   ohne die Tap-Flächen zu klein zu machen. Der Descendant-Selektor schlägt die
+   p-4/gap-3-Utilities der Cards (höhere Spezifität) — kein !important nötig. */
+.density-compact .list-stagger {
+    gap: --spacing(2);
+}
+
+.density-compact .list-stagger > * {
+    padding: --spacing(3);
+}
+
 /* Gerenderte Markdown-Inhalte aus dem Portal (Meetup-Intro, Termin-Beschreibungen) */
 .markdown {
     overflow-wrap: anywhere;

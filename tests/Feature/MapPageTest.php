@@ -158,6 +158,6 @@ it('renders the map page over http', function () {
 
     $this->get(route('map'))
         ->assertOk()
-        ->assertSee('tile.openstreetmap.de')
+        ->assertSee('basemaps.cartocdn.com')
         ->assertSee('btc_marker.png');
 });

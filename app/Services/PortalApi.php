@@ -71,6 +71,15 @@ final class PortalApi
 
     private const STALE_SUFFIX = ':stale';
 
+    /**
+     * Laufzeit-Generation des Fresh-Caches. Steckt NUR im Fresh-Key (nicht in
+     * der dauerhaften Stale-Kopie): Ein manueller Refresh (refresh()) erhöht
+     * sie, wodurch alle bisherigen Fresh-Einträge verwaisen und beim nächsten
+     * Zugriff frisch geholt werden — die Stale-Kopien bleiben als Offline-
+     * Fallback erhalten.
+     */
+    private const GENERATION_KEY = 'portal_api:generation';
+
     /** Stammdaten (Meetups, Kurse, Orte, Länder): 1 Tag. */
     public const TTL_STATIC_SECONDS = 86400;
 
@@ -81,6 +90,9 @@ final class PortalApi
     public const TTL_MINE_SECONDS = 900;
 
     private ?bool $online = null;
+
+    /** Pro Instanz memoisierte Fresh-Cache-Generation. */
+    private ?int $generation = null;
 
     /** Mindestens ein Aufruf dieses Renders wurde aus der Stale-Kopie bedient. */
     private bool $servedStale = false;
@@ -129,6 +141,18 @@ final class PortalApi
         $this->online = null;
         $this->servedStale = false;
         $this->missingData = false;
+        $this->generation = null;
+    }
+
+    /**
+     * Manueller Refresh (Header-Button): erhöht die Fresh-Cache-Generation,
+     * sodass der nächste Zugriff jeder Seite die Daten frisch vom Portal holt.
+     * Die dauerhaften Stale-Kopien bleiben als Offline-Fallback bestehen.
+     */
+    public function refresh(): void
+    {
+        Cache::forever(self::GENERATION_KEY, $this->generation() + 1);
+        $this->generation = null;
     }
 
     /**
@@ -555,7 +579,7 @@ final class PortalApi
     {
         $key = $this->cacheKey($endpoint, $params);
 
-        Cache::forget($key);
+        Cache::forget($key.$this->generationSuffix());
 
         if ($includeStale) {
             Cache::forget($key.self::STALE_SUFFIX);
@@ -574,8 +598,9 @@ final class PortalApi
     private function remember(string $endpoint, array $params, int $ttlSeconds, Request $request, ?Closure $extract = null): ?array
     {
         $key = $this->cacheKey($endpoint, $params);
+        $freshKey = $key.$this->generationSuffix();
 
-        $cached = Cache::get($key);
+        $cached = Cache::get($freshKey);
 
         if (is_array($cached)) {
             return $cached;
@@ -607,7 +632,7 @@ final class PortalApi
             return $this->stale($key);
         }
 
-        Cache::put($key, $json, $ttlSeconds);
+        Cache::put($freshKey, $json, $ttlSeconds);
         Cache::forever($key.self::STALE_SUFFIX, $json);
 
         return $json;
@@ -643,6 +668,29 @@ final class PortalApi
         }
 
         return $key;
+    }
+
+    /**
+     * Aktuelle Fresh-Cache-Generation (0, falls noch nie ein Refresh lief).
+     * Pro Instanz memoisiert, weil sie in jedem remember()/forget() gebraucht
+     * wird und eine PortalApi nur einen Request lebt; refresh()/resetStatus()
+     * verwerfen das Memo.
+     */
+    private function generation(): int
+    {
+        return $this->generation ??= (int) Cache::get(self::GENERATION_KEY, 0);
+    }
+
+    /**
+     * Suffix für den Fresh-Cache-Key. Bei Generation 0 LEER, damit die Keys
+     * identisch zum Bestand bleiben (existierende On-Device-Caches überleben
+     * das App-Update); erst ein Refresh (Generation > 0) verschiebt sie.
+     */
+    private function generationSuffix(): string
+    {
+        $generation = $this->generation();
+
+        return $generation > 0 ? ':g'.$generation : '';
     }
 
     /**

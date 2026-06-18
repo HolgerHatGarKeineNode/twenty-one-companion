@@ -40,6 +40,14 @@ event.json
 # Pest Browser-Test-Screenshots (Fehlschlag-Artefakte)
 /tests/Browser/Screenshots
 
+# Playwright-Screenshots/Snapshots (Design-Reviews). .playwright-mcp/ hat eine
+# eigene .gitignore; die root-anchored Patterns fangen lose Bilder im Repo-Root
+# ab, OHNE die getrackten public/*.png-Assets zu treffen.
+/.playwright-mcp/
+/*.png
+/*.jpg
+/*.jpeg
+
 # Lokale SQLite-Dev-DB — wird on-device von NativePHP angelegt/migriert und
 # NICHT ins Bundle gegeben (siehe cleanup_exclude_files). Nie committen:
 # enthält sonst lokalen Cache/Sessions/Preferences aus Dev-Läufen.

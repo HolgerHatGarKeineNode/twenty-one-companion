@@ -1,4 +1,7 @@
 {
+    "Listendichte": "List density",
+    "Normal": "Normal",
+    "Kompakt": "Compact",
     "Aktuelle Leader": "Current leaders",
     "Als Leader einsetzen": "Appoint as leader",
     "Andere Personen per npub als Leader einsetzen.": "Appoint other people as leaders via their npub.",

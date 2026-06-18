@@ -250,7 +250,9 @@ it('falls back to the stale copy when the portal returns errors', function () {
     $api = portalApi();
     expect($api->courses())->toHaveCount(1);
 
-    Cache::forget('portal_api:v2:courses');
+    // Fresh-Eintrag verwerfen (generationsbewusst über die öffentliche API),
+    // sodass der nächste Aufruf erneut gegen das Portal geht.
+    $api->forget('courses');
 
     $courses = $api->courses();
 
@@ -258,6 +260,26 @@ it('falls back to the stale copy when the portal returns errors', function () {
         ->and($courses->first()->name)->toBe('Bitcoin, Blockchain und Geld');
 
     MockClient::global()->assertSentCount(3);
+});
+
+it('busts the fresh cache on refresh yet preserves the offline stale copy', function () {
+    withoutPortalToken();
+    MockClient::global([
+        MockResponse::make([courseFixture()]),
+        MockResponse::make([courseFixture()]),
+    ]);
+
+    $api = portalApi();
+    $api->courses();
+    $api->courses();
+    MockClient::global()->assertSentCount(1); // zweiter Aufruf kam aus dem Fresh-Cache
+
+    $api->refresh();
+    $api->courses();
+    MockClient::global()->assertSentCount(2); // Refresh erzwang einen frischen Abruf
+
+    // Die dauerhafte Stale-Kopie überlebt den Refresh (Offline-Fallback bleibt).
+    expect(Cache::get('portal_api:v2:courses:stale'))->toBeArray();
 });
 
 it('serves stale data without a request when the device is offline', function () {
