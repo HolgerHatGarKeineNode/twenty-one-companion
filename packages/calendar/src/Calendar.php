@@ -36,7 +36,7 @@ class Calendar
         ];
 
         try {
-            $raw = nativephp_call('Calendar.Insert', json_encode($params));
+            $raw = nativephp_call('Calendar.Insert', json_encode($params, JSON_THROW_ON_ERROR));
         } catch (Throwable) {
             return false;
         }

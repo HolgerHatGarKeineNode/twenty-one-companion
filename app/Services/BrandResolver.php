@@ -19,9 +19,4 @@ final class BrandResolver
     {
         return Brand::forCountry($this->preferences->country());
     }
-
-    public function forCountry(?string $code): Brand
-    {
-        return Brand::forCountry($code);
-    }
 }

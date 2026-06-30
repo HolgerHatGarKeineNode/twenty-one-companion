@@ -4,10 +4,9 @@ namespace Einundzwanzig\Calendar;
 
 use Illuminate\Support\ServiceProvider;
 
-class CalendarServiceProvider extends ServiceProvider
-{
-    public function register(): void
-    {
-        $this->app->singleton(Calendar::class, fn (): Calendar => new Calendar);
-    }
-}
+/**
+ * Vom NativePHP-Plugin-System verlangter Provider-Einstiegspunkt. Calendar ist
+ * zustandslos und dependency-frei — app(Calendar::class) löst ohne Binding auf,
+ * daher kein register()-Body nötig.
+ */
+class CalendarServiceProvider extends ServiceProvider {}
