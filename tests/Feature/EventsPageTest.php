@@ -4,6 +4,7 @@ use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use Carbon\CarbonImmutable;
+use Einundzwanzig\Calendar\Calendar;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Share;
 use Saloon\Http\Faking\MockClient;
@@ -151,6 +152,48 @@ it('shares the selected event via the native share sheet', function () {
     Livewire::test('pages::events.index')
         ->call('select', 0)
         ->call('share');
+});
+
+it('exports the selected event as an ics file via the native share sheet', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    $captured = null;
+    Share::shouldReceive('file')->once()->withArgs(
+        function (string $title, string $text, string $filePath) use (&$captured): bool {
+            $captured = $filePath;
+
+            return $title === 'Einundzwanzig Franken' && str_ends_with($filePath, '.ics');
+        },
+    );
+
+    Livewire::test('pages::events.index')
+        ->call('select', 0)
+        ->call('addToCalendar');
+
+    expect($captured)->not->toBeNull()
+        ->and(file_get_contents((string) $captured))
+        ->toContain('BEGIN:VCALENDAR')
+        ->toContain('SUMMARY:Einundzwanzig Franken');
+
+    @unlink((string) $captured);
+});
+
+it('opens the native calendar editor when available and skips the ics share', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    $this->mock(Calendar::class)
+        ->shouldReceive('addEvent')->once()->andReturnTrue();
+    Share::shouldReceive('file')->never();
+
+    Livewire::test('pages::events.index')
+        ->call('select', 0)
+        ->call('addToCalendar');
 });
 
 it('applies the onboarding region as default country filter', function () {

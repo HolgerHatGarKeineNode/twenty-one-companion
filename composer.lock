@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "39e4c87214a19464b2680f2b9f8ec1e7",
+    "content-hash": "dab7269c4b1a21832857d2f4385fcf33",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -726,6 +726,42 @@
                 }
             ],
             "time": "2025-03-06T22:45:56+00:00"
+        },
+        {
+            "name": "einundzwanzig/calendar",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "packages/calendar",
+                "reference": "8685175808f4b50ed9f0cb16b43585fdb423d20a"
+            },
+            "require": {
+                "nativephp/mobile": "^3.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Einundzwanzig\\Calendar\\CalendarServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Einundzwanzig\\Calendar\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Native add-to-calendar (ACTION_INSERT) plugin for the TWENTY ONE Companion app",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "endroid/qr-code",
@@ -15396,7 +15432,9 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": {},
+    "stability-flags": {
+        "einundzwanzig/calendar": 20
+    },
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {

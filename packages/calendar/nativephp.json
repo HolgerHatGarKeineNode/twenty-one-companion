@@ -1,0 +1,26 @@
+{
+    "namespace": "Calendar",
+    "bridge_functions": [
+        {
+            "name": "Calendar.Insert",
+            "android": "com.einundzwanzig.calendar.CalendarFunctions.Insert",
+            "description": "Open the system calendar's new-event editor (ACTION_INSERT), prefilled with the event"
+        }
+    ],
+    "android": {
+        "min_version": 26,
+        "permissions": [],
+        "dependencies": {
+            "implementation": []
+        }
+    },
+    "ios": {
+        "min_version": "18.2",
+        "info_plist": {},
+        "dependencies": {
+            "swift_packages": [],
+            "pods": []
+        }
+    },
+    "events": []
+}

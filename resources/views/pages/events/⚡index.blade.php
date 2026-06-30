@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\Portal\MeetupEventData;
+use App\Livewire\Concerns\InteractsWithCalendar;
 use App\Livewire\Concerns\InteractsWithEventRsvp;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
@@ -13,6 +14,7 @@ use Livewire\Attributes\Url;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])] class extends PortalPage {
+    use InteractsWithCalendar;
     use InteractsWithEventRsvp;
 
     /** Angezeigter Monat im Format Y-m; leer = aktueller Monat. */
@@ -170,6 +172,30 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         );
     }
 
+    /**
+     * Den gewählten Termin als .ics erzeugen und ans native Share-Sheet
+     * übergeben („Zum Kalender hinzufügen").
+     */
+    public function addToCalendar(): void
+    {
+        $event = $this->selectedEvent;
+
+        if ($event === null) {
+            return;
+        }
+
+        $start = $event->start;
+
+        $this->exportToCalendar(
+            title: $event->meetup->name,
+            start: $start,
+            end: $start->copy()->addMinutes(120), // API liefert kein Ende → 2h-Default.
+            location: $event->location,
+            description: $event->description,
+            filename: 'event-'.($event->id ?? $start->getTimestamp()),
+        );
+    }
+
     protected function switchMonth(CarbonImmutable $start): void
     {
         $this->month = $start->isSameMonth(CarbonImmutable::today()) ? '' : $start->format('Y-m');
@@ -286,6 +312,9 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                     @endif
                     <flux:button wire:click="share" size="sm" icon="share" class="cursor-pointer">
                         {{ __('Teilen') }}
+                    </flux:button>
+                    <flux:button wire:click="addToCalendar" size="sm" variant="ghost" icon="calendar-days" class="cursor-pointer">
+                        {{ __('Zum Kalender') }}
                     </flux:button>
                     <flux:button
                         :href="route('meetups.show', $this->selectedEvent->meetup->slug())"

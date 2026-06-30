@@ -2,6 +2,7 @@
 
 use App\Data\Portal\CourseData;
 use App\Data\Portal\CourseDetailData;
+use App\Livewire\Concerns\InteractsWithCalendar;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
 use Livewire\Attributes\Computed;
@@ -9,6 +10,8 @@ use Livewire\Attributes\Layout;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' => '/courses'])] class extends PortalPage {
+    use InteractsWithCalendar;
+
     public int $id;
 
     public function mount(int $id): void
@@ -50,6 +53,34 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' 
             title: $course->name,
             text: __(':name — Bitcoin-Kurs auf dem EINUNDZWANZIG-Portal', ['name' => $course->name]),
             url: $course->portalLink,
+        );
+    }
+
+    /**
+     * Einen Kurs-Termin als .ics erzeugen und ans native Share-Sheet
+     * übergeben („Zum Kalender hinzufügen").
+     */
+    public function addToCalendar(int $eventId): void
+    {
+        $course = $this->course;
+
+        if ($course === null) {
+            return;
+        }
+
+        $event = collect($course->events)->firstWhere('id', $eventId);
+
+        if ($event === null) {
+            return;
+        }
+
+        $this->exportToCalendar(
+            title: $course->name,
+            start: $event->from,
+            end: $event->to,
+            location: $event->locationLabel(),
+            description: $course->description,
+            filename: 'course-event-'.$eventId,
         );
     }
 };
@@ -127,6 +158,7 @@ new #[Layout('layouts::mobile', ['title' => 'Kurs', 'heading' => 'Kurs', 'back' 
                             @if ($event->link)
                                 <flux:button wire:click="openLink({{ Js::from($event->link) }})" size="xs" variant="ghost" icon="link" class="shrink-0 cursor-pointer" :aria-label="__('Termin-Link öffnen')"/>
                             @endif
+                            <flux:button wire:click="addToCalendar({{ $event->id }})" size="xs" variant="ghost" icon="calendar-days" class="shrink-0 cursor-pointer" :aria-label="__('Zum Kalender hinzufügen')"/>
                         </div>
                     @endforeach
                 </div>

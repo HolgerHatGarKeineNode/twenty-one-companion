@@ -3,6 +3,7 @@
 use App\Http\Integrations\Portal\Requests\GetCourseRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
+use Einundzwanzig\Calendar\Calendar;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
@@ -151,6 +152,48 @@ it('shares the course link via the native share sheet', function () {
 
     Livewire::test('pages::courses.show', ['id' => 5])
         ->call('share');
+});
+
+it('exports a course event as an ics file via the native share sheet', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
+    ]);
+
+    $captured = null;
+    Share::shouldReceive('file')->once()->withArgs(
+        function (string $title, string $text, string $filePath) use (&$captured): bool {
+            $captured = $filePath;
+
+            return $title === 'Bitcoin, Blockchain und Geld' && str_ends_with($filePath, '.ics');
+        },
+    );
+
+    Livewire::test('pages::courses.show', ['id' => 5])
+        ->call('addToCalendar', 9);
+
+    expect($captured)->not->toBeNull()
+        ->and(file_get_contents((string) $captured))
+        ->toContain('SUMMARY:Bitcoin\, Blockchain und Geld')
+        ->toContain('DTSTART:20260701T180000Z')
+        ->toContain('DTEND:20260701T200000Z')
+        ->toContain('LOCATION:Volkshochschule · Regensburg');
+
+    @unlink((string) $captured);
+});
+
+it('opens the native calendar editor for a course event when available', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
+    ]);
+
+    $this->mock(Calendar::class)
+        ->shouldReceive('addEvent')->once()->andReturnTrue();
+    Share::shouldReceive('file')->never();
+
+    Livewire::test('pages::courses.show', ['id' => 5])
+        ->call('addToCalendar', 9);
 });
 
 it('opens the event link in the system browser', function () {

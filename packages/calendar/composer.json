@@ -1,0 +1,25 @@
+{
+    "name": "einundzwanzig/calendar",
+    "description": "Native add-to-calendar (ACTION_INSERT) plugin for the TWENTY ONE Companion app",
+    "type": "nativephp-plugin",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "nativephp/mobile": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Einundzwanzig\\Calendar\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Einundzwanzig\\Calendar\\CalendarServiceProvider"
+            ]
+        },
+        "nativephp": {
+            "manifest": "nativephp.json"
+        }
+    }
+}

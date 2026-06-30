@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.3",
         "developernauts/nativephp-mobile-locales": "^1.0",
+        "einundzwanzig/calendar": "@dev",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.7",
@@ -135,6 +136,10 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "repositories": [{
+        "name": "calendar",
+        "type": "path",
+        "url": "packages/calendar"
+    },{
         "name": "flux-pro",
         "type": "composer",
         "url": "https://composer.fluxui.dev"

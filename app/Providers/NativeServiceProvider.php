@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Developernauts\NativephpMobileLocales\NativephpMobileLocalesServiceProvider;
+use Einundzwanzig\Calendar\CalendarServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
 use Native\Mobile\Providers\CameraServiceProvider;
@@ -50,6 +51,7 @@ class NativeServiceProvider extends ServiceProvider
             NativephpMobileLocalesServiceProvider::class,
             FileServiceProvider::class,
             CameraServiceProvider::class,
+            CalendarServiceProvider::class,
 
         ];
     }
