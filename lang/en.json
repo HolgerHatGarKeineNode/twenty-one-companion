@@ -415,5 +415,8 @@
     "Zum Kalender": "Add to calendar",
     "Zum Kalender hinzufügen": "Add to calendar",
     "Termin zum Kalender hinzufügen": "Add event to calendar",
-    "Alle Länder anzeigen": "Show all countries"
+    "Alle Länder anzeigen": "Show all countries",
+    "Auf njump.me öffnen": "Open on njump.me",
+    ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": "Remove :name from “My meetups”? The core data is kept.",
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobile connection — the image will upload over cellular when you save."
 }

@@ -461,5 +461,8 @@
     "Zum Kalender": "Hozzáadás a naptárhoz",
     "Zum Kalender hinzufügen": "Hozzáadás a naptárhoz",
     "Termin zum Kalender hinzufügen": "Esemény hozzáadása a naptárhoz",
-    "Alle Länder anzeigen": "Összes ország megjelenítése"
+    "Alle Länder anzeigen": "Összes ország megjelenítése",
+    "Auf njump.me öffnen": "Megnyitás a njump.me oldalon",
+    ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": ":name eltávolítása a „Meetupjaim“ közül? A törzsadatok megmaradnak.",
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobilkapcsolat — a kép mentéskor mobilhálózaton keresztül töltődik fel."
 }

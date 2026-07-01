@@ -461,5 +461,8 @@
     "Zum Kalender": "Añadir al calendario",
     "Zum Kalender hinzufügen": "Añadir al calendario",
     "Termin zum Kalender hinzufügen": "Añadir el evento al calendario",
-    "Alle Länder anzeigen": "Mostrar todos los países"
+    "Alle Länder anzeigen": "Mostrar todos los países",
+    "Auf njump.me öffnen": "Abrir en njump.me",
+    ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": "¿Quitar :name de «Mis meetups»? Los datos principales se conservan.",
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Conexión móvil: la imagen se subirá por datos móviles al guardar."
 }

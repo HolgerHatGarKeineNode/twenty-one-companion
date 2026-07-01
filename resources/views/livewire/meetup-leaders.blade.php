@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\Portal\MeetupLeaderData;
+use App\Livewire\Concerns\HandlesNativeConfirm;
 use App\Services\PortalApi;
 use App\Services\PortalWriter;
 use App\Services\WriteResult;
@@ -24,6 +25,8 @@ use Livewire\Component;
  */
 new class extends Component
 {
+    use HandlesNativeConfirm;
+
     /** Meetup, dessen Leader verwaltet werden (null = Sheet ungeöffnet). */
     public ?int $meetupId = null;
 
@@ -94,6 +97,28 @@ new class extends Component
         }
 
         $this->reportLeaderFailure($result, __('Nur Leader dürfen weitere Leader einsetzen.'));
+    }
+
+    /**
+     * Native Rückfrage vor dem Entziehen (statt window.confirm). Bestätigt der
+     * Nutzer, ruft {@see onConfirmed()} das eigentliche {@see removeLeader()}.
+     */
+    public function confirmRemoveLeader(int $userId, string $name): void
+    {
+        $this->confirmAction(
+            'remove-leader',
+            __('Leader entziehen'),
+            __(':name die Leader-Rolle entziehen? Die Person bleibt Mitglied, kann das Meetup aber nicht mehr bearbeiten.', ['name' => $name]),
+            __('Entziehen'),
+            ['userId' => $userId],
+        );
+    }
+
+    protected function onConfirmed(string $key, array $payload): void
+    {
+        if ($key === 'remove-leader') {
+            $this->removeLeader((int) $payload['userId']);
+        }
     }
 
     /**
@@ -208,20 +233,10 @@ new class extends Component
                     <span class="flex min-w-0 flex-1 flex-col">
                         <span class="truncate font-semibold">{{ $leader->name }}</span>
                         {{-- npub antippen, um ihn in die Zwischenablage zu kopieren
-                             (nur wenn vorhanden). navigator.clipboard wie im 2FA-Setup. --}}
+                             (nur wenn vorhanden). --}}
                         @if ($leader->nostr)
                             @php($npubShort = \Illuminate\Support\Str::substr($leader->nostr, 0, 12).'…'.\Illuminate\Support\Str::substr($leader->nostr, -6))
-                            <button
-                                type="button"
-                                x-data="{ copied: false }"
-                                x-on:click.stop="navigator.clipboard.writeText(@js($leader->nostr)).then(() => { copied = true; $haptic('light'); setTimeout(() => copied = false, 1500); })"
-                                :class="copied && 'text-green-600 dark:text-green-400'"
-                                aria-label="{{ __('npub kopieren') }}"
-                                class="pressable flex w-fit max-w-full items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400"
-                            >
-                                <flux:icon name="clipboard-document" class="size-3.5 shrink-0"/>
-                                <span class="truncate font-mono" x-text="copied ? '{{ __('Kopiert!') }}' : '{{ $npubShort }}'">{{ $npubShort }}</span>
-                            </button>
+                            <x-copy-button :value="$leader->nostr" :display="$npubShort" :label="__('npub kopieren')"/>
                         @endif
                     </span>
 
@@ -234,11 +249,10 @@ new class extends Component
                             size="sm"
                             icon="user-minus"
                             :aria-label="__('Leader entziehen')"
-                            wire:click="removeLeader({{ $leader->id }})"
-                            wire:confirm="{{ __(':name die Leader-Rolle entziehen? Die Person bleibt Mitglied, kann das Meetup aber nicht mehr bearbeiten.', ['name' => $leader->name]) }}"
+                            wire:click="confirmRemoveLeader({{ $leader->id }}, {{ \Illuminate\Support\Js::from($leader->name) }})"
                             x-on:click="$haptic('medium')"
                             wire:loading.attr="disabled"
-                            wire:target="removeLeader({{ $leader->id }})"
+                            wire:target="removeLeader"
                             class="shrink-0 cursor-pointer"
                         />
                     @endif

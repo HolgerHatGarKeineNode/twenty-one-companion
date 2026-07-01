@@ -6,6 +6,8 @@ use App\Http\Integrations\Portal\Requests\GetMeetupLeadersRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupLeaderRequest;
 use Livewire\Livewire;
+use Native\Mobile\Facades\Dialog;
+use Native\Mobile\PendingAlert;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 use Saloon\Http\Request;
@@ -102,6 +104,63 @@ it('demotes a leader', function () {
         ->assertHasNoErrors();
 
     MockClient::global()->assertSent(RemoveMeetupLeaderRequest::class);
+});
+
+it('asks natively before demoting a leader without removing yet', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMeetupLeadersRequest::class => MockResponse::make(['data' => [
+            meetupLeaderFixture(['id' => 8, 'name' => 'Hal', 'is_creator' => false]),
+        ]]),
+    ]);
+
+    $alert = Mockery::mock(PendingAlert::class);
+    $alert->shouldReceive('id')->andReturnSelf();
+    $alert->shouldReceive('event')->andReturnSelf();
+    Dialog::shouldReceive('alert')->once()->andReturn($alert);
+
+    Livewire::test('meetup-leaders')
+        ->call('open', 21, 'Einundzwanzig Aschaffenburg')
+        ->call('confirmRemoveLeader', 8, 'Hal')
+        ->assertSet('confirmKey', 'remove-leader');
+
+    MockClient::global()->assertNotSent(RemoveMeetupLeaderRequest::class);
+});
+
+it('demotes a leader after the native confirm button', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMeetupLeadersRequest::class => MockResponse::make(['data' => [
+            meetupLeaderFixture(['id' => 8, 'name' => 'Hal', 'is_creator' => false]),
+        ]]),
+        RemoveMeetupLeaderRequest::class => MockResponse::make(['data' => [meetupLeaderFixture()]]),
+    ]);
+
+    Livewire::test('meetup-leaders')
+        ->call('open', 21, 'Einundzwanzig Aschaffenburg')
+        ->set('confirmKey', 'remove-leader')
+        ->set('confirmPayload', ['userId' => 8])
+        ->call('handleConfirmButton', 1, 'Entziehen', 'remove-leader')
+        ->assertHasNoErrors();
+
+    MockClient::global()->assertSent(RemoveMeetupLeaderRequest::class);
+});
+
+it('keeps the leader when the native confirm is cancelled', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMeetupLeadersRequest::class => MockResponse::make(['data' => [
+            meetupLeaderFixture(['id' => 8, 'name' => 'Hal', 'is_creator' => false]),
+        ]]),
+    ]);
+
+    Livewire::test('meetup-leaders')
+        ->call('open', 21, 'Einundzwanzig Aschaffenburg')
+        ->set('confirmKey', 'remove-leader')
+        ->set('confirmPayload', ['userId' => 8])
+        ->call('handleConfirmButton', 0, 'Abbrechen', 'remove-leader');
+
+    MockClient::global()->assertNotSent(RemoveMeetupLeaderRequest::class);
 });
 
 it('opens the leader manager from the meetup editor when the user is a leader', function () {

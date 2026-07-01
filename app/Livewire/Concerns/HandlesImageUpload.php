@@ -9,6 +9,7 @@ use Native\Mobile\Attributes\OnNative;
 use Native\Mobile\Events\Camera\PhotoTaken;
 use Native\Mobile\Events\Gallery\MediaSelected;
 use Native\Mobile\Facades\Camera;
+use Native\Mobile\Facades\Network;
 
 /**
  * Gemeinsames Bild-Auswahl-Plumbing der Editoren mit Logo/Avatar (Meetup,
@@ -139,6 +140,25 @@ trait HandlesImageUpload
     {
         $this->imagePath = $path;
         $this->js("window.haptic && window.haptic('light')");
+        $this->warnOnExpensiveNetwork();
+    }
+
+    /**
+     * Hinweis-Toast, wenn das Bild beim Speichern über eine kostenpflichtige
+     * (Mobilfunk) oder eingeschränkte Verbindung (iOS Low-Data-Modus) geladen
+     * würde. Rein informativ — der Upload läuft trotzdem beim Speichern. Ohne
+     * native Bridge (Web/Test) liefert Network::status() null → No-op.
+     */
+    private function warnOnExpensiveNetwork(): void
+    {
+        $status = Network::status();
+
+        if ($status !== null && (($status->isExpensive ?? false) || ($status->isConstrained ?? false))) {
+            Flux::toast(
+                text: __('Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.'),
+                variant: 'warning',
+            );
+        }
     }
 
     /**

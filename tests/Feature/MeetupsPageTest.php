@@ -175,6 +175,39 @@ it('removes a meetup from mine by slug', function () {
         && $request->resolveEndpoint() === '/my-meetups/aschaffenburg');
 });
 
+it('removes from mine after the native confirm button', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
+        RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->set('confirmKey', 'remove-from-mine')
+        ->set('confirmPayload', ['slug' => 'aschaffenburg'])
+        ->call('handleConfirmButton', 1, 'Entfernen', 'remove-from-mine');
+
+    MockClient::global()->assertSent(RemoveMeetupFromMineRequest::class);
+});
+
+it('keeps the meetup when the native confirm is cancelled', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->set('confirmKey', 'remove-from-mine')
+        ->set('confirmPayload', ['slug' => 'aschaffenburg'])
+        ->call('handleConfirmButton', 0, 'Abbrechen', 'remove-from-mine');
+
+    MockClient::global()->assertNotSent(RemoveMeetupFromMineRequest::class);
+});
+
 it('does not remove from mine without a portal token', function () {
     withoutPortalToken();
     MockClient::global([
@@ -435,6 +468,20 @@ it('opens external links in the system browser', function () {
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
         ->call('openLink', 'https://t.me/einundzwanzig_aschaffenburg');
+});
+
+it('opens messenger links with a native app in the system browser', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Browser::shouldReceive('open')->once()->with('https://api.whatsapp.com/send?phone=4915112345678');
+    Browser::shouldReceive('inApp')->never();
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->call('openLink', 'https://api.whatsapp.com/send?phone=4915112345678');
 });
 
 it('refuses to open links with non-http schemes', function () {

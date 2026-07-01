@@ -34,13 +34,14 @@ it('shows a friendly fallback for unknown lecturers', function () {
         ->assertSee('Referent nicht gefunden');
 });
 
-it('opens lecturer links in the system browser but refuses other schemes', function () {
+it('opens lecturer web links in the in-app browser but refuses other schemes', function () {
     withoutPortalToken();
     MockClient::global([
         GetLecturerRequest::class => MockResponse::make(lecturerDetailFixture()),
     ]);
 
-    Browser::shouldReceive('open')->once()->with('https://tonistack.example');
+    Browser::shouldReceive('inApp')->once()->with('https://tonistack.example');
+    Browser::shouldReceive('open')->never();
 
     Livewire::test('pages::lecturers.show', ['id' => 3])
         ->call('openLink', 'https://tonistack.example')

@@ -196,13 +196,13 @@ it('opens the native calendar editor for a course event when available', functio
         ->call('addToCalendar', 9);
 });
 
-it('opens the event link in the system browser', function () {
+it('opens the event link in the in-app browser', function () {
     withoutPortalToken();
     MockClient::global([
         GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
     ]);
 
-    Browser::shouldReceive('open')->once()->with('https://example.com/kurs-anmeldung');
+    Browser::shouldReceive('inApp')->once()->with('https://example.com/kurs-anmeldung');
 
     Livewire::test('pages::courses.show', ['id' => 5])
         ->call('openLink', 'https://example.com/kurs-anmeldung');

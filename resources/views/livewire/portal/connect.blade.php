@@ -185,11 +185,14 @@ new class extends Component {
         @endif
 
         @if ($profile && ($profile['nostr'] ?? null))
-            <button type="button" wire:click="openNostr" class="pressable mt-3 flex w-full items-center gap-2 rounded-xl border border-zinc-200 p-2.5 text-left active:bg-zinc-50 dark:border-zinc-800 dark:active:bg-zinc-900">
+            <div class="mt-3 flex items-center gap-2 rounded-xl border border-zinc-200 p-2.5 dark:border-zinc-800">
                 <flux:icon.key class="size-4 shrink-0 text-zinc-400"/>
-                <span class="truncate font-mono text-xs">{{ $profile['nostr'] }}</span>
-                <flux:icon.arrow-top-right-on-square class="ml-auto size-4 shrink-0 text-zinc-400"/>
-            </button>
+                {{-- npub antippen kopiert ihn; das Icon rechts öffnet das Profil auf njump.me. --}}
+                <x-copy-button :value="$profile['nostr']" :label="__('npub kopieren')" class="min-w-0 flex-1"/>
+                <button type="button" wire:click="openNostr" aria-label="{{ __('Auf njump.me öffnen') }}" class="pressable shrink-0 text-zinc-400 active:text-zinc-600 dark:active:text-zinc-200">
+                    <flux:icon.arrow-top-right-on-square class="size-4"/>
+                </button>
+            </div>
         @endif
 
         <flux:button :href="route('mine')" wire:navigate size="sm" icon="square-2-stack" class="mt-3 w-full cursor-pointer">

@@ -76,8 +76,8 @@ it('pulls the portal-connected flash so the toast fires only once', function () 
         ->assertSessionMissing('portal-connected');
 });
 
-it('opens the portal in the system browser', function () {
-    Browser::shouldReceive('open')
+it('opens the portal in the in-app browser', function () {
+    Browser::shouldReceive('inApp')
         ->once()
         ->with('https://portal.einundzwanzig.space');
 

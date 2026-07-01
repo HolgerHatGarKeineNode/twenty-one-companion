@@ -461,5 +461,8 @@
     "Zum Kalender": "Pievienot kalendāram",
     "Zum Kalender hinzufügen": "Pievienot kalendāram",
     "Termin zum Kalender hinzufügen": "Pievienot notikumu kalendāram",
-    "Alle Länder anzeigen": "Rādīt visas valstis"
+    "Alle Länder anzeigen": "Rādīt visas valstis",
+    "Auf njump.me öffnen": "Atvērt vietnē njump.me",
+    ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": "Noņemt :name no „Manām tikšanās reizēm“? Pamatdati tiek saglabāti.",
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobilais savienojums — attēls tiks augšupielādēts, izmantojot mobilos datus, kad saglabāsi."
 }

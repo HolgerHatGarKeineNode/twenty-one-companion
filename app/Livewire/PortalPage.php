@@ -142,15 +142,41 @@ abstract class PortalPage extends Component
     }
 
     /**
-     * Externe Links im System-Browser öffnen, damit z. B. Telegram-Links
-     * direkt in der passenden App landen. Nur http(s) wird geöffnet — die
-     * URLs stammen aus Portal-Daten, andere Schemes (nostrsigner:,
-     * intent: …) wären Intent-Injection.
+     * Hosts mit eigener nativer App: solche Links im System-Browser öffnen,
+     * damit der Intent an die App durchgereicht wird (Telegram/Signal/… gehen
+     * dann direkt auf) statt im In-App-Tab zu stranden.
+     *
+     * @var list<string>
+     */
+    private const EXTERNAL_APP_HOSTS = [
+        't.me', 'telegram.me', 'telegram.dog',
+        'signal.me', 'signal.group',
+        'matrix.to',
+        'wa.me', 'chat.whatsapp.com', 'api.whatsapp.com',
+    ];
+
+    /**
+     * Portal-/Web-Links im In-App-Browser (Custom Tab / SFSafariViewController)
+     * öffnen: der Nutzer bleibt in der App, Zurück-Wisch führt zurück. Nur
+     * http(s) wird geöffnet — die URLs stammen aus Portal-Daten, andere Schemes
+     * (nostrsigner:, intent: …) wären Intent-Injection. Messenger-Hosts mit
+     * eigener App ({@see self::EXTERNAL_APP_HOSTS}) gehen weiter über den
+     * System-Browser, damit ihre App den Link übernehmen kann.
      */
     public function openLink(string $url): void
     {
-        if (Str::startsWith($url, ['https://', 'http://'])) {
-            Browser::open($url);
+        if (! Str::startsWith($url, ['https://', 'http://'])) {
+            return;
         }
+
+        $host = Str::chopStart(mb_strtolower((string) parse_url($url, PHP_URL_HOST)), 'www.');
+
+        if (in_array($host, self::EXTERNAL_APP_HOSTS, true)) {
+            Browser::open($url);
+
+            return;
+        }
+
+        Browser::inApp($url);
     }
 }

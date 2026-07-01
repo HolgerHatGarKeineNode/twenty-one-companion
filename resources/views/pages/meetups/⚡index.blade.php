@@ -2,6 +2,7 @@
 
 use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Livewire\Concerns\HandlesNativeConfirm;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
@@ -17,6 +18,7 @@ use Livewire\Attributes\Url;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])] class extends PortalPage
 {
+    use HandlesNativeConfirm;
     use HandlesPortalWriteFeedback;
 
     #[Url(as: 'q')]
@@ -109,6 +111,28 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     public function refreshMyMeetups(): void
     {
         unset($this->myMeetups);
+    }
+
+    /**
+     * Native Rückfrage vor dem Entfernen (statt window.confirm). Bestätigt der
+     * Nutzer, entfernt {@see onConfirmed()} das Meetup über {@see removeFromMine()}.
+     */
+    public function confirmRemoveFromMine(string $slug, string $name): void
+    {
+        $this->confirmAction(
+            'remove-from-mine',
+            __('Aus „Meine“ entfernen'),
+            __(':name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.', ['name' => $name]),
+            __('Entfernen'),
+            ['slug' => $slug],
+        );
+    }
+
+    protected function onConfirmed(string $key, array $payload): void
+    {
+        if ($key === 'remove-from-mine') {
+            $this->removeFromMine((string) $payload['slug']);
+        }
     }
 
     /**
@@ -279,15 +303,14 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                             />
                         @endif
                         {{-- Aus „Meine“ entfernen (Phase 1.2.1): löst nur die Pivot-
-                             Zuordnung, die Stammdaten bleiben. Bestätigung gegen
+                             Zuordnung, die Stammdaten bleiben. Native Rückfrage gegen
                              versehentliches Entfernen. --}}
                         <flux:button
                             type="button"
                             variant="ghost"
                             icon="trash"
                             :aria-label="__('Aus „Meine“ entfernen')"
-                            wire:click="removeFromMine(@js($meetup->slug))"
-                            wire:confirm="{{ __('Dieses Meetup aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.') }}"
+                            wire:click="confirmRemoveFromMine(@js($meetup->slug), @js($meetup->name))"
                             x-on:click="$haptic('medium')"
                             wire:loading.attr="disabled"
                             wire:target="removeFromMine"

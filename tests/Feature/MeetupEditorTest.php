@@ -8,6 +8,7 @@ use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UploadMeetupLogoRequest;
 use Livewire\Livewire;
+use Native\Mobile\Facades\Network;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 use Saloon\Http\Request;
@@ -203,6 +204,36 @@ it('is not reachable without a portal token via the writer gate', function () {
         ->assertNotDispatched('meetup-saved');
 
     MockClient::global()->assertNotSent(CreateMeetupRequest::class);
+});
+
+it('warns when a logo is picked on an expensive network', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+    Network::shouldReceive('status')->andReturn((object) ['connected' => true, 'isExpensive' => true]);
+
+    $path = fakeImagePath('logo.jpg');
+
+    Livewire::test('meetup-editor')
+        ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
+        ->assertSet('imagePath', $path)
+        ->assertDispatched('toast-show');
+});
+
+it('does not warn when a logo is picked on wifi', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+    Network::shouldReceive('status')->andReturn((object) ['connected' => true, 'isExpensive' => false]);
+
+    $path = fakeImagePath('logo.jpg');
+
+    Livewire::test('meetup-editor')
+        ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
+        ->assertSet('imagePath', $path)
+        ->assertNotDispatched('toast-show');
 });
 
 it('uploads the selected logo to the new meetup after creating', function () {
