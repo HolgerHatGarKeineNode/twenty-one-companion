@@ -234,6 +234,10 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                         : __('Für diesen Monat sind keine Meetup-Termine eingetragen.') }}
                 @endif
             </flux:text>
+            {{-- QoL: statt nur den Hinweis zu lesen, den Länderfilter mit einem Tap zurücksetzen. --}}
+            @if ($country !== '')
+                <x-reset-country-filter/>
+            @endif
         </x-portal-empty-state>
     @else
         @foreach ($this->days as $day => $eventsOfDay)
@@ -304,28 +308,11 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                     :can-rsvp="$this->canRsvp()"
                 />
 
-                <div class="flex flex-wrap gap-2">
-                    @if ($this->selectedEvent->link)
-                        <flux:button wire:click="openLink({{ Js::from($this->selectedEvent->link) }})" size="sm" icon="link" class="cursor-pointer">
-                            {{ __('Link öffnen') }}
-                        </flux:button>
-                    @endif
-                    <flux:button wire:click="share" size="sm" icon="share" class="cursor-pointer">
-                        {{ __('Teilen') }}
-                    </flux:button>
-                    <flux:button wire:click="addToCalendar" size="sm" variant="ghost" icon="calendar-days" class="cursor-pointer">
-                        {{ __('Zum Kalender') }}
-                    </flux:button>
-                    <flux:button
-                        :href="route('meetups.show', $this->selectedEvent->meetup->slug())"
-                        wire:navigate
-                        size="sm"
-                        variant="ghost"
-                        icon="map-pin"
-                    >
-                        {{ __('Zum Meetup') }}
-                    </flux:button>
-                </div>
+                <x-event-action-grid
+                    :link="$this->selectedEvent->link"
+                    share="share"
+                    :meetup-route="route('meetups.show', $this->selectedEvent->meetup->slug())"
+                />
             </div>
         @endif
     </x-sheet>

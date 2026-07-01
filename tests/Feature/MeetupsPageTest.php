@@ -65,6 +65,20 @@ it('filters meetups by search term and country', function () {
         ->assertDontSeeText('Einundzwanzig Wien');
 });
 
+it('offers a reset-to-all-countries button when the country filter yields no meetups', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]), // nur DE
+    ]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('country', 'FR') // keine Meetups → leerer Zustand
+        ->assertDontSeeText('Einundzwanzig Aschaffenburg')
+        ->assertSeeText(__('Alle Länder anzeigen'))
+        ->set('country', '')
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
+});
+
 it('applies the onboarding region as default country filter', function () {
     completeOnboarding(country: 'at');
     withoutPortalToken();
@@ -278,6 +292,64 @@ it('shares the meetup link via the native share sheet', function () {
 
     Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
         ->call('share');
+});
+
+it('renders the next-event action buttons on the detail page', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->assertSee('Nächster Termin')
+        ->assertSee(__('Link öffnen'))
+        ->assertSee(__('Teilen'))
+        ->assertSee(__('Zum Kalender'));
+});
+
+it('shares the next event via the native share sheet', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Share::shouldReceive('url')->once()->withArgs(
+        // Teilt den nächsten Termin (dessen Link), nicht die Meetup-Portalseite.
+        fn (string $title, string $text, string $url): bool => $title === 'Einundzwanzig Aschaffenburg'
+            && $url === 'https://t.me/einundzwanzig_aschaffenburg',
+    );
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->call('shareEvent');
+});
+
+it('exports the next event as an ics file via the native share sheet', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    $captured = null;
+    Share::shouldReceive('file')->once()->withArgs(
+        function (string $title, string $text, string $filePath) use (&$captured): bool {
+            $captured = $filePath;
+
+            return $title === 'Einundzwanzig Aschaffenburg' && str_ends_with($filePath, '.ics');
+        },
+    );
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+        ->call('addToCalendar');
+
+    expect($captured)->not->toBeNull()
+        ->and(file_get_contents((string) $captured))
+        ->toContain('BEGIN:VCALENDAR')
+        ->toContain('SUMMARY:Einundzwanzig Aschaffenburg');
+
+    @unlink((string) $captured);
 });
 
 it('hides the rsvp buttons for the next event when not connected', function () {

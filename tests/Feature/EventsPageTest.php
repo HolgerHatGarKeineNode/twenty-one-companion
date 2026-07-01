@@ -59,6 +59,20 @@ it('shows an empty state when no events are returned', function () {
         ->assertSee('Keine Termine');
 });
 
+it('offers a reset-to-all-countries button when the country filter yields no events', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+    ]);
+
+    Livewire::test('pages::events.index')
+        ->set('country', 'FR') // keine Termine in dieser Region
+        ->assertDontSeeText('Einundzwanzig Franken')
+        ->assertSeeText(__('Alle Länder anzeigen'))
+        ->set('country', '')
+        ->assertSeeText('Einundzwanzig Franken');
+});
+
 it('navigates to the next month and queries its first day', function () {
     withoutPortalToken();
     MockClient::global([

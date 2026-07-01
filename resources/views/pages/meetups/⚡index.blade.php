@@ -182,6 +182,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                     <flux:text class="max-w-xs">
                         {{ __('Versuche eine andere Suche oder einen anderen Länderfilter.') }}
                     </flux:text>
+                    {{-- QoL: aktiver Länderfilter ist beim ersten Öffnen der Default (defaultCountry) —
+                         ein Tap raus aus der leeren Region statt Select öffnen und scrollen. --}}
+                    @if ($country !== '')
+                        <x-reset-country-filter/>
+                    @endif
                 </x-portal-empty-state>
             @else
                 <div class="list-stagger flex flex-col gap-3">

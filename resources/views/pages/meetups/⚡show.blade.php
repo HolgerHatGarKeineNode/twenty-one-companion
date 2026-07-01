@@ -4,6 +4,7 @@ use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MyMeetupEventData;
+use App\Livewire\Concerns\InteractsWithCalendar;
 use App\Livewire\Concerns\InteractsWithEventRsvp;
 use App\Livewire\PortalPage;
 use App\Services\PortalApi;
@@ -16,6 +17,7 @@ use Livewire\Attributes\On;
 use Native\Mobile\Facades\Share;
 
 new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] class extends PortalPage {
+    use InteractsWithCalendar;
     use InteractsWithEventRsvp;
 
     public string $slug;
@@ -156,6 +158,50 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
         );
     }
 
+    /**
+     * Den nächsten Termin (statt der Meetup-Seite) übers Share-Sheet teilen.
+     */
+    public function shareEvent(): void
+    {
+        $meetup = $this->meetup;
+        $event = $meetup?->next_event;
+
+        if ($event === null) {
+            return;
+        }
+
+        Share::url(
+            title: $meetup->name,
+            text: __(':name am :date', [
+                'name' => $meetup->name,
+                'date' => $event->start->forDisplay()->translatedFormat('d.m.Y · H:i'),
+            ]),
+            url: $event->link ?? $event->portalLink,
+        );
+    }
+
+    /**
+     * Den nächsten Termin „zum Kalender hinzufügen" (nativer Editor bzw.
+     * .ics-Fallback über InteractsWithCalendar).
+     */
+    public function addToCalendar(): void
+    {
+        $meetup = $this->meetup;
+        $event = $meetup?->next_event;
+
+        if ($event === null) {
+            return;
+        }
+
+        $this->exportToCalendar(
+            title: $meetup->name,
+            start: $event->start,
+            end: $event->start->copy()->addMinutes(120), // API liefert kein Ende → 2h-Default.
+            location: $event->location,
+            description: $event->description,
+            filename: 'event-'.$event->id,
+        );
+    }
 };
 ?>
 
@@ -283,11 +329,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
                     :might-attendees="$rsvpMightAttendees ?? $this->meetup->next_event->might_attendees"
                     :can-rsvp="$this->canRsvp()"
                 />
-                @if ($this->meetup->next_event->link)
-                    <flux:button wire:click="openLink({{ Js::from($this->meetup->next_event->link) }})" size="sm" icon="link" class="mt-4 cursor-pointer">
-                        {{ __('Termin-Link öffnen') }}
-                    </flux:button>
-                @endif
+                <x-event-action-grid
+                    class="mt-4"
+                    :link="$this->meetup->next_event->link"
+                    share="shareEvent"
+                />
             </section>
         @endif
 
