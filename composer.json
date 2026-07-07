@@ -12,6 +12,7 @@
         "php": "^8.3",
         "developernauts/nativephp-mobile-locales": "^1.0",
         "einundzwanzig/calendar": "@dev",
+        "einundzwanzig/group": "*",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.7",
@@ -139,6 +140,13 @@
         "name": "calendar",
         "type": "path",
         "url": "packages/calendar"
+    },{
+        "name": "nostr-chat",
+        "type": "path",
+        "url": "../flotilla-einundzwanzig/packages/nostr-chat",
+        "options": {
+            "symlink": true
+        }
     },{
         "name": "flux-pro",
         "type": "composer",

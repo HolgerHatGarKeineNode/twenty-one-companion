@@ -122,10 +122,12 @@
                 <x-create-fab/>
 
                 <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
-                    <div class="grid grid-cols-4">
+                    <div class="grid grid-cols-5">
                         <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
                         <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
                         <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>
+                        {{-- Chat-Vollbild-Tab (einundzwanzig/group). Übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
+                        <x-bottom-nav-item route="chat.spaces" match="chat.spaces,chat.directory,chat.room,chat.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
                         <x-bottom-nav-item route="profile" match="profile,mine" icon="user-circle" :label="__('Profil')"/>
                     </div>
                 </nav>

@@ -13,6 +13,9 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/passkeys.js',
+                // Chat-Vollbild-Tab (einundzwanzig/group): eigenes Theme + Insel-Entry.
+                'resources/css/nostr-chat.css',
+                'resources/js/nostr-chat.js',
             ],
             refresh: true,
             hotFile: nativephpHotFile(),
@@ -29,6 +32,19 @@ export default defineConfig({
         cors: true,
         watch: {
             ignored: ['**/storage/framework/views/**'],
+        },
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                // welshman + nostr-tools (~700 KB, selten geändert) in einen
+                // cache-stabilen Vendor-Chunk trennen (nur im Chat-Tab geladen).
+                manualChunks(id) {
+                    if (id.includes('/node_modules/@welshman/') || id.includes('/node_modules/nostr-tools/')) {
+                        return 'welshman';
+                    }
+                },
+            },
         },
     },
 });
