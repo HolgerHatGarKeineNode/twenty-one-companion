@@ -152,7 +152,7 @@ abstract class PortalPage extends Component
         't.me', 'telegram.me', 'telegram.dog',
         'signal.me', 'signal.group',
         'matrix.to',
-        'wa.me', 'chat.whatsapp.com', 'api.whatsapp.com',
+        'wa.me', 'group.whatsapp.com', 'api.whatsapp.com',
     ];
 
     /**

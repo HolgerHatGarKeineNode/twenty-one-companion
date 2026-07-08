@@ -108,7 +108,7 @@
                     <div class="grid grid-cols-5">
                         {{-- Chat zuerst: wichtigster Screen. Vollbild-Tab (einundzwanzig/group),
                              übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
-                        <x-bottom-nav-item route="chat.spaces" match="chat.spaces,chat.directory,chat.room,chat.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
+                        <x-bottom-nav-item route="group.spaces" match="group.spaces,chat.directory,chat.room,chat.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
                         <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
                         <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
                         <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>

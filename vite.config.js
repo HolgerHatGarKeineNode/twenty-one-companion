@@ -14,8 +14,8 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/js/passkeys.js',
                 // Chat-Vollbild-Tab (einundzwanzig/group): eigenes Theme + Insel-Entry.
-                'resources/css/nostr-chat.css',
-                'resources/js/nostr-chat.js',
+                'resources/css/group.css',
+                'resources/js/group.js',
             ],
             refresh: true,
             hotFile: nativephpHotFile(),

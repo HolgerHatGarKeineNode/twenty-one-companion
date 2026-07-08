@@ -14,7 +14,7 @@
             try {
                 var pk = JSON.parse(localStorage.getItem('pubkey'));
                 if (typeof pk === 'string' && pk.length > 0) {
-                    target = @js(route('chat.spaces'));
+                    target = @js(route('group.spaces'));
                 }
             } catch (e) { /* localStorage nicht lesbar → Meetups */ }
             window.location.replace(target);
