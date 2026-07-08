@@ -2,6 +2,7 @@
 //
 //   node scripts/announce-release.cjs --version 1.1.0            # Preview (dry run)
 //   node scripts/announce-release.cjs --version 1.1.0 --go       # LIVE publish!
+//   node scripts/announce-release.cjs --version 1.1.0 --short    # Hotfix: header + changes only, no download block
 //   node scripts/announce-release.cjs --text-file <file> …       # Override the text path
 //
 // What it does:
@@ -50,6 +51,7 @@ const TOPICS = ['bitcoin', 'nostr', 'einundzwanzig', 'android']
 // Functions receive the version; ${...} links come from LINKS.
 const L10N = {
   header: (v) => `🟧⚡ TWENTY ONE Companion v${v} is out! 🎉`,
+  headerShort: (v) => `🟧🩹 TWENTY ONE Companion v${v} — hotfix`,
   downloadsIntro: '📥 Get it / update now:',
   zapstore: `⚡ Zapstore (recommended — Nostr-signed, auto-verified updates):\n   ① Install the Zapstore app ② search "TWENTY ONE" ③ tap install.\n   ${LINKS.zapstore}`,
   obtainium: `📦 Obtainium (auto-updates straight from GitHub):\n   ① Open this link in Obtainium → "Add app" ② it self-updates on every release.\n   ${LINKS.obtainium}`,
@@ -85,6 +87,7 @@ function hexToBytes(hex) {
 const args = process.argv.slice(2)
 const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined }
 const GO = args.includes('--go')
+const SHORT = args.includes('--short')
 let version = get('--version')
 
 const env = loadEnv()
@@ -113,7 +116,7 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
 
   // 2) Build the content in the fixed layout (release text + download channels + hashtags).
   const t = L10N
-  const header = t.header(version)
+  const header = SHORT ? t.headerShort(version) : t.header(version)
   const downloads = [
     t.downloadsIntro,
     '',
@@ -126,7 +129,11 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     t.source,
   ].join('\n')
   const hashtags = TOPICS.map(topic => '#' + topic).join(' ')
-  const content = `${header}\n\n${text}\n\n${downloads}\n\n${hashtags}`
+  // --short (hotfix): header + changes + a single GitHub repo link. No download block,
+  // no hashtags in the body (topic t-tags stay in the event tags below for discovery).
+  const content = SHORT
+    ? `${header}\n\n${text}\n\n🐙 ${REPO}`
+    : `${header}\n\n${text}\n\n${downloads}\n\n${hashtags}`
 
   // 3) Tags: client + topic t-tags + p-tags for every nostr:npub mentioned in the
   //    text (NIP-27), so the mentioned profiles actually get notified.
