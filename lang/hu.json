@@ -171,7 +171,6 @@
     "Meetups nicht verfügbar": "A meetupok nem érhetők el",
     "Meetups und Termine werden zuerst für deine Region angezeigt. Das lässt sich jederzeit im Profil ändern.": "A meetupok és események először a régiódra jelennek meg. Ezt bármikor módosíthatod a profilodban.",
     "Meetups, Kurse, Referenten …": "Meetupok, kurzusok, előadók …",
-    "Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.": "A Bitcoin-közösség meetupjai, eseményei és kurzusai — egyenesen a zsebedben.",
     "Meine": "Saját",
     "Meine Inhalte": "Saját tartalmaim",
     "Meine Kurse": "Kurzusaim",
@@ -471,5 +470,8 @@
     "Alle Länder anzeigen": "Összes ország megjelenítése",
     "Auf njump.me öffnen": "Megnyitás a njump.me oldalon",
     ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": ":name eltávolítása a „Meetupjaim“ közül? A törzsadatok megmaradnak.",
-    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobilkapcsolat — a kép mentéskor mobilhálózaton keresztül töltődik fel."
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobilkapcsolat — a kép mentéskor mobilhálózaton keresztül töltődik fel.",
+    "Meetups, Termine, Kurse und Gruppen-Chats der Bitcoin-Community — direkt in deiner Tasche.": "A Bitcoin-közösség meetupjai, eseményei, kurzusai és csoportos csevegései — egyenesen a zsebedben.",
+    "Gruppen-Chats": "Csoportos csevegés",
+    "Tausch dich mit deiner Community in Echtzeit aus.": "Csevegj a közösségeddel valós időben."
 }

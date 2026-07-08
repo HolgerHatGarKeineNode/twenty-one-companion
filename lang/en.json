@@ -194,7 +194,6 @@
     "Meetups nicht verfügbar": "Meetups unavailable",
     "Meetups und Termine werden zuerst für deine Region angezeigt. Das lässt sich jederzeit im Profil ändern.": "Meetups and events are shown for your region first. You can change this anytime in your profile.",
     "Meetups, Kurse, Referenten …": "Meetups, courses, lecturers …",
-    "Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.": "Meetups, events and courses of the Bitcoin community — right in your pocket.",
     "Meine": "Mine",
     "Meine Inhalte": "My content",
     "Meine Kurse": "My courses",
@@ -426,5 +425,8 @@
     "Alle Länder anzeigen": "Show all countries",
     "Auf njump.me öffnen": "Open on njump.me",
     ":name aus „Meine Meetups“ entfernen? Die Stammdaten bleiben erhalten.": "Remove :name from “My meetups”? The core data is kept.",
-    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobile connection — the image will upload over cellular when you save."
+    "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobile connection — the image will upload over cellular when you save.",
+    "Meetups, Termine, Kurse und Gruppen-Chats der Bitcoin-Community — direkt in deiner Tasche.": "Meetups, events, courses and group chats of the Bitcoin community — right in your pocket.",
+    "Gruppen-Chats": "Group chats",
+    "Tausch dich mit deiner Community in Echtzeit aus.": "Chat with your community in real time."
 }

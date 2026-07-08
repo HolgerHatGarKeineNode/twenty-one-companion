@@ -34,9 +34,11 @@ release_notes: ./dist/v1.2.7/zapstore-changelog.md
 icon: ./public/icon.png
 
 images:
-  - ./assets/screenshots/01-welcome.webp
+  - ./assets/screenshots/01-splash.webp
   - ./assets/screenshots/02-language.webp
-  - ./assets/screenshots/03-region.webp
-  - ./assets/screenshots/04-connect-account.webp
-  - ./assets/screenshots/05-notifications.webp
-  - ./assets/screenshots/06-events.webp
+  - ./assets/screenshots/03-welcome.webp
+  - ./assets/screenshots/04-region.webp
+  - ./assets/screenshots/05-connect-account.webp
+  - ./assets/screenshots/06-meetups.webp
+  - ./assets/screenshots/07-group-spaces.webp
+  - ./assets/screenshots/08-group-chat.webp

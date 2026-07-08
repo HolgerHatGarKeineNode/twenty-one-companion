@@ -191,7 +191,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                 <div class="flex flex-col items-center gap-5 text-center">
                     <x-brand-wordmark class="h-auto w-full max-w-[16rem] text-zinc-900 dark:text-zinc-100"/>
                     <flux:text class="max-w-xs">
-                        {{ __('Meetups, Termine und Kurse der Bitcoin-Community — direkt in deiner Tasche.') }}
+                        {{ __('Meetups, Termine, Kurse und Gruppen-Chats der Bitcoin-Community — direkt in deiner Tasche.') }}
                     </flux:text>
                 </div>
 
@@ -200,6 +200,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                         ['icon' => 'user-group', 'title' => __('Meetups finden'), 'text' => __('Entdecke die Community in deiner Region.')],
                         ['icon' => 'calendar-days', 'title' => __('Termine im Kalender'), 'text' => __('Verpasse kein Treffen mehr in deiner Nähe.')],
                         ['icon' => 'sparkles', 'title' => __('Eigene Community pflegen'), 'text' => __('Lege eigene Meetups und Termine an.')],
+                        ['icon' => 'chat-bubble-left-right', 'title' => __('Gruppen-Chats'), 'text' => __('Tausch dich mit deiner Community in Echtzeit aus.')],
                     ] as $i => $tile)
                         <div class="surface-card flex items-center gap-4 p-4" style="--i: {{ $i }}">
                             <span class="flex size-11 shrink-0 items-center justify-center rounded-tile bg-brand-500/10 text-brand-600 dark:text-brand-400">
