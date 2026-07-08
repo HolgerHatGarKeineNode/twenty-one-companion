@@ -141,7 +141,7 @@
         "type": "path",
         "url": "packages/calendar"
     },{
-        "name": "nostr-chat",
+        "name": "einundzwanzig-group",
         "type": "path",
         "url": "../flotilla-einundzwanzig/packages/einundzwanzig-group",
         "options": {

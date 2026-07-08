@@ -6,7 +6,7 @@
     {{-- Start-Weiche: In den Chat, wenn dort eingeloggt, sonst in die Meetups.
          Der Chat-Login lebt auf Mobile ausschließlich client-seitig — welshman
          persistiert den pubkey per JSON.stringify in localStorage['pubkey']
-         (siehe nostr-chat js/session.ts). Der Server kann das nicht sehen, daher
+         (siehe einundzwanzig-group js/session.ts). Der Server kann das nicht sehen, daher
          entscheidet dieses Mini-Dokument im <head>, bevor etwas gerendert wird. --}}
     <script>
         (function () {

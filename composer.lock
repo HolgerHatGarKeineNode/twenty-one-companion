@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "30aa969be727a0adbed47ae7b26c5c09",
+    "content-hash": "84de7b150aed3955e9ae375d92ce6c06",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -873,7 +873,7 @@
             "dist": {
                 "type": "path",
                 "url": "../flotilla-einundzwanzig/packages/einundzwanzig-group",
-                "reference": "d04222f13ab1dafcf1d8cd9a7c9f4e1dcad20642"
+                "reference": "2d2bfde3326843b20541e42bc30fb46eaa07bcab"
             },
             "require": {
                 "illuminate/console": "^13.0",
