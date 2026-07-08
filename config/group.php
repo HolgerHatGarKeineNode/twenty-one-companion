@@ -21,4 +21,14 @@ return [
      * Insel-Entry + das Chat-Theme-CSS.
      */
     'vite' => ['resources/css/group.css', 'resources/js/group.js'],
+
+    /*
+     * Rücksprung aus dem Vollbild-Chat zurück in die App. Der Chat läuft als
+     * eingebetteter Tab (mobile.blade: 5-Tab-Nav) mit eigenem Vollbild-Layout,
+     * das die App-Shell ersetzt — der App-Header zeigt darum oben links einen
+     * „‹ Meetups"-Ausgang direkt zur Meetups-Route. Bewusst NICHT über `home`:
+     * die dortige Start-Weiche (launch.blade) loopt chat-eingeloggte Nutzer
+     * zurück in den Chat.
+     */
+    'exit' => ['route' => 'meetups', 'label' => 'Meetups'],
 ];
