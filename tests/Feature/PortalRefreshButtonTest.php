@@ -12,10 +12,10 @@ it('re-fetches the page data on the global portal-refresh event', function () {
     MockClient::global([GetMapMeetupsRequest::class => MockResponse::make([])]);
 
     // Mount rendert einmal (1 Abruf). Ohne Refresh käme der zweite Render aus
-    // dem Fresh-Cache; der globale portal-refresh-Event (vom Header-Button /
-    // Pull-to-Refresh) verwirft ihn und erzwingt einen frischen Abruf — also
-    // genau zwei Portal-Requests. Bestätigt zudem das Stopp-Signal an das
-    // Layout-Alpine (portal-refreshed).
+    // dem Fresh-Cache; der globale portal-refresh-Event (vom Header-Refresh-
+    // Button) verwirft ihn und erzwingt einen frischen Abruf — also genau zwei
+    // Portal-Requests. Bestätigt zudem das Stopp-Signal an das Layout-Alpine
+    // (portal-refreshed).
     Livewire::test('pages::meetups.index')
         ->assertOk()
         ->dispatch('portal-refresh')

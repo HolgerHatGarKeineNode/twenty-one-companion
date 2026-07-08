@@ -39,7 +39,7 @@
             @class(['flex min-h-dvh flex-col', 'density-compact' => $density === 'compact'])
             @if ($chrome)
                 x-data="appRefresh"
-                @portal-refreshed.window="onDone()"
+                @portal-refreshed.window="refreshing = false"
             @endif
         >
             @if ($chrome)
@@ -87,31 +87,9 @@
                 </header>
             @endif
 
-            <main
-                class="px-safe flex-1 overflow-y-auto"
-                @if ($chrome)
-                    @touchstart.passive="onStart($event)"
-                    @touchmove.passive="onMove($event)"
-                    @touchend="onEnd()"
-                @endif
-            >
-                @if ($chrome)
-                    {{-- Pull-to-Refresh-Indikator (Phase A3): wächst beim Ziehen, das Icon
-                         dreht proportional und spinnt während des Aktualisierens. --}}
-                    <div
-                        class="flex items-center justify-center overflow-hidden"
-                        x-bind:class="!dragging && 'transition-[height] duration-300 ease-out'"
-                        x-bind:style="`height:${pull}px`"
-                        aria-hidden="true"
-                    >
-                        <flux:icon
-                            name="arrow-path"
-                            class="size-6 text-zinc-400"
-                            x-bind:class="refreshing && 'animate-spin'"
-                            x-bind:style="!refreshing && `transform: rotate(${pull * 3}deg)`"
-                        />
-                    </div>
-                @endif
+            {{-- Kein Pull-to-Refresh mehr (zu aggressiv beim Scrollen). Aktualisiert
+                 wird bewusst nur über den Refresh-Button oben rechts im Header. --}}
+            <main class="px-safe flex-1 overflow-y-auto">
                 @if ($chrome && $connected)
                     {{-- Einmaliger Hinweis für Meetup-Leader auf die neuen
                          Anmeldungs-/Sichtbarkeits-Einstellungen. --}}
@@ -128,11 +106,12 @@
 
                 <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
                     <div class="grid grid-cols-5">
+                        {{-- Chat zuerst: wichtigster Screen. Vollbild-Tab (einundzwanzig/group),
+                             übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
+                        <x-bottom-nav-item route="chat.spaces" match="chat.spaces,chat.directory,chat.room,chat.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
                         <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
                         <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
                         <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>
-                        {{-- Chat-Vollbild-Tab (einundzwanzig/group). Übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
-                        <x-bottom-nav-item route="chat.spaces" match="chat.spaces,chat.directory,chat.room,chat.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
                         <x-bottom-nav-item route="profile" match="profile,mine" icon="user-circle" :label="__('Profil')"/>
                     </div>
                 </nav>

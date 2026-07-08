@@ -40,7 +40,8 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
     public function mount(AppPreferences $preferences): void
     {
         if ($preferences->isOnboarded()) {
-            $this->redirectRoute('meetups', navigate: true);
+            // Über die Start-Weiche (/): entscheidet client-seitig Chat vs. Meetups.
+            $this->redirect(route('home'));
 
             return;
         }
@@ -133,6 +134,7 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
 
         $preferences->completeOnboarding($this->locale, $this->country);
 
+        // Frisch onboardet = noch kein Chat-Login → in die Meetups.
         $this->redirectRoute('meetups', navigate: true);
     }
 

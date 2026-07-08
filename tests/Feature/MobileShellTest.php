@@ -8,8 +8,18 @@ use Saloon\Http\Faking\MockResponse;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
-it('redirects the start route to the meetups page', function () {
-    $this->get(route('home'))->assertRedirect(route('meetups'));
+it('serves a launch page that decides chat-vs-meetups client-side', function () {
+    // Der Chat-Login lebt auf Mobile nur in localStorage (welshman), daher kann
+    // der Server nicht per Redirect entscheiden — die Launch-Seite liest
+    // localStorage['pubkey'] und leitet per JS in den Chat bzw. die Meetups.
+    // @js() escaped die Slashes in den URLs (\/spaces), daher auf robuste
+    // Teilstrings prüfen statt auf die vollen route()-URLs.
+    $this->get(route('home'))
+        ->assertOk()
+        ->assertSee("localStorage.getItem('pubkey')", false)
+        ->assertSee('window.location.replace', false)
+        ->assertSee('spaces', false)
+        ->assertSee('meetups', false);
 });
 
 it('shows the bottom navigation and the hamburger menu on a page', function () {

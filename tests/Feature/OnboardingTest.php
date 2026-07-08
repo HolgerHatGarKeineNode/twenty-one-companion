@@ -219,5 +219,6 @@ it('redirects onboarded users away from the onboarding', function () {
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('onboarding'))->assertRedirect(route('meetups'));
+    // Schon onboardet → über die Start-Weiche (/), die client-seitig Chat vs. Meetups wählt.
+    $this->get(route('onboarding'))->assertRedirect(route('home'));
 });

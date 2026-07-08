@@ -21,7 +21,10 @@ Route::get('signed/{payload}', PortalSignedEventController::class)
 Route::livewire('onboarding', 'pages::onboarding.index')->name('onboarding');
 
 Route::middleware(EnsureOnboarded::class)->group(function () {
-    Route::redirect('/', '/meetups')->name('home');
+    // Start-Weiche: in den Chat, wenn dort eingeloggt, sonst Meetups. Der
+    // Chat-Login liegt auf Mobile nur client-seitig (localStorage), daher
+    // entscheidet die Launch-Seite per JS statt eines Server-Redirects.
+    Route::view('/', 'launch')->name('home');
 
     Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
     Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
