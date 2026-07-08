@@ -40,6 +40,10 @@ final class MapMeetupData extends Data
         public ?NextEventData $next_event,
         public ?string $intro,
         public ?string $logo,
+        // Können sich Besucher an-/abmelden bzw. ist die Teilnehmerliste öffentlich?
+        // Default true für ältere (gecachte) Map-Antworten ohne diese Felder.
+        public bool $rsvp_enabled = true,
+        public bool $attendees_public = true,
     ) {}
 
     public function introHtml(): ?string

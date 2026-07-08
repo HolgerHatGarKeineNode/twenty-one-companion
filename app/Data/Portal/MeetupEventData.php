@@ -25,8 +25,9 @@ final class MeetupEventData extends Data
         // weiterhin sauber gemappt werden — ohne id zeigt der Slide-In dann
         // einfach keine RSVP-Buttons.
         public ?int $id = null,
-        public int $attendees = 0,
-        public int $might_attendees = 0,
+        // null = Teilnehmerzahl öffentlich verborgen (attendees_public=false).
+        public ?int $attendees = null,
+        public ?int $might_attendees = null,
     ) {}
 
     /**

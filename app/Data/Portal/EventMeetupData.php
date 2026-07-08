@@ -28,5 +28,7 @@ final class EventMeetupData extends Data
         public ?string $signal,
         public ?string $nostr,
         public ?string $logo,
+        // Anmeldung erlaubt? Default true für ältere (gecachte) Antworten ohne das Feld.
+        public bool $rsvp_enabled = true,
     ) {}
 }

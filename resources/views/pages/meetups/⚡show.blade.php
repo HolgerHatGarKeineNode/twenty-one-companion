@@ -328,6 +328,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
                     :attendees="$rsvpAttendees ?? $this->meetup->next_event->attendees"
                     :might-attendees="$rsvpMightAttendees ?? $this->meetup->next_event->might_attendees"
                     :can-rsvp="$this->canRsvp()"
+                    :rsvp-enabled="$this->meetup->rsvp_enabled"
                 />
                 <x-event-action-grid
                     class="mt-4"

@@ -1,4 +1,11 @@
 {
+    "Anmeldung (RSVP) aktivieren": "Jelentkezés (RSVP) engedélyezése",
+    "Besucher können sich für Termine an- oder abmelden.": "A látogatók jelentkezhetnek vagy lemondhatják a részvételt az eseményekre.",
+    "Teilnehmerliste öffentlich zeigen": "Résztvevők listájának nyilvános megjelenítése",
+    "Aus: nur du und weitere Leader sehen, wer kommt.": "Kikapcsolva: csak te és a többi vezető látja, ki jön.",
+    "Neu: Anmeldung & Sichtbarkeit": "Új: jelentkezés és láthatóság",
+    "Du kannst jetzt pro Meetup steuern, ob sich Besucher anmelden können und ob die Teilnehmerliste öffentlich ist. Öffne dein Meetup zum Bearbeiten.": "Mostantól meetupenként szabályozhatod, hogy a látogatók jelentkezhetnek-e, és hogy a résztvevők listája nyilvános-e. Nyisd meg a meetupodat szerkesztésre.",
+    "Verstanden": "Értem",
     "Zu den Referenten": "Előadókhoz",
     "Listendichte": "Lista sűrűsége",
     "Normal": "Normál",

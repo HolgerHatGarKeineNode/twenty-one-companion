@@ -153,6 +153,30 @@ it('loads an own meetup for editing and sends an update', function () {
         && $request->body()->all()['intro'] === 'Aktualisierte Beschreibung');
 });
 
+it('loads and sends the RSVP settings of an own meetup', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [
+            myMeetupFixture(['id' => 21, 'rsvp_enabled' => false, 'attendees_public' => false]),
+        ]]),
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        UpdateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 21])], 200),
+    ]);
+
+    Livewire::test('meetup-editor')
+        ->call('open', 21)
+        ->assertSet('form.rsvp_enabled', false)
+        ->assertSet('form.attendees_public', false)
+        ->set('form.rsvp_enabled', true)
+        ->set('form.attendees_public', true)
+        ->call('save')
+        ->assertDispatched('meetup-saved');
+
+    MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UpdateMeetupRequest
+        && $request->body()->all()['rsvp_enabled'] === true
+        && $request->body()->all()['attendees_public'] === true);
+});
+
 it('keeps the editor open and reports a 403 when editing a foreign meetup', function () {
     withPortalToken();
     MockClient::global([

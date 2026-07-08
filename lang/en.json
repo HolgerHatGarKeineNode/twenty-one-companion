@@ -1,4 +1,12 @@
 {
+    "Chat": "Chat",
+    "Anmeldung (RSVP) aktivieren": "Enable registration (RSVP)",
+    "Besucher können sich für Termine an- oder abmelden.": "Visitors can register or cancel for events.",
+    "Teilnehmerliste öffentlich zeigen": "Show attendee list publicly",
+    "Aus: nur du und weitere Leader sehen, wer kommt.": "Off: only you and other leaders can see who is coming.",
+    "Neu: Anmeldung & Sichtbarkeit": "New: Registration & visibility",
+    "Du kannst jetzt pro Meetup steuern, ob sich Besucher anmelden können und ob die Teilnehmerliste öffentlich ist. Öffne dein Meetup zum Bearbeiten.": "You can now control per meetup whether visitors can register and whether the attendee list is public. Open your meetup to edit it.",
+    "Verstanden": "Got it",
     "Zu den Referenten": "Go to lecturers",
     "Listendichte": "List density",
     "Normal": "Normal",

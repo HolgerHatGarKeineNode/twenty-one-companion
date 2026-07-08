@@ -21,8 +21,9 @@ final class NextEventData extends Data
         public ?string $location,
         public ?string $description,
         public ?string $link,
-        public int $attendees,
-        public int $might_attendees,
+        // null = Teilnehmerzahl öffentlich verborgen (attendees_public=false).
+        public ?int $attendees,
+        public ?int $might_attendees,
         public ?string $nostr_note,
     ) {}
 

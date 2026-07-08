@@ -62,6 +62,12 @@ class MeetupForm extends Form
     #[Validate('boolean')]
     public bool $is_active = true;
 
+    #[Validate('boolean')]
+    public bool $rsvp_enabled = true;
+
+    #[Validate('boolean')]
+    public bool $attendees_public = true;
+
     /**
      * Bestehendes Meetup zum Bearbeiten in die Form laden.
      */
@@ -80,6 +86,8 @@ class MeetupForm extends Form
         $this->community = $meetup->community;
         $this->visible_on_map = $meetup->visible_on_map;
         $this->is_active = $meetup->is_active;
+        $this->rsvp_enabled = $meetup->rsvp_enabled;
+        $this->attendees_public = $meetup->attendees_public;
     }
 
     /**
@@ -106,6 +114,8 @@ class MeetupForm extends Form
             'community' => $this->community,
             'visible_on_map' => $this->visible_on_map,
             'is_active' => $this->is_active,
+            'rsvp_enabled' => $this->rsvp_enabled,
+            'attendees_public' => $this->attendees_public,
         ];
     }
 }

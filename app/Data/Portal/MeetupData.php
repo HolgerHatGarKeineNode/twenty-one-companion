@@ -35,5 +35,9 @@ final class MeetupData extends Data
         // Ist der Token-Inhaber Leader dieses Meetups? Nur aus /api/my-meetups
         // gesetzt (Pivot geladen); steuert Edit- und Leader-Verwaltung.
         public bool $is_leader = false,
+        // Können sich Besucher für Termine an-/abmelden (RSVP)?
+        public bool $rsvp_enabled = true,
+        // Ist die Teilnehmerliste/der Zähler öffentlich sichtbar?
+        public bool $attendees_public = true,
     ) {}
 }

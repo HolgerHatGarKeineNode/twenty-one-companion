@@ -3,7 +3,11 @@
     'attendees' => 0,
     'mightAttendees' => 0,
     'canRsvp' => false,
+    // Ist die Anmeldung für dieses Meetup aktiviert? Aus => keine Buttons.
+    'rsvpEnabled' => true,
 ])
+
+@php($showButtons = $canRsvp && $rsvpEnabled)
 
 {{-- RSVP für einen Meetup-Termin (B.5): Zählerzeile plus „Ich komme" /
      „Vielleicht" / „Kann nicht". Wird auf der Meetup-Detailseite (nächster
@@ -11,7 +15,7 @@
      der umgebenden Livewire-Komponente auf (geliefert vom Trait
      {@see \App\Livewire\Concerns\InteractsWithEventRsvp}); ohne `canRsvp`
      (kein Token / keine Termin-ID) bleibt nur die Zählerzeile. --}}
-@if ($attendees > 0 || $mightAttendees > 0 || $canRsvp)
+@if ($attendees > 0 || $mightAttendees > 0 || $showButtons)
     <div {{ $attributes->merge(['class' => 'flex flex-col gap-3']) }}>
         @if ($attendees > 0 || $mightAttendees > 0)
             <flux:text class="text-sm tabular-nums">
@@ -19,7 +23,7 @@
             </flux:text>
         @endif
 
-        @if ($canRsvp)
+        @if ($showButtons)
             <div class="flex flex-wrap gap-2">
                 <flux:button
                     wire:click="setRsvp('attending')"

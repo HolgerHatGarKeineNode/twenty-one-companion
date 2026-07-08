@@ -14,7 +14,8 @@ final class MeetupEventRsvpData extends Data
 {
     public function __construct(
         public RsvpStatus $status,
-        public int $attendees,
-        public int $might_attendees,
+        // null = Teilnehmerzahl für den Betrachter verborgen (nicht öffentlich, kein Leader).
+        public ?int $attendees,
+        public ?int $might_attendees,
     ) {}
 }

@@ -112,6 +112,11 @@
                         />
                     </div>
                 @endif
+                @if ($chrome && $connected)
+                    {{-- Einmaliger Hinweis für Meetup-Leader auf die neuen
+                         Anmeldungs-/Sichtbarkeits-Einstellungen. --}}
+                    <livewire:meetup-privacy-hint-banner/>
+                @endif
                 <div @class(['page-enter', 'p-4 pb-8' => $chrome])>
                     {{ $slot }}
                 </div>

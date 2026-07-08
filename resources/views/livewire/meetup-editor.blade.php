@@ -438,6 +438,23 @@ new class extends Component
             <flux:switch wire:model="form.visible_on_map" :label="__('Auf der Karte zeigen')"/>
         </div>
 
+        {{-- Anmeldung & Sichtbarkeit: RSVP-Funktion und öffentliche Teilnehmerliste. --}}
+        <div class="flex flex-col gap-4 rounded-tile border border-zinc-200 p-4 dark:border-zinc-800"
+             x-data="{ rsvp: $wire.entangle('form.rsvp_enabled') }">
+            <flux:switch
+                wire:model.live="form.rsvp_enabled"
+                :label="__('Anmeldung (RSVP) aktivieren')"
+                :description="__('Besucher können sich für Termine an- oder abmelden.')"/>
+
+            <div x-bind:class="rsvp ? '' : 'opacity-50 pointer-events-none'">
+                <flux:switch
+                    wire:model="form.attendees_public"
+                    x-bind:disabled="!rsvp"
+                    :label="__('Teilnehmerliste öffentlich zeigen')"
+                    :description="__('Aus: nur du und weitere Leader sehen, wer kommt.')"/>
+            </div>
+        </div>
+
         {{-- Leader verwalten (Leader-Delegation): nur beim Bearbeiten und nur,
              wenn der Nutzer selbst Leader ist. Öffnet das gestapelte
              `meetup-leaders`-Sheet (wie der inline „Stadt anlegen“-Flow). --}}
