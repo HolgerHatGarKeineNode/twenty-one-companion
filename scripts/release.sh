@@ -42,6 +42,11 @@ if [ -z "${SKIP_BUILD:-}" ]; then
     echo "→ Frontend-Assets bauen …"
     yarn build --mode=android
 
+    echo "→ Boot-Optimierungs-Patches auf die NativePHP-Templates anwenden (opcache etc.) …"
+    # Muss VOR native:package laufen: patcht die vendor-Templates, damit ein
+    # etwaiges Neu-Scaffolding die Optimierungen enthält. Idempotent + fail-fast.
+    bash scripts/apply-vendor-patches.sh
+
     echo "→ Signiertes Release-APK bauen …"
     php artisan native:package android --build-type=release --no-tty --no-interaction
 fi
