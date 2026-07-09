@@ -24,6 +24,8 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     // Start-Weiche: in den Chat, wenn dort eingeloggt, sonst Meetups. Der
     // Chat-Login liegt auf Mobile nur client-seitig (localStorage), daher
     // entscheidet die Launch-Seite per JS statt eines Server-Redirects.
+    // (Ein server-seitiger 302-Fastpath scheiterte an der NativePHP-Bridge:
+    // sie persistiert keine fetch-Response-Cookies — siehe OPTIMIZE.md Phase 8.)
     Route::view('/', 'launch')->name('home');
 
     Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
