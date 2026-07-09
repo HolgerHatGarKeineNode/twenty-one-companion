@@ -17,6 +17,7 @@ cd "$(dirname "$0")/.."
 
 REL_ENV="app/src/main/java/com/nativephp/mobile/bridge/LaravelEnvironment.kt"
 REL_MAIN="app/src/main/java/com/nativephp/mobile/ui/MainActivity.kt"
+REL_ICONBG="app/src/main/res/drawable/ic_launcher_background.xml"
 
 # (Basisverzeichnis, Label) — nur existierende werden gepatcht.
 TARGETS=(
@@ -67,6 +68,19 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   fi
 }
 
+patch_iconbg() {  # $1 = Pfad zu ic_launcher_background.xml
+  local f="$1"
+  # Adaptive-Icon-Hintergrund von weiß (NativePHP-Default) auf schwarz. Der
+  # Foreground ist eine schwarze Rundecken-Form mit transparenten Ecken — auf
+  # weißem BG scheinen dort weiße Ecken durch (Bug-Report). Schwarz macht es nahtlos.
+  if grep -q '#ffffff' "$f"; then
+    sed -i 's/#ffffff/#000000/' "$f"
+    grep -q '#000000' "$f" \
+      || { echo "FEHLER: Icon-BG-Patch griff nicht ($f) — Datei geändert (NativePHP-Update?)."; exit 1; }
+    echo "    [+] Icon-Hintergrund schwarz (#000000)"
+  fi
+}
+
 patch_main() {  # $1 = Pfad zu MainActivity.kt
   local f="$1"
   # Phase 4: Queue-Worker-Doppelboot verzögern
@@ -86,6 +100,7 @@ for entry in "${TARGETS[@]}"; do
     echo "  $label:"
     patch_env "$env_f"
     patch_main "$main_f"
+    [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
     any=1
   else
     echo "  $label: übersprungen (nicht vorhanden)"

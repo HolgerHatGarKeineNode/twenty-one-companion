@@ -64,7 +64,7 @@ echo "→ ${MANIFEST} erzeugen …"
 (cd "$DIST" && sha256sum ./*.apk | sed 's|\./||' > "$MANIFEST")
 
 echo "→ Manifest mit GPG signieren (Key ${GPG_KEY}) …"
-gpg --local-user "$GPG_KEY" --detach-sign "${DIST}/${MANIFEST}"
+gpg --no-tty --local-user "$GPG_KEY" --detach-sign "${DIST}/${MANIFEST}"
 
 echo "→ Signatur gegenprüfen …"
 gpg --verify "${DIST}/${MANIFEST}.sig" "${DIST}/${MANIFEST}"
