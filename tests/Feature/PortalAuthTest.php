@@ -239,6 +239,40 @@ it('rejects an empty display name without calling the portal', function () {
         ->assertSet('editingName', true);
 });
 
+it('freshProfile fetches live so a server-side role change reaches the app', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(userProfileFixture(['is_leader' => true])),
+    ]);
+
+    $profile = app(PortalAuth::class)->freshProfile();
+
+    expect($profile['is_leader'])->toBeTrue();
+    Http::assertSentCount(1);
+});
+
+it('freshProfile throttles the live fetch to once per window and then serves the cache', function () {
+    withPortalToken();
+    Http::fake([
+        'portal.einundzwanzig.space/api/user' => Http::response(userProfileFixture(['is_leader' => true])),
+    ]);
+    $auth = app(PortalAuth::class);
+
+    $auth->freshProfile();          // erster Aufruf: live
+    $again = $auth->freshProfile(); // innerhalb des Fensters: throttled → Cache
+
+    expect($again['is_leader'])->toBeTrue();
+    Http::assertSentCount(1);
+});
+
+it('freshProfile returns null without a token and never calls the portal', function () {
+    withoutPortalToken();
+    Http::fake();
+
+    expect(app(PortalAuth::class)->freshProfile())->toBeNull();
+    Http::assertNothingSent();
+});
+
 it('opens the own nostr profile on njump in the system browser', function () {
     withPortalToken();
     Http::fake([

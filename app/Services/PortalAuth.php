@@ -21,6 +21,15 @@ final class PortalAuth
     private const PROFILE_CACHE_TTL_DAYS = 30;
 
     /**
+     * Throttle-Marker für den app-weiten Profil-Refresh. Der 30-Tage-Cache ist
+     * nur ein Offline-Fallback; Rollen (is_leader/is_lecturer) ändern sich
+     * serverseitig und dürfen nicht tagelang veraltet weitergezeigt werden.
+     */
+    private const PROFILE_FRESH_KEY = 'portal_profile_refreshed';
+
+    private const PROFILE_FRESH_TTL_MINUTES = 15;
+
+    /**
      * Memoised keystore value: every SecureStorage call is a bridge hop
      * into the native layer, and callers (connector auth, my*-guards)
      * read the token several times per request.
@@ -72,6 +81,9 @@ final class PortalAuth
         if ($stored) {
             $this->memoizedToken = $token;
             $this->tokenLoaded = true;
+            // Frischer Login: den Refresh-Throttle einer Alt-Session verwerfen,
+            // damit freshProfile() sofort das aktuelle Profil (inkl. Rollen) holt.
+            Cache::forget(self::PROFILE_FRESH_KEY);
         }
 
         return $stored;
@@ -95,6 +107,7 @@ final class PortalAuth
     public function forgetToken(): bool
     {
         Cache::forget(self::PROFILE_CACHE_KEY);
+        Cache::forget(self::PROFILE_FRESH_KEY);
 
         $this->memoizedToken = null;
         $this->tokenLoaded = true;
@@ -208,6 +221,32 @@ final class PortalAuth
     public function cacheProfile(array $profile): void
     {
         Cache::put(self::PROFILE_CACHE_KEY, $profile, now()->addDays(self::PROFILE_CACHE_TTL_DAYS));
+    }
+
+    /**
+     * App-weiter Profil-Zugriff für Screens außerhalb des Connect-Flows: gibt
+     * den Cache zurück, stößt aber höchstens alle PROFILE_FRESH_TTL_MINUTES
+     * einen Live-Fetch an, damit serverseitige Rollenänderungen (z. B. frisch
+     * gesetzter Leader → Organisator-Button) zeitnah ankommen — ohne pro
+     * Seitenaufruf zu netzwerken und ohne die Offline-Anzeige zu opfern.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function freshProfile(): ?array
+    {
+        if (! $this->hasToken()) {
+            return null;
+        }
+
+        if (Cache::get(self::PROFILE_FRESH_KEY) === true) {
+            return $this->cachedProfile();
+        }
+
+        // Vor dem Fetch setzen: throttlet auch bei Offline-Fehlschlag, sonst
+        // liefe jeder Seitenaufruf in den 10s-Timeout von profile().
+        Cache::put(self::PROFILE_FRESH_KEY, true, now()->addMinutes(self::PROFILE_FRESH_TTL_MINUTES));
+
+        return $this->profile();
     }
 
     /**

@@ -9,11 +9,13 @@
     use App\Services\BrandResolver;
     use App\Services\PortalAuth;
 
-    // Verbindungsstatus + gecachtes Profil für den Flyout-Header (Phase 2.5).
-    // cachedProfile() ist netzwerkfrei — kein API-Call pro Seitenaufruf.
+    // Verbindungsstatus + Profil für den Flyout-Header (Phase 2.5).
+    // freshProfile() liefert den Cache, stößt aber höchstens alle 15 Min einen
+    // Live-Refresh an, damit serverseitige Rollenänderungen (Leader → Orga-
+    // Button) app-weit ankommen, ohne pro Seitenaufruf zu netzwerken.
     $portalAuth = app(PortalAuth::class);
     $connected = $portalAuth->hasToken();
-    $profile = $connected ? $portalAuth->cachedProfile() : null;
+    $profile = $connected ? $portalAuth->freshProfile() : null;
 
     // Marke aus der gewählten Region (vom UI-Sprach-Locale entkoppelt).
     $brand = app(BrandResolver::class)->current();
