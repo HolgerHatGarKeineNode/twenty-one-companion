@@ -22,6 +22,10 @@
 
     // Listendichte (Phase C2): „compact“ verdichtet die Browse-Listen.
     $density = app(\App\Services\AppPreferences::class)->density();
+
+    // P3-Feature-Flag: verschmolzene 4-Tab-Shell. An = geteilte
+    // <x-group::bottom-nav> (Mehr-Hub statt Hamburger-Flyout), aus = 5-Tab-Nav.
+    $unifiedShell = config('group.unified_shell');
 @endphp
 
 <!DOCTYPE html>
@@ -82,9 +86,13 @@
                         <flux:modal.trigger name="global-search">
                             <flux:button variant="ghost" icon="magnifying-glass" :aria-label="__('Suche')" class="cursor-pointer"/>
                         </flux:modal.trigger>
-                        <flux:modal.trigger name="main-menu">
-                            <flux:button variant="ghost" icon="bars-3" :aria-label="__('Menü')" class="-me-2 cursor-pointer"/>
-                        </flux:modal.trigger>
+                        {{-- Legacy: Hamburger öffnet den Flyout. Unified: der „Mehr"-Tab (§3.4)
+                             ist der Hub, der Hamburger entfällt ersatzlos. --}}
+                        @unless ($unifiedShell)
+                            <flux:modal.trigger name="main-menu">
+                                <flux:button variant="ghost" icon="bars-3" :aria-label="__('Menü')" class="-me-2 cursor-pointer"/>
+                            </flux:modal.trigger>
+                        @endunless
                     </div>
                 </header>
             @endif
@@ -97,7 +105,11 @@
                          Anmeldungs-/Sichtbarkeits-Einstellungen. --}}
                     <livewire:meetup-privacy-hint-banner/>
                 @endif
-                <div @class(['page-enter', 'p-4 pb-8' => $chrome])>
+                {{-- Unified: die geteilte bottom-nav ist `fixed` (nicht sticky) → der
+                     Inhalt braucht Boden-Freiraum, damit die letzte Zeile nicht hinter
+                     der Bar verschwindet (pb-28, analog app-shell). Legacy-Nav ist
+                     sticky im Flow → pb-8 genügt. Beide Literale bleiben JIT-sichtbar. --}}
+                <div @class(['page-enter', 'p-4 pb-28' => $chrome && $unifiedShell, 'p-4 pb-8' => $chrome && ! $unifiedShell])>
                     {{ $slot }}
                 </div>
             </main>
@@ -106,17 +118,24 @@
                 {{-- Kontextsensitiver Create-FAB (Phase 2.1). --}}
                 <x-create-fab/>
 
-                <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
-                    <div class="grid grid-cols-5">
-                        {{-- Chat zuerst: wichtigster Screen. Vollbild-Tab (einundzwanzig/group),
-                             übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
-                        <x-bottom-nav-item route="group.spaces" match="group.spaces,group.directory,group.room,group.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
-                        <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
-                        <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
-                        <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>
-                        <x-bottom-nav-item route="profile" match="profile,mine" icon="user-circle" :label="__('Profil')"/>
-                    </div>
-                </nav>
+                {{-- Unified (P3): die EINE config-getriebene Shell-Nav (§8.2), identisch
+                     mit der, die der Chat-Tab rendert → beide Shells zeigen sichtbar
+                     dieselben 4 Tabs. Legacy: die bisherige 5-Tab-Nav. --}}
+                @if ($unifiedShell)
+                    <x-group::bottom-nav/>
+                @else
+                    <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
+                        <div class="grid grid-cols-5">
+                            {{-- Chat zuerst: wichtigster Screen. Vollbild-Tab (einundzwanzig/group),
+                                 übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
+                            <x-bottom-nav-item route="group.spaces" match="group.spaces,group.directory,group.room,group.space.settings" icon="chat-bubble-left-right" :label="__('Chat')"/>
+                            <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
+                            <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
+                            <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>
+                            <x-bottom-nav-item route="profile" match="profile,mine" icon="user-circle" :label="__('Profil')"/>
+                        </div>
+                    </nav>
+                @endif
 
                 {{-- Globale Suche (Phase 2.3), per Header-Lupe geöffnet. --}}
                 <livewire:global-search/>
@@ -147,6 +166,9 @@
                     <livewire:course-event-editor/>
                 @endif
 
+                {{-- Legacy-Flyout: im Unified-Modus durch den „Mehr"-Hub (pages/⚡more,
+                     §3.4) ersetzt — dieselben Sektionen als eigener Tab-Screen. --}}
+                @unless ($unifiedShell)
                 <flux:modal name="main-menu" variant="flyout" class="menu-flyout !p-0">
                     <div class="pt-safe flex h-dvh flex-col">
                         {{-- Profil-Header mit Avatar + Verbindungsstatus (Phase 2.5). --}}
@@ -209,6 +231,7 @@
                         </div>
                     </div>
                 </flux:modal>
+                @endunless
             @endif
         </div>
 

@@ -16,6 +16,7 @@ it('renders the core pages without javascript errors', function (string $route) 
         ->assertNoJavaScriptErrors();
 })->with([
     'meetups' => '/meetups',
+    'more hub' => '/more',
     'events' => '/events',
     'map' => '/map',
     'courses' => '/courses',
