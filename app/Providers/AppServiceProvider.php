@@ -80,14 +80,14 @@ class AppServiceProvider extends ServiceProvider
         }
 
         Event::listen(CommandStarting::class, function (CommandStarting $event): void {
-            if (in_array($event->command, self::NATIVE_BUILD_COMMANDS, true) && $this->app->make(AndroidManifestPatcher::class)->ensureSingleTask()) {
-                $event->output->writeln('<info>AndroidManifest.xml gepatcht: launchMode singleTop → singleTask (Amber-Deep-Link-Fix).</info>');
+            if (in_array($event->command, self::NATIVE_BUILD_COMMANDS, true) && $this->app->make(AndroidManifestPatcher::class)->ensureAll()) {
+                $event->output->writeln('<info>AndroidManifest.xml gepatcht: singleTask + Amber-<queries> (NIP-55-ContentResolver).</info>');
             }
         });
 
         Event::listen(CommandFinished::class, function (CommandFinished $event): void {
-            if ($event->command === 'native:install' && $this->app->make(AndroidManifestPatcher::class)->ensureSingleTask()) {
-                $event->output->writeln('<info>AndroidManifest.xml gepatcht: launchMode singleTop → singleTask (Amber-Deep-Link-Fix).</info>');
+            if ($event->command === 'native:install' && $this->app->make(AndroidManifestPatcher::class)->ensureAll()) {
+                $event->output->writeln('<info>AndroidManifest.xml gepatcht: singleTask + Amber-<queries> (NIP-55-ContentResolver).</info>');
             }
         });
     }

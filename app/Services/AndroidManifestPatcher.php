@@ -21,6 +21,22 @@ class AndroidManifestPatcher
 
     protected const REPLACE = 'android:launchMode="singleTask"';
 
+    /** Amber-Package — Marker + Ziel des <queries>-Blocks (Android-11+-Sichtbarkeit). */
+    protected const AMBER_PACKAGE = 'com.greenart7c3.nostrsigner';
+
+    protected const QUERIES_BLOCK = <<<'XML'
+
+    <!-- Amber (NIP-55 Signer): Package-Visibility für ContentResolver-Signieren (Android 11+). -->
+    <queries>
+        <package android:name="com.greenart7c3.nostrsigner" />
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="nostrsigner" />
+        </intent>
+    </queries>
+
+XML;
+
     public function __construct(protected ?string $manifestPath = null) {}
 
     public function manifestPath(): string
@@ -51,10 +67,56 @@ class AndroidManifestPatcher
         return true;
     }
 
+    /**
+     * Fügt den Amber-<queries>-Block ein (vor <application>), damit die App auf
+     * Android 11+ Ambers ContentProvider für das lokale NIP-55-Signieren sehen darf.
+     * Idempotent; true nur bei tatsächlicher Änderung.
+     */
+    public function ensureAmberQueries(): bool
+    {
+        $path = $this->manifestPath();
+
+        if (! File::exists($path)) {
+            return false;
+        }
+
+        $contents = File::get($path);
+
+        if (str_contains($contents, self::AMBER_PACKAGE)) {
+            return false;
+        }
+
+        $patched = preg_replace('/(\R\s*<application\b)/', self::QUERIES_BLOCK.'$1', $contents, 1);
+
+        if ($patched === null || $patched === $contents) {
+            return false;
+        }
+
+        File::put($path, $patched);
+
+        return true;
+    }
+
+    /** Beide Manifest-Patches anwenden (singleTask + Amber-queries). */
+    public function ensureAll(): bool
+    {
+        $singleTask = $this->ensureSingleTask();
+        $queries = $this->ensureAmberQueries();
+
+        return $singleTask || $queries;
+    }
+
     public function isPatched(): bool
     {
         $path = $this->manifestPath();
 
-        return File::exists($path) && str_contains(File::get($path), self::REPLACE);
+        if (! File::exists($path)) {
+            return false;
+        }
+
+        $contents = File::get($path);
+
+        return str_contains($contents, self::REPLACE)
+            && str_contains($contents, self::AMBER_PACKAGE);
     }
 }

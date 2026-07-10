@@ -13,14 +13,14 @@ class PatchAndroidManifest extends Command
 {
     public function handle(AndroidManifestPatcher $patcher): int
     {
-        if ($patcher->ensureSingleTask()) {
-            $this->info('AndroidManifest.xml gepatcht: launchMode singleTop → singleTask.');
+        if ($patcher->ensureAll()) {
+            $this->info('AndroidManifest.xml gepatcht: singleTask + Amber-<queries>.');
 
             return self::SUCCESS;
         }
 
         if ($patcher->isPatched()) {
-            $this->info('AndroidManifest.xml ist bereits gepatcht (singleTask).');
+            $this->info('AndroidManifest.xml ist bereits gepatcht (singleTask + Amber-<queries>).');
 
             return self::SUCCESS;
         }

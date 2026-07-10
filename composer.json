@@ -11,6 +11,7 @@
     "require": {
         "php": "^8.3",
         "developernauts/nativephp-mobile-locales": "^1.0",
+        "einundzwanzig/amber-signer": "@dev",
         "einundzwanzig/calendar": "@dev",
         "einundzwanzig/group": "dev-master",
         "laravel/chisel": "^0.1.0",
@@ -138,6 +139,13 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "repositories": [{
+        "name": "amber-signer",
+        "type": "path",
+        "url": "../flotilla-einundzwanzig/packages/amber-signer",
+        "options": {
+            "symlink": true
+        }
+    },{
         "name": "calendar",
         "type": "path",
         "url": "packages/calendar"

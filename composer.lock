@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "84de7b150aed3955e9ae375d92ce6c06",
+    "content-hash": "e888e4f6409321d58fa8ea0ea01f2419",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -832,6 +832,43 @@
             "time": "2025-03-06T22:45:56+00:00"
         },
         {
+            "name": "einundzwanzig/amber-signer",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "../flotilla-einundzwanzig/packages/amber-signer",
+                "reference": "5aa28a779fc70b7866587d067e63a74dc82e10b9"
+            },
+            "require": {
+                "nativephp/mobile": "^3.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Einundzwanzig\\AmberSigner\\AmberSignerServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Einundzwanzig\\AmberSigner\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Amber NIP-55 same-device signer (offline, ContentResolver) for the EINUNDZWANZIG chat — welshman signer bridge",
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
             "name": "einundzwanzig/calendar",
             "version": "dev-master",
             "dist": {
@@ -873,7 +910,7 @@
             "dist": {
                 "type": "path",
                 "url": "../flotilla-einundzwanzig/packages/einundzwanzig-group",
-                "reference": "d3eab16f1e47e80be879c9abcccf04680e958b84"
+                "reference": "39b7a91025b8867dc6afa9b3d02939793f089892"
             },
             "require": {
                 "illuminate/console": "^13.0",
@@ -16651,6 +16688,7 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "einundzwanzig/amber-signer": 20,
         "einundzwanzig/calendar": 20,
         "einundzwanzig/group": 20
     },
