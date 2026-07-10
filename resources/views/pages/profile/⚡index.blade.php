@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 
-new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] class extends PortalPage {
+new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einstellungen'])] class extends PortalPage {
     /**
      * Kuratierte Anzeige-Zeitzonen (DACH zuerst, dann häufige Bitcoin-Regionen).
      * Eine abweichend gespeicherte Zeitzone wird in {@see timezones()} ergänzt.
@@ -139,11 +139,45 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
     {
         $this->openLink($portalAuth->baseUrl());
     }
+
+    /**
+     * Der EINE Abmelden-Ort (App-Shell-Verschmelzung §5.4/§6.10): Portal-Token
+     * widerrufen + aus dem Keystore löschen, dann die client-seitige Nostr-Session
+     * (welshman liest `pubkey`/`sessions` aus localStorage beim Boot) räumen und als
+     * Gast zu den Meetups. Der Schlüssel bleibt im Signer (Amber/Bunker) — nur die
+     * lokale Sitzung geht. Voller Reload (kein wire:navigate) = sauberer Gast-Start.
+     */
+    public function logout(PortalAuth $portalAuth): void
+    {
+        $portalAuth->logout();
+
+        $meetups = route('meetups');
+        $this->js(<<<JS
+            try { localStorage.removeItem('pubkey'); localStorage.removeItem('sessions'); } catch (e) {}
+            window.location.assign('{$meetups}');
+        JS);
+    }
 };
 ?>
 
 <div class="flex flex-col gap-6">
     <livewire:portal.connect/>
+
+    {{-- Nostr-Identität, Räume & Relays leben im welshman-Kontext (group.settings,
+         Chat-Layout) — die Mobile-Shell lädt kein welshman. Ein prominenter Shortcut
+         hält den Einstieg an EINEM Ort (§Settings-Hub); der Nostr-Login gatet server-
+         seitig. Kein wire:navigate: group.* wechselt das Vollbild-Chat-Layout. --}}
+    <a href="{{ route('group.settings') }}"
+       class="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+        <span class="flex size-10 items-center justify-center rounded-xl bg-brand-500/10">
+            <flux:icon.key variant="solid" class="size-5 text-brand-500"/>
+        </span>
+        <span class="min-w-0 flex-1">
+            <span class="block font-semibold">{{ __('Nostr-Identität, Räume & Relays') }}</span>
+            <flux:text class="text-sm">{{ __('Schlüssel, Space & Netzwerk verwalten') }}</flux:text>
+        </span>
+        <flux:icon.chevron-right class="size-4 shrink-0 text-zinc-400"/>
+    </a>
 
     <section class="flex flex-col gap-3">
         <flux:heading size="lg" level="2">{{ __('Einstellungen') }}</flux:heading>
@@ -195,5 +229,17 @@ new #[Layout('layouts::mobile', ['title' => 'Profil', 'heading' => 'Profil'])] c
                 {{ __('EINUNDZWANZIG-Portal öffnen') }}
             </flux:button>
         </div>
+    </section>
+
+    {{-- Abmelden (§5.4/§6.10): der EINE Ort, ganz unten, destruktiv. Portal-Token +
+         lokale Nostr-Sitzung weg; der Schlüssel bleibt im Signer. --}}
+    <section class="flex flex-col gap-3">
+        <flux:heading size="lg" level="2">{{ __('Sitzung') }}</flux:heading>
+
+        <flux:button wire:click="logout"
+                     wire:confirm="{{ __('Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.') }}"
+                     variant="danger" icon="arrow-right-start-on-rectangle" class="cursor-pointer justify-center">
+            {{ __('Abmelden') }}
+        </flux:button>
     </section>
 </div>

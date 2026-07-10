@@ -4,6 +4,7 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Services\AppPreferences;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
+use Native\Mobile\Facades\SecureStorage;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 
@@ -83,4 +84,25 @@ it('opens the portal in the in-app browser', function () {
 
     Livewire::test('pages::profile.index')
         ->call('openPortal');
+});
+
+it('is the single settings hub: nostr shortcut + one logout (P5 Settings-Merge)', function () {
+    $this->get(route('profile'))
+        ->assertOk()
+        // Nostr-Identität/Räume/Relays leben im welshman-Kontext (group.settings),
+        // erreichbar per Shortcut — EIN Einstieg statt getrennter Settings-Orte.
+        ->assertSee(route('group.settings'), false)
+        ->assertSee(__('Nostr-Identität, Räume & Relays'))
+        // Abmelden an EINEM Ort, mit Bestätigung (§5.4).
+        ->assertSee('wire:click="logout"', false)
+        ->assertSee(__('Abmelden'));
+});
+
+it('logout läuft fehlerfrei durch den EINEN Teardown (Portal + Client-Nostr-Session)', function () {
+    // withoutPortalToken (beforeEach) → PortalAuth::logout überspringt den HTTP-
+    // Widerruf (kein Token); forgetToken() löscht den Keystore-Key (delete mocken).
+    // assertOk beweist Wiring, route('meetups') und den js()-Teardown ohne Fehler.
+    SecureStorage::shouldReceive('delete')->with('portal_api_token')->andReturnTrue();
+
+    Livewire::test('pages::profile.index')->call('logout')->assertOk();
 });

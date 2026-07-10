@@ -41,6 +41,14 @@ $config = [
     'unified_shell' => $unifiedShell,
 
     /*
+     * Netzwerk & Relays (App-Shell-Verschmelzung §6.4, read-only) im
+     * verschmolzenen group.settings-Screen einblenden. Der Mobile-Host zeigt die
+     * NIP-65-Relayliste (der Web-Client lässt den Key weg → Default false). Reiner
+     * Anzeige-Block; der welshman-Kontext ist im Chat-Layout ohnehin warm.
+     */
+    'show_relays' => true,
+
+    /*
      * Rücksprung aus dem Vollbild-Chat zurück in die App. Nur im Legacy-Modus:
      * dort läuft der Chat als eingebetteter Tab mit eigenem Vollbild-Layout, das
      * die App-Shell ersetzt — der App-Header zeigt oben links einen „‹ Meetups"-

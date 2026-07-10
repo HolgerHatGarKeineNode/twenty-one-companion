@@ -428,5 +428,10 @@
     "Mobile Verbindung — das Bild wird beim Speichern über Mobilfunk hochgeladen.": "Mobile connection — the image will upload over cellular when you save.",
     "Meetups, Termine, Kurse und Gruppen-Chats der Bitcoin-Community — direkt in deiner Tasche.": "Meetups, events, courses and group chats of the Bitcoin community — right in your pocket.",
     "Gruppen-Chats": "Group chats",
-    "Tausch dich mit deiner Community in Echtzeit aus.": "Chat with your community in real time."
+    "Tausch dich mit deiner Community in Echtzeit aus.": "Chat with your community in real time.",
+    "Nostr-Identität, Räume & Relays": "Nostr identity, rooms & relays",
+    "Schlüssel, Space & Netzwerk verwalten": "Manage keys, space & network",
+    "Sitzung": "Session",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Log out? Your key stays in your signer (Amber/Bunker) — only the local session ends.",
+    "Abmelden": "Log out"
 }
