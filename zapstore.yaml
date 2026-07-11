@@ -15,6 +15,9 @@ description: |
   - Meetups & events with a region filter
   - Map of all meetups (OpenStreetMap)
   - Courses & lecturers
+  - Group chat with Lightning zaps (NIP-57)
+  - Built-in wallet: connect Alby / any NWC wallet, send & receive sats
+  - Amber offline mode: sign on-device via NIP-55, no round-trips
   - Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. Amber)
   - Offline-ready: recently loaded data stays available
   - 8 languages: German, English, Spanish, Portuguese, Dutch, Polish, Hungarian, Latvian
@@ -29,7 +32,7 @@ tags:
 
 website: https://portal.einundzwanzig.space
 
-release_notes: ./dist/v1.3.2/zapstore-changelog.md
+release_notes: ./dist/v1.4.0/zapstore-changelog.md
 
 icon: ./public/icon.png
 
@@ -38,7 +41,8 @@ images:
   - ./assets/screenshots/02-language.webp
   - ./assets/screenshots/03-welcome.webp
   - ./assets/screenshots/04-region.webp
-  - ./assets/screenshots/05-connect-account.webp
-  - ./assets/screenshots/06-meetups.webp
-  - ./assets/screenshots/07-group-spaces.webp
-  - ./assets/screenshots/08-group-chat.webp
+  - ./assets/screenshots/05-meetups.webp
+  - ./assets/screenshots/06-map.webp
+  - ./assets/screenshots/07-events.webp
+  - ./assets/screenshots/08-chat.webp
+  - ./assets/screenshots/09-wallet.webp
