@@ -60,7 +60,7 @@ final class PortalWriter
      */
     public function createMeetup(array $payload): WriteResult
     {
-        return $this->send(new CreateMeetupRequest($payload), ['my-meetups', 'map-meetups']);
+        return $this->send(new CreateMeetupRequest($payload), ['my-meetups', 'map-meetups', 'mobile-meetups']);
     }
 
     /**
@@ -68,7 +68,7 @@ final class PortalWriter
      */
     public function updateMeetup(int $id, array $payload): WriteResult
     {
-        return $this->send(new UpdateMeetupRequest($id, $payload), ['my-meetups', 'map-meetups']);
+        return $this->send(new UpdateMeetupRequest($id, $payload), ['my-meetups', 'map-meetups', 'mobile-meetups']);
     }
 
     /**
@@ -119,7 +119,7 @@ final class PortalWriter
      */
     public function createMeetupEvent(array $payload): WriteResult
     {
-        return $this->send(new CreateMeetupEventRequest($payload), ['meetup-events', 'map-meetups', 'my-meetup-events']);
+        return $this->send(new CreateMeetupEventRequest($payload), ['meetup-events', 'map-meetups', 'mobile-meetups', 'my-meetup-events']);
     }
 
     /**
@@ -127,7 +127,7 @@ final class PortalWriter
      */
     public function updateMeetupEvent(int $id, array $payload): WriteResult
     {
-        return $this->send(new UpdateMeetupEventRequest($id, $payload), ['meetup-events', 'map-meetups', 'my-meetup-events']);
+        return $this->send(new UpdateMeetupEventRequest($id, $payload), ['meetup-events', 'map-meetups', 'mobile-meetups', 'my-meetup-events']);
     }
 
     /**
@@ -252,7 +252,7 @@ final class PortalWriter
      */
     public function uploadMeetupLogo(int $id, string $filePath): WriteResult
     {
-        return $this->upload(new UploadMeetupLogoRequest($id, $filePath), $filePath, ['my-meetups', 'map-meetups']);
+        return $this->upload(new UploadMeetupLogoRequest($id, $filePath), $filePath, ['my-meetups', 'map-meetups', 'mobile-meetups']);
     }
 
     /**

@@ -3,6 +3,7 @@
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
@@ -18,44 +19,58 @@ afterEach(fn () => MockClient::destroyGlobal());
 
 function viennaMeetupFixture(): array
 {
-    return mapMeetupFixture([
+    return mobileMeetupFixture([
         'name' => 'Einundzwanzig Wien',
-        'portalLink' => 'https://portal.einundzwanzig.space/at/meetup/wien',
+        'slug' => 'wien',
         'country' => 'AT',
         'city' => 'Wien',
-        'next_event' => null,
+        'next_event_start' => null,
     ]);
 }
 
 it('lists the map meetups with the soonest upcoming event first, then by name', function () {
     withoutPortalToken();
     // Wien: späterer Termin, Berlin: kein Termin, Aschaffenburg (Default): frühester Termin (2026-06-19).
-    $wien = mapMeetupFixture([
+    $wien = mobileMeetupFixture([
         'name' => 'Einundzwanzig Wien',
+        'slug' => 'wien',
         'city' => 'Wien',
         'country' => 'AT',
-        'next_event' => ['id' => 1, 'start' => '2026-08-01T18:00:00.000000Z', 'portalLink' => 'x', 'location' => null, 'description' => null, 'link' => null, 'attendees' => 0, 'might_attendees' => 0, 'nostr_note' => ''],
+        'next_event_start' => '2026-08-01 18:00',
     ]);
-    $berlin = mapMeetupFixture(['name' => 'Einundzwanzig Berlin', 'city' => 'Berlin', 'next_event' => null]);
+    $berlin = mobileMeetupFixture(['name' => 'Einundzwanzig Berlin', 'slug' => 'berlin', 'city' => 'Berlin', 'next_event_start' => null]);
 
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([$wien, $berlin, mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([$wien, $berlin, mobileMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSeeTextInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien', 'Einundzwanzig Berlin'])
         ->assertSee('Aschaffenburg · DE')
         ->assertSee('Wien · AT')
         ->assertSee(route('meetups.show', 'aschaffenburg'));
 });
 
+it('renders the next-event badge in the user timezone', function () {
+    withTimezone('Europe/Berlin');
+    withoutPortalToken();
+    // 16:30 UTC (Sommer) → 18:30 Berlin: der Badge muss die konvertierte Zeit zeigen.
+    MockClient::global([
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(['next_event_start' => '2026-06-19 16:30'])]),
+    ]);
+
+    Livewire::test('pages::meetups.index')->call('load')
+        ->assertSeeText('18:30')
+        ->assertDontSeeText('16:30');
+});
+
 it('filters meetups by search term and country', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(), viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(), viennaMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('search', 'wien')
         ->assertSeeText('Einundzwanzig Wien')
         ->assertDontSeeText('Einundzwanzig Aschaffenburg')
@@ -68,10 +83,10 @@ it('filters meetups by search term and country', function () {
 it('offers a reset-to-all-countries button when the country filter yields no meetups', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]), // nur DE
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]), // nur DE
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('country', 'FR') // keine Meetups → leerer Zustand
         ->assertDontSeeText('Einundzwanzig Aschaffenburg')
         ->assertSeeText(__('Alle Länder anzeigen'))
@@ -83,10 +98,10 @@ it('applies the onboarding region as default country filter', function () {
     completeOnboarding(country: 'at');
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(), viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(), viennaMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSet('country', 'at')
         ->assertSeeText('Einundzwanzig Wien')
         ->assertDontSeeText('Einundzwanzig Aschaffenburg');
@@ -95,10 +110,10 @@ it('applies the onboarding region as default country filter', function () {
 it('hides the my-meetups tab for guests', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertDontSee('Meine Meetups');
 
     MockClient::global()->assertSentCount(1);
@@ -107,11 +122,11 @@ it('hides the my-meetups tab for guests', function () {
 it('shows the own meetups on the my-meetups tab when connected', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Meine Meetups')
         ->set('tab', 'meine')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
@@ -121,11 +136,11 @@ it('shows the own meetups on the my-meetups tab when connected', function () {
 it('shows an edit affordance and status badge on own meetups', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['is_active' => true])]]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Aktiv')
@@ -135,11 +150,11 @@ it('shows an edit affordance and status badge on own meetups', function () {
 it('shows a create call-to-action when the own meetups list is empty', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->assertSee('Noch keine eigenen Meetups')
         // Discovery-First (Phase 4.3): „aussuchen“ primär, „neu anlegen“ als Fallback.
@@ -150,11 +165,11 @@ it('shows a create call-to-action when the own meetups list is empty', function 
 it('shows a remove-from-mine affordance on own meetups', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->assertSee('Aus „Meine“ entfernen');
 });
@@ -162,12 +177,12 @@ it('shows a remove-from-mine affordance on own meetups', function () {
 it('removes a meetup from mine by slug', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
         RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->call('removeFromMine', 'aschaffenburg');
 
@@ -178,12 +193,12 @@ it('removes a meetup from mine by slug', function () {
 it('removes from mine after the native confirm button', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
         RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->set('confirmKey', 'remove-from-mine')
         ->set('confirmPayload', ['slug' => 'aschaffenburg'])
@@ -195,11 +210,11 @@ it('removes from mine after the native confirm button', function () {
 it('keeps the meetup when the native confirm is cancelled', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->set('confirmKey', 'remove-from-mine')
         ->set('confirmPayload', ['slug' => 'aschaffenburg'])
@@ -211,10 +226,10 @@ it('keeps the meetup when the native confirm is cancelled', function () {
 it('does not remove from mine without a portal token', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->call('removeFromMine', 'aschaffenburg');
 
     MockClient::global()->assertNotSent(RemoveMeetupFromMineRequest::class);
@@ -223,11 +238,11 @@ it('does not remove from mine without a portal token', function () {
 it('refreshes the own meetups after a save event', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->set('tab', 'meine')
         ->dispatch('meetup-saved')
         ->assertSeeText('Einundzwanzig Aschaffenburg');
@@ -236,12 +251,15 @@ it('refreshes the own meetups after a save event', function () {
 it('renders the meetups page over http', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
+    // Lazy-Load: der erste HTTP-Render zeigt Filterleiste + Skeleton, die Liste
+    // kommt per wire:init nach (Datenprüfung siehe Livewire-Test oben). Hier
+    // zählt, dass die Route rendert und das Lazy-Wiring drinsteht.
     $this->get(route('meetups'))
         ->assertOk()
-        ->assertSeeText('Einundzwanzig Aschaffenburg');
+        ->assertSee('wire:init="load"', false);
 });
 
 it('shows the meetup detail with next event, intro and links', function () {
@@ -253,7 +271,7 @@ it('shows the meetup detail with next event, intro and links', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Nächster Termin')
         ->assertSee('Mainaschaff')
@@ -275,7 +293,7 @@ it('shows the own-event management section on the detail of an own meetup', func
         GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSee(__('Meine Termine'))
         ->assertSee(__('Termin anlegen'))
         ->assertSee('Bitcoin-Bar Aschaffenburg')
@@ -295,7 +313,7 @@ it('hides the own-event management section for non-owners', function () {
         GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertDontSee(__('Meine Termine'))
         ->assertDontSee(__('Bearbeiten'));
@@ -307,7 +325,7 @@ it('shows a friendly fallback for unknown meetup slugs', function () {
         GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'gibt-es-nicht'])
+    Livewire::test('pages::meetups.show', ['slug' => 'gibt-es-nicht'])->call('load')
         ->assertSee('Meetup nicht gefunden');
 });
 
@@ -323,7 +341,7 @@ it('shares the meetup link via the native share sheet', function () {
             && $url === 'https://portal.einundzwanzig.space/de/meetup/aschaffenburg',
     );
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('share');
 });
 
@@ -334,7 +352,7 @@ it('renders the next-event action buttons on the detail page', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSee('Nächster Termin')
         ->assertSee(__('Link öffnen'))
         ->assertSee(__('Teilen'))
@@ -354,7 +372,7 @@ it('shares the next event via the native share sheet', function () {
             && $url === 'https://t.me/einundzwanzig_aschaffenburg',
     );
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('shareEvent');
 });
 
@@ -374,7 +392,7 @@ it('exports the next event as an ics file via the native share sheet', function 
         },
     );
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('addToCalendar');
 
     expect($captured)->not->toBeNull()
@@ -392,7 +410,7 @@ it('hides the rsvp buttons for the next event when not connected', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSee('Nächster Termin')
         ->assertDontSee(__('Ich komme'));
 });
@@ -408,7 +426,7 @@ it('shows the rsvp buttons and hydrates the own status when connected', function
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSet('rsvpStatus', 'maybe')
         ->assertSet('rsvpAttendees', 3)
         ->assertSet('rsvpMightAttendees', 2)
@@ -429,7 +447,7 @@ it('does not show the withdraw button when the user has not responded', function
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSet('rsvpStatus', 'none')
         ->assertSee(__('Ich komme'))
         ->assertDontSee(__('Kann nicht'));
@@ -449,7 +467,7 @@ it('sends the rsvp and updates status and counts from the response', function ()
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->assertSet('rsvpStatus', 'none')
         ->call('setRsvp', 'attending')
         ->assertSet('rsvpStatus', 'attending')
@@ -466,7 +484,7 @@ it('opens external links in the system browser', function () {
 
     Browser::shouldReceive('open')->once()->with('https://t.me/einundzwanzig_aschaffenburg');
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('openLink', 'https://t.me/einundzwanzig_aschaffenburg');
 });
 
@@ -480,7 +498,7 @@ it('opens messenger links with a native app in the system browser', function () 
     Browser::shouldReceive('open')->once()->with('https://api.whatsapp.com/send?phone=4915112345678');
     Browser::shouldReceive('inApp')->never();
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('openLink', 'https://api.whatsapp.com/send?phone=4915112345678');
 });
 
@@ -493,6 +511,6 @@ it('refuses to open links with non-http schemes', function () {
 
     Browser::shouldReceive('open')->never();
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
         ->call('openLink', 'nostrsigner:xyz');
 });

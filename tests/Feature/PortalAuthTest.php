@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\UpdateUserProfileRequest;
 use App\Services\PortalAuth;
 use Illuminate\Http\Client\ConnectionException;
@@ -76,7 +76,7 @@ it('shows both login buttons on the profile page when no token is stored', funct
     // Without the native bridge SecureStorage::get() returns null,
     // so the component renders the guest state.
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
     $this->get(route('profile'))

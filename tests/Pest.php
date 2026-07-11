@@ -144,6 +144,44 @@ function mapMeetupFixture(array $overrides = []): array
 }
 
 /**
+ * Meetup im schlanken Format von GET /api/mobile/meetups (App-Liste/Karte).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function mobileMeetupFixture(array $overrides = []): array
+{
+    return array_merge([
+        'name' => 'Einundzwanzig Aschaffenburg',
+        'slug' => 'aschaffenburg',
+        'city' => 'Aschaffenburg',
+        'country' => 'DE',
+        'latitude' => 49.977159,
+        'longitude' => 9.146998,
+        'logo' => null,
+        'next_event_start' => '2026-06-19 16:30',
+    ], $overrides);
+}
+
+/**
+ * Wien im vollen Karten-Format (GET /api/meetups) — für Konsumenten, die noch
+ * MapMeetupData nutzen (Meetup-Picker/-Editor, Detail).
+ *
+ * @param  array<string, mixed>  $overrides
+ * @return array<string, mixed>
+ */
+function wienMapFixture(array $overrides = []): array
+{
+    return mapMeetupFixture(array_merge([
+        'name' => 'Einundzwanzig Wien',
+        'portalLink' => 'https://portal.einundzwanzig.space/at/meetup/wien',
+        'country' => 'AT',
+        'city' => 'Wien',
+        'next_event' => null,
+    ], $overrides));
+}
+
+/**
  * Meetup-Termin von GET /api/meetup-events/{date?} (literale meetup.*-Schlüssel).
  *
  * @param  array<string, mixed>  $overrides

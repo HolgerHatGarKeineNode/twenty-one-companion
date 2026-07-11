@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
@@ -12,8 +12,8 @@ afterEach(fn () => MockClient::destroyGlobal());
 it('builds leaflet markers with escaped popup html and detail links', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([
-            mapMeetupFixture(['name' => 'Einundzwanzig <Aschaffenburg>']),
+        GetMobileMeetupsRequest::class => MockResponse::make([
+            mobileMeetupFixture(['name' => 'Einundzwanzig <Aschaffenburg>']),
         ]),
     ]);
 
@@ -29,7 +29,7 @@ it('builds leaflet markers with escaped popup html and detail links', function (
 
 it('shows an empty state when no meetups are available for the map', function () {
     withoutPortalToken();
-    MockClient::global([GetMapMeetupsRequest::class => MockResponse::make([])]);
+    MockClient::global([GetMobileMeetupsRequest::class => MockResponse::make([])]);
 
     Livewire::test('pages::map.index')
         ->assertSee('Karte nicht verfügbar');
@@ -38,7 +38,7 @@ it('shows an empty state when no meetups are available for the map', function ()
 it('lists all cities with country and flag on the staedte tab', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetCitiesRequest::class => MockResponse::make([
             cityFixture(),
             cityFixture(['id' => 81, 'name' => 'Wien', 'country_id' => 2, 'country' => ['id' => 2, 'name' => 'Austria', 'code' => 'at'], 'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-at.svg']),
@@ -59,7 +59,7 @@ it('lists all cities with country and flag on the staedte tab', function () {
 it('filters cities by city or country name', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetCitiesRequest::class => MockResponse::make([
             cityFixture(),
             cityFixture(['id' => 81, 'name' => 'Wien', 'country' => ['id' => 2, 'name' => 'Austria', 'code' => 'at']]),
@@ -80,7 +80,7 @@ it('filters cities by city or country name', function () {
 it('filters cities by the selected region', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetCitiesRequest::class => MockResponse::make([
             cityFixture(),
             cityFixture(['id' => 81, 'name' => 'Wien', 'country' => ['id' => 2, 'name' => 'Austria', 'code' => 'at']]),
@@ -101,9 +101,9 @@ it('filters cities by the selected region', function () {
 it('filters map markers by region and re-fits the map on change', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([
-            mapMeetupFixture(),
-            mapMeetupFixture(['name' => 'Einundzwanzig Wien', 'country' => 'AT', 'city' => 'Wien']),
+        GetMobileMeetupsRequest::class => MockResponse::make([
+            mobileMeetupFixture(),
+            mobileMeetupFixture(['name' => 'Einundzwanzig Wien', 'country' => 'AT', 'city' => 'Wien']),
         ]),
     ]);
 
@@ -119,7 +119,7 @@ it('filters map markers by region and re-fits the map on change', function () {
 it('lists venues with trimmed description on the orte tab and filters them', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetVenuesRequest::class => MockResponse::make([
             venueFixture(),
             venueFixture(['id' => 132, 'name' => 'Volkshochschule', 'description' => 'Kempten, ']),
@@ -140,7 +140,7 @@ it('lists venues with trimmed description on the orte tab and filters them', fun
 it('shows an empty state for an unknown search on the lists', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetCitiesRequest::class => MockResponse::make([cityFixture()]),
     ]);
 
@@ -153,7 +153,7 @@ it('shows an empty state for an unknown search on the lists', function () {
 it('renders the map page over http', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
     $this->get(route('map'))

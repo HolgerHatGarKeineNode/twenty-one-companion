@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Data\Portal\MapMeetupData;
+use App\Data\Portal\MobileMeetupData;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
@@ -42,10 +42,10 @@ final class CountryOptions
      */
     private function build(): Collection
     {
-        // Gleiche Flags wie die Meetup-Liste, damit beide denselben
+        // Dieselbe schlanke Liste wie Meetup-Liste/Karte, damit alle denselben
         // Cache-Eintrag teilen und kein zweiter API-Call nötig ist.
-        $meetupCountries = $this->portalApi->mapMeetups(withIntro: true, withLogos: true)
-            ->map(fn (MapMeetupData $meetup): string => mb_strtolower($meetup->country))
+        $meetupCountries = $this->portalApi->mobileMeetups()
+            ->map(fn (MobileMeetupData $meetup): string => mb_strtolower($meetup->country))
             ->filter()
             ->unique();
 

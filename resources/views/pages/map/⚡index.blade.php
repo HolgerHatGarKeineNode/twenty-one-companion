@@ -1,7 +1,7 @@
 <?php
 
 use App\Data\Portal\CityData;
-use App\Data\Portal\MapMeetupData;
+use App\Data\Portal\MobileMeetupData;
 use App\Data\Portal\VenueData;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
@@ -42,8 +42,8 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     /**
      * Marker für die Leaflet-Karte: Koordinaten plus serverseitig
      * escaptes Popup-HTML (Name, Stadt, Link zum Meetup-Detail), gefiltert
-     * nach Region. Nutzt denselben withIntro/withLogos-Call wie die
-     * Meetup-Liste, damit beide Seiten einen gemeinsamen Cache-Eintrag teilen.
+     * nach Region. Nutzt dieselbe schlanke Liste wie die Meetup-Liste, damit
+     * beide Seiten einen gemeinsamen Cache-Eintrag teilen.
      *
      * @return list<array{lat: float, lng: float, popup: string}>
      */
@@ -53,15 +53,15 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
         $country = $this->selectedCountry();
 
         return $this->allMeetups()
-            ->filter(fn (MapMeetupData $meetup): bool => $country === '' || $meetup->countryCode() === $country)
-            ->map(fn (MapMeetupData $meetup): array => [
+            ->filter(fn (MobileMeetupData $meetup): bool => $country === '' || $meetup->countryCode() === $country)
+            ->map(fn (MobileMeetupData $meetup): array => [
                 'lat' => $meetup->latitude,
                 'lng' => $meetup->longitude,
                 'popup' => sprintf(
                     '<div class="map-popup"><strong>%s</strong><span>%s</span><a href="%s">%s</a></div>',
                     e($meetup->name),
                     e($meetup->city.' · '.$meetup->country),
-                    e(route('meetups.show', $meetup->slug())),
+                    e(route('meetups.show', $meetup->slug)),
                     e(__('Zum Meetup')),
                 ),
             ])
@@ -85,7 +85,7 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
     public function countries(): array
     {
         return CountryOptions::filterCodes(
-            $this->allMeetups()->map(fn (MapMeetupData $meetup): string => $meetup->country),
+            $this->allMeetups()->map(fn (MobileMeetupData $meetup): string => $meetup->country),
             $this->country,
         );
     }
@@ -138,18 +138,18 @@ new #[Layout('layouts::mobile', ['title' => 'Karte', 'heading' => 'Orte & Karte'
         return mb_strtolower($this->country);
     }
 
-    /** @var Collection<int, MapMeetupData>|null */
+    /** @var Collection<int, MobileMeetupData>|null */
     private ?Collection $memoizedMeetups = null;
 
     /**
-     * Pro Request memoisiert: markers() und countries() lesen beide die
-     * volle Karten-Antwort, das DTO-Mapping soll aber nur einmal laufen.
+     * Pro Request memoisiert: markers() und countries() lesen beide dieselbe
+     * schlanke Liste, das DTO-Mapping soll aber nur einmal laufen.
      *
-     * @return Collection<int, MapMeetupData>
+     * @return Collection<int, MobileMeetupData>
      */
     protected function allMeetups(): Collection
     {
-        return $this->memoizedMeetups ??= app(PortalApi::class)->mapMeetups(withIntro: true, withLogos: true);
+        return $this->memoizedMeetups ??= app(PortalApi::class)->mobileMeetups();
     }
 };
 ?>

@@ -38,7 +38,7 @@ it('lists the upcoming events of the current month from today on', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->assertSeeTextInOrder(['Einundzwanzig Franken', 'Einundzwanzig Wien'])
         ->assertSee('19:00')
         ->assertSee('20:30');
@@ -55,7 +55,7 @@ it('shows an empty state when no events are returned', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->assertSee('Keine Termine');
 });
 
@@ -65,7 +65,7 @@ it('offers a reset-to-all-countries button when the country filter yields no eve
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->set('country', 'FR') // keine Termine in dieser Region
         ->assertDontSeeText('Einundzwanzig Franken')
         ->assertSeeText(__('Alle Länder anzeigen'))
@@ -81,7 +81,7 @@ it('navigates to the next month and queries its first day', function () {
 
     $nextMonth = CarbonImmutable::today()->startOfMonth()->addMonth();
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('nextMonth')
         ->assertSet('month', $nextMonth->format('Y-m'))
         ->call('previousMonth')
@@ -99,7 +99,7 @@ it('opens the event details in a modal', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 1)
         ->assertSet('selected', 1)
         ->assertSet('showEvent', true)
@@ -113,7 +113,7 @@ it('hides the rsvp buttons in the slide-in when not connected', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->assertSet('showEvent', true)
         ->assertDontSee(__('Ich komme'));
@@ -129,7 +129,7 @@ it('shows and submits the rsvp from the slide-in when connected', function () {
         RsvpMeetupEventRequest::class => MockResponse::make(['status' => 'attending', 'attendees' => 1, 'might_attendees' => 0]),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->assertSet('rsvpStatus', 'none')
         ->assertSee(__('Ich komme'))
@@ -146,7 +146,7 @@ it('ignores selecting an event index that does not exist', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 5)
         ->assertSet('selected', null)
         ->assertSet('showEvent', false);
@@ -163,7 +163,7 @@ it('shares the selected event via the native share sheet', function () {
             && $url === 'https://t.me/Einundzwanzig_FRANKEN',
     );
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->call('share');
 });
@@ -183,7 +183,7 @@ it('exports the selected event as an ics file via the native share sheet', funct
         },
     );
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->call('addToCalendar');
 
@@ -205,7 +205,7 @@ it('opens the native calendar editor when available and skips the ics share', fu
         ->shouldReceive('addEvent')->once()->andReturnTrue();
     Share::shouldReceive('file')->never();
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->call('addToCalendar');
 });
@@ -217,7 +217,7 @@ it('applies the onboarding region as default country filter', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->assertSet('country', 'at')
         ->assertSeeText('Einundzwanzig Wien')
         ->assertDontSeeText('Einundzwanzig Franken');
@@ -229,7 +229,7 @@ it('filters the events by country and resets the selection', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
-    Livewire::test('pages::events.index')
+    Livewire::test('pages::events.index')->call('load')
         ->call('select', 0)
         ->set('country', 'at')
         ->assertSet('selected', null)
@@ -244,7 +244,10 @@ it('renders the events page over http', function () {
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
     ]);
 
+    // Lazy-Load: der erste HTTP-Render zeigt nur die Hülle + Skeleton, die
+    // Termine kommen per wire:init nach (siehe Livewire-Test oben). Hier zählt,
+    // dass die Route rendert und das Lazy-Wiring drinsteht.
     $this->get(route('events'))
         ->assertOk()
-        ->assertSeeText('Einundzwanzig Franken');
+        ->assertSee('wire:init="load"', false);
 });

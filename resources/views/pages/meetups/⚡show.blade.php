@@ -22,9 +22,23 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
 
     public string $slug;
 
+    /**
+     * Erst nach dem ersten Render true (wire:init="load"). Das Detail liest die
+     * volle Meetup-Liste (GET /api/meetups) — ein serverseitig ~2s langsamer
+     * Endpunkt. Ohne diese Verzögerung blockierte er den ersten Livewire-Response.
+     * Die App-Liste nutzt inzwischen den schlanken /api/mobile/meetups und wärmt
+     * diesen Cache nicht mehr mit, deshalb ist der erste Detail-Aufruf sonst kalt.
+     */
+    public bool $loaded = false;
+
     public function mount(string $slug): void
     {
         $this->slug = $slug;
+    }
+
+    public function load(): void
+    {
+        $this->loaded = true;
         $this->loadRsvp();
     }
 
@@ -39,6 +53,12 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
     #[Computed]
     public function meetup(): ?MapMeetupData
     {
+        // Vor dem Lazy-Load nicht abrufen (siehe $loaded) — sonst liefe der
+        // langsame Fetch schon im ersten Render und würde ihn blockieren.
+        if (! $this->loaded) {
+            return null;
+        }
+
         return app(PortalApi::class)
             ->mapMeetups(withIntro: true, withLogos: true)
             ->first(fn (MapMeetupData $meetup): bool => $meetup->slug() === $this->slug);
@@ -205,8 +225,11 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
 };
 ?>
 
-<x-portal-page>
-    @if ($this->meetup === null)
+<x-portal-page wire:init="load">
+    @if (! $loaded)
+        {{-- Erster Render: Skeleton, kein Portal-Fetch (siehe $loaded). --}}
+        <x-skeleton-card variant="detail"/>
+    @elseif ($this->meetup === null)
         <x-portal-empty-state icon="map-pin" :heading="__('Meetup nicht gefunden')" min-height="min-h-[60dvh]">
             <flux:text class="max-w-xs">
                 {{ __('Dieses Meetup ist nicht (mehr) auf der Karte gelistet.') }}

@@ -23,8 +23,26 @@
         $resolvedLogo = \Einundzwanzig\Group\ImageProxy::url($logo);
     }
 @endphp
+@php
+    // Größe/Radius wie flux:avatar, aber als eigenes <img>, damit loading="lazy"
+    // greift: in langen Listen (Meetups) lädt der Browser nur die sichtbaren
+    // Logos statt sofort aller ~200 — der Hauptgrund für den langsamen Aufbau.
+    $sizeClasses = match ($size) {
+        'xl' => 'size-16 rounded-xl',
+        'md' => 'size-10 rounded-lg',
+        'sm' => 'size-8 rounded-md',
+        'xs' => 'size-6 rounded-sm',
+        default => 'size-12 rounded-lg', // lg
+    };
+@endphp
 @if ($resolvedLogo)
-    <flux:avatar :src="$resolvedLogo" :size="$size" :class="$ring"/>
+    <img
+        src="{{ $resolvedLogo }}"
+        alt="{{ $name }}"
+        loading="lazy"
+        decoding="async"
+        class="{{ $sizeClasses }} {{ $ring }} bg-zinc-100 object-cover dark:bg-zinc-800"
+    />
 @else
     <flux:avatar :name="$name" :size="$size" :class="$ring"/>
 @endif

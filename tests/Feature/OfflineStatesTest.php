@@ -25,14 +25,14 @@ function withFastConnector(): void
 }
 
 /**
- * Stale-Kopie für mapMeetups(withIntro: true, withLogos: true) ablegen
- * (Cache-Key-Schema von PortalApi::cacheKey()).
+ * Stale-Kopie für die schlanke App-Liste mobileMeetups() ablegen
+ * (parameterloser Cache-Key, daher ohne md5-Suffix).
  *
  * @param  list<array<string, mixed>>  $meetups
  */
-function staleMapMeetups(array $meetups): void
+function staleMobileMeetups(array $meetups): void
 {
-    Cache::forever('portal_api:v2:map-meetups:'.md5((string) json_encode([true, true])).':stale', $meetups);
+    Cache::forever('portal_api:v2:mobile-meetups:stale', $meetups);
 }
 
 it('shows the connection error state with retry when loading fails without a stale copy', function () {
@@ -40,7 +40,7 @@ it('shows the connection error state with retry when loading fails without a sta
     withFastConnector();
     MockClient::global([MockResponse::make([], 500)]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Meetups nicht verfügbar')
         ->assertSee('Erneut versuchen')
         ->assertDontSee('Keine Meetups gefunden');
@@ -49,10 +49,10 @@ it('shows the connection error state with retry when loading fails without a sta
 it('shows the stale-data banner when the api fails but a stale copy exists', function () {
     withoutPortalToken();
     withFastConnector();
-    staleMapMeetups([mapMeetupFixture()]);
+    staleMobileMeetups([mobileMeetupFixture()]);
     MockClient::global([MockResponse::make([], 500)]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Verbindungsproblem — Daten sind möglicherweise nicht aktuell.')
         ->assertDontSee('Erneut versuchen');
@@ -61,10 +61,10 @@ it('shows the stale-data banner when the api fails but a stale copy exists', fun
 it('shows the offline banner with the last loaded data when the device is offline', function () {
     withoutPortalToken();
     Network::shouldReceive('status')->andReturn((object) ['connected' => false]);
-    staleMapMeetups([mapMeetupFixture()]);
+    staleMobileMeetups([mobileMeetupFixture()]);
     MockClient::global([]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Offline — du siehst zuletzt geladene Daten.')
         ->assertSeeText('Einundzwanzig Aschaffenburg');
 
@@ -76,7 +76,7 @@ it('shows the error state instead of the banner when offline without any cached 
     Network::shouldReceive('status')->andReturn((object) ['connected' => false]);
     MockClient::global([]);
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Meetups nicht verfügbar')
         ->assertDontSee('Offline — du siehst zuletzt geladene Daten.');
 });
@@ -90,7 +90,7 @@ it('alerts via the native dialog when retrying while offline', function () {
         ->once()
         ->withArgs(fn (string $title, string $message): bool => $title === 'Keine Verbindung');
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Erneut versuchen')
         ->call('retry');
 });
@@ -104,7 +104,7 @@ it('alerts via the native dialog when a retry still cannot reach the portal', fu
         ->once()
         ->withArgs(fn (string $title, string $message): bool => $title === 'Portal nicht erreichbar');
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Erneut versuchen')
         ->call('retry');
 });
@@ -112,11 +112,11 @@ it('alerts via the native dialog when a retry still cannot reach the portal', fu
 it('confirms a successful retry with a native toast', function () {
     withoutPortalToken();
     withFastConnector();
-    MockClient::global([MockResponse::make([], 500), MockResponse::make([mapMeetupFixture()])]);
+    MockClient::global([MockResponse::make([], 500), MockResponse::make([mobileMeetupFixture()])]);
 
     Dialog::shouldReceive('toast')->once()->with('Aktualisiert.');
 
-    Livewire::test('pages::meetups.index')
+    Livewire::test('pages::meetups.index')->call('load')
         ->assertSee('Erneut versuchen')
         ->call('retry')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
@@ -126,7 +126,7 @@ it('confirms a successful retry with a native toast', function () {
 it('gives native haptic feedback when retrying (Phase 1.3)', function () {
     withoutPortalToken();
     withFastConnector();
-    MockClient::global([MockResponse::make([], 500), MockResponse::make([mapMeetupFixture()])]);
+    MockClient::global([MockResponse::make([], 500), MockResponse::make([mobileMeetupFixture()])]);
 
     Dialog::shouldReceive('toast');
     Device::shouldReceive('vibrate')->once();
@@ -142,6 +142,7 @@ it('shows the error state on the events page when loading fails', function () {
     MockClient::global([MockResponse::make([], 500), MockResponse::make([], 500)]);
 
     Livewire::test('pages::events.index')
+        ->call('load')
         ->assertSee('Termine nicht verfügbar')
         ->assertSee('Erneut versuchen');
 });

@@ -51,7 +51,7 @@ it('warns about a similar (non-exact) duplicate and lets the user override', fun
     MockClient::global([
         // Ähnlicher Name, aber ANDERE Stadt (Graz statt Wien) → kein exakter
         // Treffer, nur die überstimmbare Warnung (Name enthält „Wien“).
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
         CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201),
     ]);
 
@@ -74,7 +74,7 @@ it('warns about a similar (non-exact) duplicate and lets the user override', fun
 it('hard-blocks an exact name+city duplicate and refuses to create even when overridden', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
         CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201),
     ]);
 
@@ -96,7 +96,7 @@ it('hard-blocks an exact name+city duplicate and refuses to create even when ove
 it('adds the existing meetup to mine instead of creating a duplicate', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
         AddMeetupToMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'wien'])], 201),
     ]);
 

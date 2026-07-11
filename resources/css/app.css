@@ -208,7 +208,16 @@
    --i (im Markup gesetzt) bekommt jedes Kind seine eigene Verzögerung. */
 .list-stagger > * {
     animation: fade-rise 0.4s var(--ease-spring) backwards;
-    animation-delay: calc(var(--i, 0) * 40ms);
+    /* Deckel bei 8, damit nachgeladene Karten (Infinite Scroll) mit hohem
+       --i nicht sekundenlang auf opacity:0 stehen (backwards-Fill) — sonst
+       erscheinen tief gescrollte Karten leer, bevor sie einblenden. */
+    animation-delay: calc(min(var(--i, 0), 8) * 40ms);
+    /* Lange Browse-Listen: off-screen Karten überspringen Layout/Paint (nativer
+       Chromium-Mechanismus im WebView). Nur die sichtbaren Karten kosten etwas.
+       contain-intrinsic-size mit auto merkt sich die echte Höhe nach dem ersten
+       Rendern, sodass die Scrollleiste nicht springt. */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
 }
 
 /* Karten-Oberfläche (Phase 1.6): die gemeinsame Surface aller Cards/Sections —

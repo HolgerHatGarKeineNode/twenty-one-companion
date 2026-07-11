@@ -15,6 +15,7 @@ use App\Data\Portal\MeetupData;
 use App\Data\Portal\MeetupEventData;
 use App\Data\Portal\MeetupEventRsvpData;
 use App\Data\Portal\MeetupLeaderData;
+use App\Data\Portal\MobileMeetupData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
@@ -33,6 +34,7 @@ use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupLeadersRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
@@ -168,6 +170,25 @@ final class PortalApi
         );
 
         return GetMapMeetupsRequest::collectData($json ?? []);
+    }
+
+    /**
+     * Schlanke, schnelle Meetup-Liste (GET /api/mobile/meetups) für App-Liste,
+     * App-Karte und Länderfilter. Eigener Endpunkt/Cache-Eintrag, getrennt von
+     * {@see mapMeetups()} (Detail/volle Felder).
+     *
+     * @return Collection<int, MobileMeetupData>
+     */
+    public function mobileMeetups(): Collection
+    {
+        $json = $this->remember(
+            'mobile-meetups',
+            [],
+            self::TTL_STATIC_SECONDS,
+            new GetMobileMeetupsRequest,
+        );
+
+        return GetMobileMeetupsRequest::collectData($json ?? []);
     }
 
     /**

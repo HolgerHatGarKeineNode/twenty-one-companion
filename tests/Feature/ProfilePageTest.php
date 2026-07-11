@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Services\AppPreferences;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
@@ -13,7 +13,7 @@ afterEach(fn () => MockClient::destroyGlobal());
 beforeEach(function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 });
 

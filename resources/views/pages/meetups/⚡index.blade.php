@@ -1,7 +1,7 @@
 <?php
 
-use App\Data\Portal\MapMeetupData;
 use App\Data\Portal\MeetupData;
+use App\Data\Portal\MobileMeetupData;
 use App\Livewire\Concerns\HandlesNativeConfirm;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\PortalPage;
@@ -30,6 +30,30 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     #[Url]
     public string $tab = 'alle';
 
+    /**
+     * Fenstergröße der „Alle"-Liste: es werden nur so viele Karten gerendert,
+     * der Rest lädt beim Scrollen nach. Rendert das Portal ~200+ Meetups auf
+     * einmal, kostet das serverseitig (Flux-Karten) und im WebView (Paint +
+     * ein Bild-Request pro Karte) spürbar — das Fenster hält jeden Request klein.
+     */
+    public int $visibleCount = 24;
+
+    private const PAGE_SIZE = 24;
+
+    /**
+     * Erst nach dem ersten Render true (via wire:init="load"). Der initiale
+     * Render zeigt nur Skeletons und rührt die Portal-API NICHT an — die
+     * blockiert sonst ~2s serverseitig (langsamer /api/meetups-Endpoint) und
+     * hält den ersten Livewire-Response (blauer Balken) genau so lange auf.
+     * Der Fetch läuft im wire:init-Nachschlag hinter dem Skeleton.
+     */
+    public bool $loaded = false;
+
+    public function load(): void
+    {
+        $this->loaded = true;
+    }
+
     public function mount(): void
     {
         $this->country = $this->defaultCountry();
@@ -38,7 +62,30 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     /** Länder-Filter wechselt zugleich die App-Region/Marke (Logo + Animation). */
     public function updatedCountry(): void
     {
+        $this->resetWindow();
         $this->syncBrand($this->country);
+    }
+
+    /** Neue Suche startet wieder oben — sonst bliebe das Fenster groß. */
+    public function updatedSearch(): void
+    {
+        $this->resetWindow();
+    }
+
+    public function updatedTab(): void
+    {
+        $this->resetWindow();
+    }
+
+    /** Nächstes Fenster laden (vom Scroll-Sentinel via IntersectionObserver). */
+    public function loadMore(): void
+    {
+        $this->visibleCount += self::PAGE_SIZE;
+    }
+
+    private function resetWindow(): void
+    {
+        $this->visibleCount = self::PAGE_SIZE;
     }
 
     #[Computed]
@@ -48,9 +95,9 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     }
 
     /**
-     * Alle Karten-Meetups, gefiltert nach Suchbegriff (Name/Stadt) und Land.
+     * Alle Meetups, gefiltert nach Suchbegriff (Name/Stadt) und Land.
      *
-     * @return Collection<int, MapMeetupData>
+     * @return Collection<int, MobileMeetupData>
      */
     #[Computed]
     public function meetups(): Collection
@@ -60,15 +107,15 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         $country = mb_strtolower($this->country);
 
         return $this->allMeetups()
-            ->filter(fn (MapMeetupData $meetup): bool => $country === '' || mb_strtolower($meetup->country) === $country)
-            ->filter(fn (MapMeetupData $meetup): bool => $search === ''
+            ->filter(fn (MobileMeetupData $meetup): bool => $country === '' || mb_strtolower($meetup->country) === $country)
+            ->filter(fn (MobileMeetupData $meetup): bool => $search === ''
                 || str_contains(mb_strtolower($meetup->name), $search)
                 || str_contains(mb_strtolower($meetup->city), $search))
             // Wie im Portal: Meetups mit dem nächsten kommenden Termin zuerst
             // (frühestes Datum vorn), Meetups ohne Termin ans Ende, dann nach Name.
-            ->sortBy(fn (MapMeetupData $meetup): array => [
-                $meetup->next_event === null,
-                $meetup->next_event?->start->getTimestamp() ?? 0,
+            ->sortBy(fn (MobileMeetupData $meetup): array => [
+                $meetup->next_event_start === null,
+                $meetup->next_event_start?->getTimestamp() ?? 0,
                 mb_strtolower($meetup->name),
             ])
             ->values();
@@ -83,7 +130,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     public function countries(): array
     {
         return CountryOptions::filterCodes(
-            $this->allMeetups()->map(fn (MapMeetupData $meetup): string => $meetup->country),
+            $this->allMeetups()->map(fn (MobileMeetupData $meetup): string => $meetup->country),
             $this->country,
         );
     }
@@ -156,23 +203,23 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         $this->reportWriteFailure($result, __('Dieses Meetup konnte nicht entfernt werden.'));
     }
 
-    /** @var Collection<int, MapMeetupData>|null */
+    /** @var Collection<int, MobileMeetupData>|null */
     private ?Collection $memoizedMeetups = null;
 
     /**
-     * Pro Request memoisiert: meetups() und countries() lesen beide die
-     * volle Karten-Antwort, das DTO-Mapping soll aber nur einmal laufen.
+     * Pro Request memoisiert: meetups() und countries() lesen beide dieselbe
+     * schlanke Liste, das DTO-Mapping soll aber nur einmal laufen.
      *
-     * @return Collection<int, MapMeetupData>
+     * @return Collection<int, MobileMeetupData>
      */
     protected function allMeetups(): Collection
     {
-        return $this->memoizedMeetups ??= app(PortalApi::class)->mapMeetups(withIntro: true, withLogos: true);
+        return $this->memoizedMeetups ??= app(PortalApi::class)->mobileMeetups();
     }
 };
 ?>
 
-<x-portal-page>
+<x-portal-page wire:init="load">
     @if ($this->connected)
         <flux:tabs wire:model.live="tab" variant="segmented" class="w-full">
             <flux:tab name="alle">{{ __('Alle Meetups') }}</flux:tab>
@@ -181,6 +228,8 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
     @endif
 
     @if (! $this->connected || $tab === 'alle')
+        {{-- Filterleiste rendert sofort (braucht keine Portal-Daten) — nur die
+             Länder-Optionen und die Liste warten auf den Lazy-Load. --}}
         <div class="flex flex-col gap-2">
             <flux:input
                 wire:model.live.debounce.300ms="search"
@@ -191,12 +240,23 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             />
             <flux:select wire:model.live="country">
                 <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
-                @foreach ($this->countries as $code)
-                    <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
-                @endforeach
+                @if ($loaded)
+                    @foreach ($this->countries as $code)
+                        <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
+                    @endforeach
+                @elseif ($country !== '')
+                    {{-- Vor dem Lazy-Load die aktuelle Region als Option, damit der
+                         Select sofort den richtigen Wert zeigt statt „Alle Länder". --}}
+                    <flux:select.option value="{{ $country }}">{{ \App\Services\CountryOptions::flagEmoji($country) }} {{ strtoupper($country) }}</flux:select.option>
+                @endif
             </flux:select>
         </div>
 
+        @if (! $loaded)
+            {{-- Erster Render: Skeleton, kein Portal-Fetch (siehe $loaded). Der
+                 wire:init-Nachschlag holt die ~2s langsamen Daten dahinter. --}}
+            <x-skeleton-card :count="6"/>
+        @else
         {{-- Skeleton beim Filtern/Suchen (Phase 1.4) statt eines springenden Layouts. --}}
         <x-skeleton-card :count="4" wire:loading.flex wire:target="search,country"/>
 
@@ -214,27 +274,53 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
                 </x-portal-empty-state>
             @else
                 <div class="list-stagger flex flex-col gap-3">
-                    @foreach ($this->meetups as $meetup)
+                    @foreach ($this->meetups->take($visibleCount) as $meetup)
                         <x-list-link-card
-                            href="{{ route('meetups.show', $meetup->slug()) }}"
-                            wire:key="meetup-{{ $meetup->slug() }}"
+                            href="{{ route('meetups.show', $meetup->slug) }}"
+                            wire:key="meetup-{{ $meetup->slug }}"
                             style="--i: {{ $loop->index }}"
                         >
                             <x-meetup-avatar :logo="$meetup->logo" :name="$meetup->name"/>
                             <span class="flex min-w-0 flex-col gap-0.5">
                                 <x-meetup-name :name="$meetup->name"/>
                                 <flux:text class="truncate text-sm">{{ $meetup->city }} · {{ $meetup->country }}</flux:text>
-                                @if ($meetup->next_event)
+                                @if ($meetup->next_event_start)
                                     <flux:badge color="orange" size="sm" class="mt-1 w-fit">
-                                        {{ $meetup->next_event->start->forDisplay()->translatedFormat('D, d. M · H:i') }}
+                                        {{ $meetup->next_event_start->forDisplay()->translatedFormat('D, d. M · H:i') }}
                                     </flux:badge>
                                 @endif
                             </span>
                         </x-list-link-card>
                     @endforeach
                 </div>
+
+                {{-- Infinite Scroll: der Sentinel lädt das nächste Fenster, sobald er
+                     ~400px vor dem Viewport auftaucht — nativer IntersectionObserver,
+                     keine Bibliothek. rootMargin sorgt fürs Vorladen ohne sichtbares
+                     Warten; die Skeletons am Listenende signalisieren „lädt noch". --}}
+                @if ($this->meetups->count() > $visibleCount)
+                    <div
+                        wire:key="load-more-{{ $visibleCount }}"
+                        x-data="{
+                            io: null,
+                            init() {
+                                this.io = new IntersectionObserver((entries) => {
+                                    if (entries[0].isIntersecting) { $wire.loadMore() }
+                                }, { rootMargin: '400px' })
+                                this.io.observe($el)
+                            },
+                            destroy() { this.io?.disconnect() },
+                        }"
+                        class="mt-3"
+                    >
+                        <x-skeleton-card :count="3"/>
+                    </div>
+                @endif
             @endif
         </div>
+        @endif
+    @elseif (! $loaded)
+        <x-skeleton-card :count="4"/>
     @else
         @if ($this->myMeetups->isEmpty())
             <x-portal-empty-state icon="user-group" :heading="__('Noch keine eigenen Meetups')" :error-heading="__('Meetups nicht verfügbar')">

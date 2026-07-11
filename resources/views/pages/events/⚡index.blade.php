@@ -30,6 +30,18 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
 
     public bool $showEvent = false;
 
+    /**
+     * Wie bei den Meetups: erster Render zeigt Skeletons ohne Portal-Fetch,
+     * die Termine kommen per wire:init="load" nach — sonst blockiert der
+     * Endpoint den ersten Livewire-Response.
+     */
+    public bool $loaded = false;
+
+    public function load(): void
+    {
+        $this->loaded = true;
+    }
+
     public function mount(): void
     {
         $this->country = $this->defaultCountry();
@@ -207,7 +219,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
 };
 ?>
 
-<x-portal-page>
+<x-portal-page wire:init="load">
     <div class="flex items-center justify-between gap-2">
         <flux:button wire:click="previousMonth" size="sm" variant="ghost" icon="chevron-left" class="cursor-pointer" :aria-label="__('Voriger Monat')"/>
         <flux:heading size="lg" level="1">
@@ -216,6 +228,10 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         <flux:button wire:click="nextMonth" size="sm" variant="ghost" icon="chevron-right" class="cursor-pointer" :aria-label="__('Nächster Monat')"/>
     </div>
 
+    @if (! $loaded)
+        {{-- Erster Render: Skeleton statt des ~0,6s-Portal-Fetches im kritischen Pfad. --}}
+        <x-skeleton-card :count="6"/>
+    @else
     <flux:select wire:model.live="country">
         <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
         @foreach ($this->countries as $code)
@@ -265,6 +281,7 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
                 @endforeach
             </section>
         @endforeach
+    @endif
     @endif
 
     <x-sheet wire:model="showEvent">

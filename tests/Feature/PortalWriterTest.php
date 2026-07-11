@@ -58,6 +58,9 @@ it('invalidates the affected read caches after a successful write', function () 
     withPortalToken();
     Cache::put('portal_api:v2:my-meetups', [myMeetupFixture()], 900);
     Cache::put('portal_api:v2:map-meetups', [mapMeetupFixture()], 900);
+    // Schlanke App-Liste (parameterloser Key) muss ebenfalls fallen, sonst
+    // zeigt die App nach einem Write bis zu 24h stale Daten.
+    Cache::put('portal_api:v2:mobile-meetups', [mobileMeetupFixture()], 86400);
     Cache::forever('portal_api:v2:my-meetups:stale', [myMeetupFixture()]);
     MockClient::global([CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture()], 201)]);
 
@@ -66,6 +69,7 @@ it('invalidates the affected read caches after a successful write', function () 
     // Frischer Cache verworfen → nächster Lesezugriff lädt neu.
     expect(Cache::has('portal_api:v2:my-meetups'))->toBeFalse()
         ->and(Cache::has('portal_api:v2:map-meetups'))->toBeFalse()
+        ->and(Cache::has('portal_api:v2:mobile-meetups'))->toBeFalse()
         // Stale-Kopie bleibt als Offline-Netz erhalten.
         ->and(Cache::has('portal_api:v2:my-meetups:stale'))->toBeTrue();
 });

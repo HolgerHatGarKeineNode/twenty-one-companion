@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Services\AppPreferences;
 use App\Services\BrandResolver;
 use App\Support\Brand;
@@ -84,7 +84,7 @@ it('supports the eight portal languages', function () {
 it('celebrates a real brand change when switching region', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['country' => 'HU'])]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(['country' => 'HU'])]),
     ]);
     completeOnboarding(country: 'de');
 
@@ -98,7 +98,7 @@ it('celebrates a real brand change when switching region', function () {
 it('does not celebrate when the brand stays the same', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
     completeOnboarding(country: 'de');
 
@@ -111,7 +111,7 @@ it('does not celebrate when the brand stays the same', function () {
 it('switches brand and celebrates when changing the meetups country filter', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['country' => 'HU'])]),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(['country' => 'HU'])]),
     ]);
     completeOnboarding(country: 'de');
 

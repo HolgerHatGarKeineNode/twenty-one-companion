@@ -13,7 +13,7 @@ afterEach(fn () => MockClient::destroyGlobal());
 it('filters existing meetups in-memory from two characters', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(), viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(), wienMapFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
     ]);
 
@@ -27,7 +27,7 @@ it('filters existing meetups in-memory from two characters', function () {
 it('adds a selected existing meetup to mine by slug', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
         AddMeetupToMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'wien'])], 201),
     ]);
@@ -47,7 +47,7 @@ it('adds a selected existing meetup to mine by slug', function () {
 it('marks meetups that are already mine instead of offering to add them', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [
             myMeetupFixture(['slug' => 'wien', 'name' => 'Einundzwanzig Wien']),
         ]]),
@@ -63,7 +63,7 @@ it('marks meetups that are already mine instead of offering to add them', functi
 it('does not add to mine without a portal token', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
+        GetMapMeetupsRequest::class => MockResponse::make([wienMapFixture()]),
     ]);
 
     Livewire::test('meetup-picker')

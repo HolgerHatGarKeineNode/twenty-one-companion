@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Services\AppPreferences;
 use Livewire\Livewire;
 use Native\Mobile\Facades\SecureStorage;
@@ -14,9 +14,9 @@ afterEach(fn () => MockClient::destroyGlobal());
 function mockOnboardingMeetups(): void
 {
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([
-            mapMeetupFixture(),
-            mapMeetupFixture(['name' => 'Einundzwanzig Wien', 'country' => 'AT', 'city' => 'Wien']),
+        GetMobileMeetupsRequest::class => MockResponse::make([
+            mobileMeetupFixture(),
+            mobileMeetupFixture(['name' => 'Einundzwanzig Wien', 'country' => 'AT', 'city' => 'Wien']),
         ]),
         GetCountriesRequest::class => MockResponse::make([
             ['id' => 1, 'name' => 'Deutschland', 'code' => 'de', 'flag' => 'https://example.test/de.svg'],
@@ -185,7 +185,7 @@ it('offers only countries that actually have meetups, with a dach fallback when 
     resetOnboarding();
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([], 500),
+        GetMobileMeetupsRequest::class => MockResponse::make([], 500),
     ]);
     app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_REGION);
 
@@ -198,7 +198,7 @@ it('offers only countries that actually have meetups, with a dach fallback when 
 it('redirects onboarded users away from the onboarding', function () {
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
     // Schon onboardet → über die Start-Weiche (/), die client-seitig Chat vs. Meetups wählt.
