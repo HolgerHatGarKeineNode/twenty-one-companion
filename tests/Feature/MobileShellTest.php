@@ -2,7 +2,6 @@
 
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
-use App\Models\User;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 
@@ -108,16 +107,13 @@ it('renders a back link in the header on detail pages', function () {
         ->assertSee('/meetups');
 });
 
-it('redirects guests from settings to the login page', function () {
-    $response = $this->get(route('settings'));
+it('resolves /settings to the group settings, not the Laravel starter-kit login', function () {
+    // Der Starter-Kit /settings-Redirect (auth → Laravel-Login) wurde entfernt, weil
+    // er mit group.settings (/settings) kollidierte — die „Nostr-Identität"-Karte
+    // landete sonst auf dem Fortify-Login. Jetzt gehört /settings dem Package.
+    expect(url('/settings'))->toBe(route('group.settings'));
 
-    $response->assertRedirect(route('login'));
-});
-
-it('redirects authenticated users from settings to the profile page', function () {
-    $this->actingAs(User::factory()->create());
-
-    $response = $this->get(route('settings'));
-
-    $response->assertRedirect(route('profile.edit'));
+    // Ohne Native-Runtime/Session gatet EnsureNostrAuth auf den Nostr-Login —
+    // NICHT auf den Laravel-Login (der Kollisions-Bug).
+    $this->get(route('group.settings'))->assertRedirect(route('group.nostr-login'));
 });
