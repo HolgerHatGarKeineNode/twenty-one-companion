@@ -3,7 +3,6 @@
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Services\AppPreferences;
-use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use Native\Mobile\Facades\SecureStorage;
 use Saloon\Http\Faking\MockClient;
@@ -86,10 +85,7 @@ it('walks through the pager and completes the onboarding', function () {
         ->assertSet('step', AppPreferences::STEP_REGION)
         ->assertSee(__('Deine Region'))
         ->set('country', 'at')
-        ->call('next') // → Portal
-        ->assertSet('step', AppPreferences::STEP_PORTAL)
-        ->assertSee(__('Ohne Konto fortfahren'))
-        ->call('skip') // Portal überspringen → Push
+        ->call('next') // → Push (kein Portal-Schritt mehr — Login nur bei Bedarf)
         ->assertSet('step', AppPreferences::STEP_NOTIFICATIONS)
         ->assertSee(__('Nichts mehr verpassen'))
         ->call('skip') // Push überspringen → Fertig
@@ -138,20 +134,6 @@ it('can step back through the pager', function () {
         ->assertSet('step', AppPreferences::STEP_WELCOME)
         ->call('back')
         ->assertSet('step', AppPreferences::STEP_LANGUAGE);
-});
-
-it('shows the connected state on the portal step when a token is present', function () {
-    resetOnboarding();
-    withPortalToken();
-    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_PORTAL);
-    Http::fake([
-        'portal.einundzwanzig.space/api/user' => Http::response(['id' => 7, 'name' => 'Satoshi']),
-    ]);
-
-    Livewire::test('pages::onboarding.index')
-        ->assertSet('step', AppPreferences::STEP_PORTAL)
-        ->assertSee('Satoshi')
-        ->assertSee(__('Weiter'));
 });
 
 it('advances past the notification priming when enabling notifications', function () {

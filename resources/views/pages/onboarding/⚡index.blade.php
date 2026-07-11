@@ -2,8 +2,6 @@
 
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
-use App\Services\PortalAuth;
-use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -51,16 +49,6 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         $this->step = min($preferences->onboardingStep(), AppPreferences::LAST_STEP);
         $this->locale = $preferences->locale();
         $this->country = $preferences->country();
-
-        // Landeplatz nach dem Portal-Login-Deep-Link mitten im Onboarding:
-        // Rückmeldung als Toast (Phase 3.3/3.4).
-        if (session()->pull('portal-connected')) {
-            Flux::toast(text: __('Mit dem Portal verbunden.'), variant: 'success');
-        }
-
-        if (session()->pull('portal-connect-failed')) {
-            Flux::toast(text: __('Anmeldung fehlgeschlagen. Bitte versuche es erneut.'), variant: 'danger');
-        }
     }
 
     /**
@@ -70,12 +58,6 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
     public function countries(): Collection
     {
         return app(CountryOptions::class)->all();
-    }
-
-    #[Computed]
-    public function portalConnected(): bool
-    {
-        return app(PortalAuth::class)->hasToken();
     }
 
     /** Marke zur aktuell gewählten Region — für die Live-Wortmarke im Region-Schritt. */
@@ -244,15 +226,6 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                     <x-country-select :countries="$this->countries" wire:model.live="country"/>
                     <flux:error name="country"/>
                 </flux:field>
-            @elseif ($step === AppPreferences::STEP_PORTAL)
-                {{-- 3.4 Portal-Verbindung im Flow, mit Lade-Indikator (3.3) aus der connect-Komponente. --}}
-                <div class="flex flex-col gap-2 text-center">
-                    <flux:heading size="xl" level="1">{{ __('Konto verbinden') }}</flux:heading>
-                    <flux:text class="mx-auto max-w-xs">
-                        {{ __('Verbinde dich mit dem Portal, um eigene Meetups, Termine und Kurse zu pflegen. Optional — die App bleibt auch ohne Konto nutzbar.') }}
-                    </flux:text>
-                </div>
-                <livewire:portal.connect/>
             @elseif ($step === AppPreferences::STEP_NOTIFICATIONS)
                 {{-- 3.5 Permission-Priming für Push (erklärt das Warum vor dem OS-Dialog). --}}
                 <div class="flex flex-col items-center gap-4 text-center">
@@ -294,16 +267,6 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
             <flux:button wire:click="next" variant="primary" class="w-full cursor-pointer" x-on:click="$haptic('light')">
                 {{ __('Weiter') }}
             </flux:button>
-        @elseif ($step === AppPreferences::STEP_PORTAL)
-            @if ($this->portalConnected)
-                <flux:button wire:click="next" variant="primary" class="w-full cursor-pointer" x-on:click="$haptic('light')">
-                    {{ __('Weiter') }}
-                </flux:button>
-            @else
-                <flux:button wire:click="skip" variant="ghost" class="w-full cursor-pointer">
-                    {{ __('Ohne Konto fortfahren') }}
-                </flux:button>
-            @endif
         @elseif ($step === AppPreferences::STEP_NOTIFICATIONS)
             <flux:button wire:click="enableNotifications" variant="primary" icon="bell-alert" class="w-full cursor-pointer" x-on:click="$haptic('light')">
                 {{ __('Benachrichtigungen erlauben') }}

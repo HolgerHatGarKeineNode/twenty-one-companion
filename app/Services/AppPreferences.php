@@ -45,11 +45,9 @@ final class AppPreferences
 
     public const STEP_REGION = 2;
 
-    public const STEP_PORTAL = 3;
+    public const STEP_NOTIFICATIONS = 3;
 
-    public const STEP_NOTIFICATIONS = 4;
-
-    public const STEP_DONE = 5;
+    public const STEP_DONE = 4;
 
     public const LAST_STEP = self::STEP_DONE;
 
