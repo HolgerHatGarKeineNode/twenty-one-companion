@@ -62,8 +62,14 @@ test('🟠 Bottom-Nav-Label „Mehr" wird bei en-Locale zu „More" übersetzt',
     app()->setLocale('en');
     expect(__('Mehr'))->toBe('More');
 
-    // nav-tab rendert {{ __($label) }} → der Mehr-Tab zeigt im Request „More".
-    $this->get(route('more'))->assertOk()->assertSee('More');
+    $html = $this->get(route('more'))->assertOk()->getContent();
+
+    // NUR die Bottom-Nav-Region prüfen — ein bare assertSee('More') würde auch den
+    // Seiten-<title> „More - EINUNDZWANZIG" matchen und den nav-tab-Fix maskieren.
+    preg_match('/<nav\s+aria-label="Hauptnavigation".*?<\/nav>/s', $html, $nav);
+    expect($nav)->not->toBeEmpty('Bottom-Nav nicht gefunden');
+    expect($nav[0])->toContain('More')       // nav-tab rendert {{ __($label) }}
+        ->and($nav[0])->not->toContain('Mehr'); // deutscher Roh-Key darf im Nav weg sein
 });
 
 test('🟠 en.json trägt keine „TWENTY ONE"-Marke mehr (EINUNDZWANZIG im UI)', function () {

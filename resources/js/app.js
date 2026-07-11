@@ -1,3 +1,4 @@
+import { isAuthed, sanitizeReturnUrl } from '@einundzwanzig/group/auth-gate';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -64,40 +65,40 @@ document.addEventListener('alpine:init', () => {
     }));
 
     /**
-     * Kontextueller Auth-Gate — schlanker Spiegel des Stores aus
-     * `@einundzwanzig/group` (bridge.ts §4.2). Die geteilte
+     * Kontextueller Auth-Gate für die Portal-Shell (§4.2). Die geteilte
      * <x-group::bottom-nav> ruft `$store.authGate.gateTap` auf JEDER Shell-Seite
      * auf, auch auf den Portal-Tabs (Meetups/Mehr), die nur dieses app.js laden —
      * die welshman-Insel samt vollem authGate-Store lebt allein im Chat-Bundle
      * (group.js). Ohne diesen Store wäre `$store.authGate` dort undefined →
      * „Cannot read properties of undefined (reading 'gateTap')".
      *
-     * Gäste schickt er per HARTEM Seiten-Load auf /nostr-login: der Sprung ins
-     * Chat-Bundle MUSS ein Full-Load sein (wire:navigate trägt den <head> mit →
-     * group.js bootet nie via alpine:init, und die Signer-Banner blieben
-     * uninitialisiert). Der harte Load bootet group.js frisch.
+     * Von einer Portal-Seite führt JEDER nostr-gate-Tab (Chat/Wallet) ins
+     * Chat-Bundle (group.js) — über die Layout-Grenze layouts.mobile →
+     * group::einundzwanzig. Ein wire:navigate-SPA-Sprung bootet group.js dort NIE:
+     * es registriert alle Alpine-Komponenten in `alpine:init`, das nach dem
+     * Portal-Load bereits gefeuert hat → tote Chat/Wallet-Insel. Darum erzwingt
+     * gateTap IMMER einen harten Seiten-Load — Gast wie eingeloggt:
+     *   Gast       → /nostr-login (Interstitial, liegt ebenfalls im group-Layout).
+     *   eingeloggt → direkt aufs Tab-Ziel; der Full-Load bootet group.js frisch.
      *
-     * ponytail: 15-Zeilen-Spiegel statt die welshman-Insel auf jede Portal-Seite
-     * zu ziehen. Angleichen, falls sich der Gate-Vertrag im Package ändert.
+     * isAuthed/sanitizeReturnUrl kommen aus dem geteilten (welshman-freien)
+     * @einundzwanzig/group/auth-gate — dieselbe Trust-Grenzen-Logik wie der volle
+     * Store in bridge.ts (welshman speichert den pubkey JSON-serialisiert, darum
+     * KEINE rohe Hex-Regex).
      */
     window.Alpine?.store('authGate', {
-        requireAuth(intent = {}) {
-            const pk = localStorage.getItem('pubkey');
-            if (pk && /^[0-9a-f]{64}$/i.test(pk)) {
-                intent.resume?.();
-                return true;
-            }
-            const raw = intent.returnUrl ?? location.pathname + location.search;
-            // Nur eigene Pfade (kein //host, kein Schema) — Open-Redirect-Schutz.
-            const ret = /^\/(?!\/)/.test(raw) ? raw : '/';
-            location.assign('/nostr-login?return=' + encodeURIComponent(ret));
-            return false;
-        },
         gateTap(event, intent = {}) {
-            if (!this.requireAuth(intent)) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (isAuthed(localStorage.getItem('pubkey'))) {
+                const href = event.currentTarget?.href;
+                if (href) {
+                    location.assign(href);
+                }
+                return;
             }
+            const ret = sanitizeReturnUrl(intent.returnUrl ?? location.pathname + location.search);
+            location.assign('/nostr-login' + (ret ? '?return=' + encodeURIComponent(ret) : ''));
         },
     });
 });

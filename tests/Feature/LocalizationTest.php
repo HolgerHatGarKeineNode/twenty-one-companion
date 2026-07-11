@@ -102,3 +102,25 @@ it('renders the meetups page in german by default', function () {
         ->assertOk()
         ->assertSee('Alle Länder');
 });
+
+it('covers every Mehr-Hub key in ALL locale files (not just en)', function () {
+    // Der Mehr-Hub (config-Nav-Label + Karten-Subtitles) muss in JEDER
+    // ausgelieferten Sprache aufgelöst werden — sonst greift der de-Fallback und
+    // der Screen wird gemischtsprachig (spanische Labels, deutsche Untertitel).
+    // Die en-only-Coverage oben hat genau diese Lücke NICHT erkannt.
+    $code = (string) file_get_contents(resource_path('views/pages/more/⚡index.blade.php'));
+    preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)*)'/u", $code, $m);
+    $keys = array_unique(array_map('stripcslashes', $m[1]));
+
+    $missing = [];
+    foreach (['en', 'es', 'pt', 'nl', 'pl', 'hu', 'lv'] as $loc) {
+        $data = json_decode((string) file_get_contents(base_path("lang/{$loc}.json")), true);
+        foreach ($keys as $key) {
+            if (! array_key_exists($key, $data)) {
+                $missing[$loc][] = $key;
+            }
+        }
+    }
+
+    expect($missing)->toBe([], 'Mehr-Hub-Keys ohne Übersetzung: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
+});
