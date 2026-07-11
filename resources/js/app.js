@@ -37,7 +37,16 @@ window.haptic = function (pattern = 'light') {
     navigator.vibrate(HAPTIC_PATTERNS[pattern] ?? HAPTIC_PATTERNS.light);
 };
 
-document.addEventListener('alpine:init', () => {
+/**
+ * Alpine-Extensions registrieren — RACE-FEST. Dieses per Vite gebündelte, schwer
+ * importierende Modul (leaflet, group/auth-gate) kann im Android-WebView ERST NACH
+ * Alpine.start ausgewertet werden (das lokale Bundle startet Alpine, bevor app.js
+ * fertig lädt). Dann ist 'alpine:init' bereits durch und ein reiner Event-Listener
+ * feuerte NIE → $haptic/appRefresh/authGate blieben unregistriert: „$haptic is not
+ * defined", der Banner-„Verstanden"-Button ohne Wirkung, tote Nav-Gates. Darum wird
+ * die Registrierung unten defensiv aufgerufen (Alpine schon da → sofort; sonst Event).
+ */
+const registerAlpineExtensions = () => {
     // Nutzung im Markup: x-on:click="$haptic('success')"
     window.Alpine?.magic('haptic', () => window.haptic);
 
@@ -101,4 +110,13 @@ document.addEventListener('alpine:init', () => {
             location.assign('/nostr-login' + (ret ? '?return=' + encodeURIComponent(ret) : ''));
         },
     });
-});
+};
+
+// Läuft Alpine schon (WebView: das Bundle startet es, bevor dieses Modul lädt),
+// direkt registrieren; sonst regulär über 'alpine:init' — dann greift auch die
+// x-data-Registrierung (appRefresh) rechtzeitig vor der Element-Initialisierung.
+if (window.Alpine) {
+    registerAlpineExtensions();
+} else {
+    document.addEventListener('alpine:init', () => registerAlpineExtensions());
+}
