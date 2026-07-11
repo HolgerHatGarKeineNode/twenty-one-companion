@@ -54,8 +54,12 @@ new #[Layout('layouts::mobile', ['title' => 'Mehr', 'heading' => 'Mehr'])] class
     {{-- Identitäts-Header (§3.4): Shortcut in die Einstellungen bzw. Login-CTA. --}}
     @if ($connected)
         <x-list-link-card href="{{ route('profile') }}">
+            {{-- Portal liefert Profilfotos unter /storage/profile-photos ohne Punkt vor
+                 der Extension → content-type application/octet-stream + nosniff → der
+                 Browser rendert sie NICHT als Bild. Über den ImageProxy geleitet (wie die
+                 Chat-Avatare) kommt ein sauberer image/*-Typ zurück. --}}
             @if ($profile['avatar'] ?? null)
-                <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
+                <flux:avatar src="{{ \Einundzwanzig\Group\ImageProxy::url($profile['avatar']) }}" size="lg"/>
             @else
                 <flux:avatar size="lg" name="{{ $profile['name'] ?? __('Verbunden') }}"/>
             @endif

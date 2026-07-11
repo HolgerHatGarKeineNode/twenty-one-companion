@@ -29,7 +29,17 @@ final class CourseData extends Data
 
     public function imageOrNull(): ?string
     {
-        return $this->image instanceof Optional || $this->image === '' ? null : $this->image;
+        $image = $this->image instanceof Optional ? '' : (string) $this->image;
+
+        // Portal liefert für Kurse OHNE eigenes Bild die Default-URL
+        // /img/einundzwanzig.png (existiert nicht → 404). Als „kein Bild" behandeln,
+        // damit die Avatar-Komponente ihren Initialen-Fallback statt eines kaputten
+        // Bildes zeigt.
+        if ($image === '' || str_contains($image, '/img/einundzwanzig')) {
+            return null;
+        }
+
+        return $image;
     }
 
     public function descriptionHtml(): ?string
