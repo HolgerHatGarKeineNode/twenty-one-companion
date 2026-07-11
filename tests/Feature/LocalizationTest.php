@@ -46,7 +46,7 @@ function mobileUiSources(): array
         app_path('Data/Portal/LecturerDetailData.php'),
     ];
 
-    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding', 'mine'] as $module) {
+    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding', 'mine', 'more'] as $module) {
         foreach (File::files(resource_path("views/pages/{$module}")) as $file) {
             $files[] = $file->getPathname();
         }

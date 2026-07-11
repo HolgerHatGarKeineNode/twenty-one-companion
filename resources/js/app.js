@@ -62,4 +62,42 @@ document.addEventListener('alpine:init', () => {
             window.Livewire?.dispatch('portal-refresh');
         },
     }));
+
+    /**
+     * Kontextueller Auth-Gate — schlanker Spiegel des Stores aus
+     * `@einundzwanzig/group` (bridge.ts §4.2). Die geteilte
+     * <x-group::bottom-nav> ruft `$store.authGate.gateTap` auf JEDER Shell-Seite
+     * auf, auch auf den Portal-Tabs (Meetups/Mehr), die nur dieses app.js laden —
+     * die welshman-Insel samt vollem authGate-Store lebt allein im Chat-Bundle
+     * (group.js). Ohne diesen Store wäre `$store.authGate` dort undefined →
+     * „Cannot read properties of undefined (reading 'gateTap')".
+     *
+     * Gäste schickt er per HARTEM Seiten-Load auf /nostr-login: der Sprung ins
+     * Chat-Bundle MUSS ein Full-Load sein (wire:navigate trägt den <head> mit →
+     * group.js bootet nie via alpine:init, und die Signer-Banner blieben
+     * uninitialisiert). Der harte Load bootet group.js frisch.
+     *
+     * ponytail: 15-Zeilen-Spiegel statt die welshman-Insel auf jede Portal-Seite
+     * zu ziehen. Angleichen, falls sich der Gate-Vertrag im Package ändert.
+     */
+    window.Alpine?.store('authGate', {
+        requireAuth(intent = {}) {
+            const pk = localStorage.getItem('pubkey');
+            if (pk && /^[0-9a-f]{64}$/i.test(pk)) {
+                intent.resume?.();
+                return true;
+            }
+            const raw = intent.returnUrl ?? location.pathname + location.search;
+            // Nur eigene Pfade (kein //host, kein Schema) — Open-Redirect-Schutz.
+            const ret = /^\/(?!\/)/.test(raw) ? raw : '/';
+            location.assign('/nostr-login?return=' + encodeURIComponent(ret));
+            return false;
+        },
+        gateTap(event, intent = {}) {
+            if (!this.requireAuth(intent)) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        },
+    });
 });

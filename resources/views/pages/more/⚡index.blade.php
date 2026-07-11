@@ -70,7 +70,7 @@ new #[Layout('layouts::mobile', ['title' => 'Mehr', 'heading' => 'Mehr'])] class
     @else
         {{-- Gast: prominenter Anmelde-CTA (brand-getönt). Führt bis P6 auf den
              bestehenden Nostr-Login-View; P6 promotet ihn zum Login-Sheet. --}}
-        <x-list-link-card href="{{ route('group.nostr-login') }}" class="!bg-brand-500/10 ring-1 ring-brand-500/20">
+        <x-list-link-card href="{{ route('group.nostr-login') }}" :navigate="false" class="!bg-brand-500/10 ring-1 ring-brand-500/20">
             <span class="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-600 dark:text-brand-400">
                 <flux:icon name="user-circle" class="size-7"/>
             </span>
