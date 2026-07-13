@@ -4,6 +4,7 @@ namespace App\Livewire\Concerns;
 
 use App\Services\WriteResult;
 use Flux\Flux;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Native\Mobile\Attributes\OnNative;
 use Native\Mobile\Events\Camera\PhotoTaken;
@@ -61,7 +62,26 @@ trait HandlesImageUpload
             return false;
         }
 
-        return $this->uploadImage($id, $this->imagePath)->failed();
+        $failed = $this->uploadImage($id, $this->imagePath)->failed();
+
+        // Die gecroppte Temp-Datei ist nach dem Upload verbraucht (egal ob er
+        // gelang) — sonst sammeln sich Crops in storage/app/crop an.
+        $this->discardTempImage();
+
+        return $failed;
+    }
+
+    /**
+     * Löscht die gecroppte Temp-Datei (nur innerhalb storage/app/crop, defensiv).
+     * Aufgerufen nach dem Upload sowie beim Verwerfen/Zurücksetzen der Auswahl.
+     */
+    private function discardTempImage(): void
+    {
+        $path = $this->imagePath;
+
+        if ($path !== null && str_starts_with($path, storage_path('app/crop')) && is_file($path)) {
+            @unlink($path);
+        }
     }
 
     /**
@@ -105,7 +125,7 @@ trait HandlesImageUpload
             return;
         }
 
-        $this->setSelectedImage($path);
+        $this->openImageCropper($path);
     }
 
     /**
@@ -114,20 +134,97 @@ trait HandlesImageUpload
     #[OnNative(MediaSelected::class)]
     public function handleMediaSelected(bool $success = false, array $files = [], int $count = 0, ?string $error = null, bool $cancelled = false, ?string $id = null): void
     {
-        if ($id !== $this->imageUploadKey() || ! $success) {
+        // Die Galerie liefert (anders als die Kamera) KEIN id-Feld im
+        // MediaSelected-Event zurück — darum die id nur prüfen, wenn vorhanden.
+        if (($id !== null && $id !== $this->imageUploadKey()) || ! $success) {
             return;
         }
 
         $path = $this->firstFilePath($files);
 
         if ($path !== null) {
-            $this->setSelectedImage($path);
+            $this->openImageCropper($path);
         }
+    }
+
+    /**
+     * Seitenverhältnis des Zuschnitts (Breite/Höhe). Logos/Avatare sind quadratisch;
+     * ein Editor mit anderem Bedarf überschreibt das.
+     */
+    protected function imageCropAspectRatio(): float
+    {
+        return 1.0;
+    }
+
+    /**
+     * Native gewähltes Bild (Dateipfad) → base64-data-URI → an das geteilte
+     * cropperjs-Overlay im WebView (siehe {@see \resources\js\app.js} `imageCropper`).
+     * Der `key` korreliert das Overlay mit diesem Editor. KEIN serverseitiges
+     * Resize — das Downscale übernimmt cropperjs beim Export.
+     */
+    private function openImageCropper(string $path): void
+    {
+        if (! is_file($path)) {
+            return;
+        }
+
+        $raw = @file_get_contents($path);
+
+        if ($raw === false) {
+            Flux::toast(text: __('Das Bild konnte nicht geladen werden.'), variant: 'danger');
+
+            return;
+        }
+
+        $this->dispatch(
+            'image-crop-open',
+            src: 'data:image/jpeg;base64,'.base64_encode($raw),
+            key: $this->imageUploadKey(),
+            ratio: $this->imageCropAspectRatio(),
+        );
+    }
+
+    /**
+     * Gecropptes Bild (JPEG-data-URI) aus dem Overlay: nach $key filtern (mehrere
+     * Editoren hören mit), dekodieren, in eine beschreibbare Temp-Datei schreiben
+     * und als Auswahl übernehmen — von dort läuft der bestehende Upload-Weg.
+     */
+    #[On('image-cropped')]
+    public function receiveCroppedImage(string $dataUrl, string $key): void
+    {
+        if ($key !== $this->imageUploadKey() || ! str_starts_with($dataUrl, 'data:image')) {
+            return;
+        }
+
+        $bytes = base64_decode(substr($dataUrl, (int) strpos($dataUrl, ',') + 1), true);
+
+        if ($bytes === false) {
+            Flux::toast(text: __('Das zugeschnittene Bild konnte nicht verarbeitet werden.'), variant: 'danger');
+
+            return;
+        }
+
+        // Vorherigen Crop verwerfen, falls der Nutzer erneut zuschneidet.
+        $this->discardTempImage();
+
+        // sys_get_temp_dir() ist im NativePHP-Sandbox-Kontext nicht beschreibbar —
+        // deshalb ins App-Storage schreiben.
+        $dir = storage_path('app/crop');
+
+        if (! is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+
+        $tmp = $dir.'/'.$this->imageUploadKey().'_'.substr(md5($bytes), 0, 12).'.jpg';
+        file_put_contents($tmp, $bytes);
+
+        $this->setSelectedImage($tmp);
     }
 
     /** Auswahl verwerfen (zurück zum vorhandenen Bild bzw. Platzhalter). */
     public function clearSelectedImage(): void
     {
+        $this->discardTempImage();
         $this->imagePath = null;
     }
 
@@ -167,6 +264,7 @@ trait HandlesImageUpload
      */
     protected function resetImageState(): void
     {
+        $this->discardTempImage();
         $this->imagePath = null;
         $this->currentImageUrl = null;
     }

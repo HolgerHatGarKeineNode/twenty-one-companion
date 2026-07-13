@@ -230,34 +230,103 @@ it('is not reachable without a portal token via the writer gate', function () {
     MockClient::global()->assertNotSent(CreateMeetupRequest::class);
 });
 
-it('warns when a logo is picked on an expensive network', function () {
+it('opens the cropper with the native photo instead of selecting it directly', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    $path = fakeImagePath('logo.jpg');
+
+    // Native Auswahl setzt NICHT direkt imagePath, sondern schickt das Bild als
+    // data-URI an das cropperjs-Overlay (mit dem Editor-key zur Korrelation).
+    Livewire::test('meetup-editor')
+        ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
+        ->assertSet('imagePath', null)
+        ->assertDispatched('image-crop-open', key: 'meetup-logo');
+});
+
+it('opens the cropper for a gallery pick even without an id in the event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    // Die Galerie liefert MediaSelected OHNE id — der Editor muss trotzdem croppen.
+    Livewire::test('meetup-editor')
+        ->call('handleMediaSelected', true, [fakeImagePath('logo.jpg')], 1)
+        ->assertDispatched('image-crop-open', key: 'meetup-logo');
+});
+
+it('selects the cropped image and warns on an expensive network', function () {
     withPortalToken();
     MockClient::global([
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
     Network::shouldReceive('status')->andReturn((object) ['connected' => true, 'isExpensive' => true]);
 
-    $path = fakeImagePath('logo.jpg');
+    $dataUrl = 'data:image/jpeg;base64,'.base64_encode('cropped-bytes');
 
     Livewire::test('meetup-editor')
-        ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
-        ->assertSet('imagePath', $path)
+        ->call('receiveCroppedImage', $dataUrl, 'meetup-logo')
+        ->assertSet('imagePath', fn (?string $p): bool => is_string($p) && is_file($p))
         ->assertDispatched('toast-show');
 });
 
-it('does not warn when a logo is picked on wifi', function () {
+it('ignores a cropped image addressed to a different editor', function () {
     withPortalToken();
     MockClient::global([
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
-    Network::shouldReceive('status')->andReturn((object) ['connected' => true, 'isExpensive' => false]);
 
-    $path = fakeImagePath('logo.jpg');
+    $dataUrl = 'data:image/jpeg;base64,'.base64_encode('cropped-bytes');
 
+    // key eines anderen Editors → dieser Editor übernimmt das Bild nicht.
     Livewire::test('meetup-editor')
-        ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
-        ->assertSet('imagePath', $path)
-        ->assertNotDispatched('toast-show');
+        ->call('receiveCroppedImage', $dataUrl, 'lecturer-avatar')
+        ->assertSet('imagePath', null);
+});
+
+it('deletes the cropped temp file after the logo upload', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+        CreateMeetupRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 99])], 201),
+        UploadMeetupLogoRequest::class => MockResponse::make(['data' => myMeetupFixture(['id' => 99])], 200),
+    ]);
+
+    $dataUrl = 'data:image/jpeg;base64,'.base64_encode('cropped-bytes');
+
+    $component = Livewire::test('meetup-editor')
+        ->set('form.name', 'Einundzwanzig Musterstadt')
+        ->call('selectCity', 7, 'Musterstadt')
+        ->call('receiveCroppedImage', $dataUrl, 'meetup-logo');
+
+    $tmp = $component->get('imagePath');
+    expect($tmp)->toBeString()->and(is_file($tmp))->toBeTrue();
+
+    $component->call('save')->assertDispatched('meetup-saved');
+
+    expect(is_file($tmp))->toBeFalse();
+});
+
+it('deletes the cropped temp file when the selection is cleared', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    $dataUrl = 'data:image/jpeg;base64,'.base64_encode('cropped-bytes');
+
+    $component = Livewire::test('meetup-editor')
+        ->call('receiveCroppedImage', $dataUrl, 'meetup-logo');
+
+    $tmp = $component->get('imagePath');
+    expect(is_file($tmp))->toBeTrue();
+
+    $component->call('clearSelectedImage')->assertSet('imagePath', null);
+
+    expect(is_file($tmp))->toBeFalse();
 });
 
 it('uploads the selected logo to the new meetup after creating', function () {

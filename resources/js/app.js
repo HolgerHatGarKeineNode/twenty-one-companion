@@ -95,6 +95,85 @@ const registerAlpineExtensions = () => {
      * Store in bridge.ts (welshman speichert den pubkey JSON-serialisiert, darum
      * KEINE rohe Hex-Regex).
      */
+    /**
+     * Bild-Cropper für die Editoren (Meetup/Kurs/Referent). Auf Mobile ist ein
+     * HTML-`<input type=file>` im NativePHP-WebView funktionslos (kein
+     * onShowFileChooser), deshalb kommt das Bild über die native Kamera/Galerie
+     * (PHP-Facade) als base64-data-URI herein: der jeweilige Editor feuert
+     * `image-crop-open` {src, key, ratio}; dieses EINE globale Overlay lädt
+     * cropperjs lazy (co-lokalisiertes CSS lädt mit), zeigt die Crop-UI und gibt
+     * das gecroppte Canvas als JPEG-data-URI per `image-cropped` {dataUrl, key}
+     * zurück. Der `key` korreliert Overlay ↔ Editor (mehrere liegen im Layout).
+     */
+    window.Alpine?.data('imageCropper', () => ({
+        src: null,
+        key: null,
+        ratio: NaN,
+        _cropper: null,
+        _token: 0,
+
+        show(detail) {
+            this.src = detail.src;
+            this.key = detail.key;
+            this.ratio = detail.ratio || NaN;
+            // Als Flux-Modal öffnen → stapelt korrekt ÜBER dem Editor-Sheet.
+            this.$flux.modal('image-cropper').show();
+            this._initWhenSized(++this._token);
+        },
+
+        // cropperjs erst initialisieren, wenn der Container beim Modal-Einfahren
+        // eine echte Größe hat (0px-Init liefert eine kaputte Crop-Box).
+        async _initWhenSized(token) {
+            const [{ default: Cropper }] = await Promise.all([
+                import('cropperjs'),
+                import('cropperjs/dist/cropper.css'),
+            ]);
+            const start = performance.now();
+            const wait = () => {
+                if (token !== this._token) {
+                    return; // inzwischen geschlossen/neu geöffnet
+                }
+                // Flux-Modals teleportieren ihren Inhalt aus dem Alpine-Subtree
+                // (Portal) → $refs greift nicht; deshalb per id aus dem Dokument.
+                const img = document.getElementById('image-cropper-img');
+                if (img && img.clientWidth > 0 && img.offsetParent !== null) {
+                    this._cropper?.destroy();
+                    this._cropper = new Cropper(img, {
+                        viewMode: 1,
+                        autoCropArea: 1,
+                        background: false,
+                        aspectRatio: this.ratio,
+                    });
+                    return;
+                }
+                if (performance.now() - start < 3000) {
+                    requestAnimationFrame(wait);
+                }
+            };
+            requestAnimationFrame(wait);
+        },
+
+        confirm() {
+            if (!this._cropper) {
+                return;
+            }
+            const canvas = this._cropper.getCroppedCanvas({ maxWidth: 1600, maxHeight: 1600 });
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            window.haptic('success');
+            window.Livewire?.dispatch('image-cropped', { dataUrl, key: this.key });
+            this.$flux.modal('image-cropper').close();
+        },
+
+        // Vom Modal-@close aufgerufen (auch bei Escape/Backdrop) → aufräumen.
+        teardown() {
+            this._token++;
+            this._cropper?.destroy();
+            this._cropper = null;
+            this.src = null;
+            this.key = null;
+        },
+    }));
+
     window.Alpine?.store('authGate', {
         gateTap(event, intent = {}) {
             event.preventDefault();

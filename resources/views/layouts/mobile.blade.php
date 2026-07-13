@@ -164,6 +164,11 @@
                     <livewire:lecturer-editor/>
                     <livewire:course-editor/>
                     <livewire:course-event-editor/>
+
+                    {{-- Geteiltes Bild-Crop-Overlay: die Editoren mit Logo/Avatar
+                         (Meetup/Kurs/Referent) schneiden ihr native gewähltes Bild
+                         hier per cropperjs zu (siehe HandlesImageUpload). --}}
+                    <x-image-cropper-overlay/>
                 @endif
 
                 {{-- Legacy-Flyout: im Unified-Modus durch den „Mehr"-Hub (pages/⚡more,
