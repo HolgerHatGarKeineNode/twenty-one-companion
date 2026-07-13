@@ -17,6 +17,7 @@ cd "$(dirname "$0")/.."
 
 REL_ENV="app/src/main/java/com/nativephp/mobile/bridge/LaravelEnvironment.kt"
 REL_MAIN="app/src/main/java/com/nativephp/mobile/ui/MainActivity.kt"
+REL_WEBVIEW="app/src/main/java/com/nativephp/mobile/network/WebViewManager.kt"
 REL_ICONBG="app/src/main/res/drawable/ic_launcher_background.xml"
 
 # (Basisverzeichnis, Label) — nur existierende werden gepatcht.
@@ -92,6 +93,82 @@ patch_main() {  # $1 = Pfad zu MainActivity.kt
   fi
 }
 
+patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
+  local f="$1"
+  # Der NativePHP-WebView verdrahtet onShowFileChooser NICHT → ein HTML-
+  # <input type=file> öffnet auf dem Gerät nichts (Android-Default gibt false
+  # zurück). Das lähmt u.a. den Chat-„Bild anhängen"-Button. Fix: Callback im
+  # companion object halten + Override, der den nativen Picker via
+  # FileChooserParams.createIntent() über die Activity startet.
+  if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
+    awk '
+      /var shared: WebViewManager\? = null/ && !d {
+        print
+        print "        var fileChooserCallback: ValueCallback<Array<Uri>>? = null // FILECHOOSER"
+        print "        const val FILE_CHOOSER_REQUEST_CODE = 51426 // FILECHOOSER"
+        d=1; next }
+      { print }
+    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
+      || { echo "FEHLER: FileChooser-Companion-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    echo "    [+] FileChooser Companion-Halter"
+  fi
+  if ! grep -q 'onShowFileChooser' "$f"; then
+    awk '
+      /return object : WebChromeClient\(\) \{/ && !d {
+        print
+        print "            override fun onShowFileChooser("
+        print "                webView: WebView?,"
+        print "                filePathCallback: ValueCallback<Array<Uri>>?,"
+        print "                fileChooserParams: FileChooserParams?"
+        print "            ): Boolean {"
+        print "                WebViewManager.fileChooserCallback?.onReceiveValue(null)"
+        print "                WebViewManager.fileChooserCallback = filePathCallback"
+        print "                return try {"
+        print "                    (context as? Activity)?.startActivityForResult("
+        print "                        fileChooserParams?.createIntent(), WebViewManager.FILE_CHOOSER_REQUEST_CODE"
+        print "                    )"
+        print "                    true"
+        print "                } catch (e: Exception) {"
+        print "                    WebViewManager.fileChooserCallback = null"
+        print "                    false"
+        print "                }"
+        print "            }"
+        d=1; next }
+      { print }
+    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    grep -q 'onShowFileChooser' "$f" \
+      || { echo "FEHLER: onShowFileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    echo "    [+] onShowFileChooser-Override"
+  fi
+}
+
+patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
+  local f="$1"
+  # Ergebnis des FileChooser-Intents zurück an den WebView-Callback routen.
+  # MainActivity hat (Stand 3.x) kein onActivityResult — die Kamera nutzt eigene
+  # Launcher. Darum hier eines ergänzen, das nur unseren Request-Code behandelt.
+  if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
+    awk '
+      /class MainActivity : FragmentActivity\(\), WebViewProvider \{/ && !d {
+        print
+        print "    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {"
+        print "        super.onActivityResult(requestCode, resultCode, data)"
+        print "        if (requestCode == WebViewManager.FILE_CHOOSER_REQUEST_CODE) {"
+        print "            val results = WebChromeClient.FileChooserParams.parseResult(resultCode, data)"
+        print "            WebViewManager.fileChooserCallback?.onReceiveValue(results)"
+        print "            WebViewManager.fileChooserCallback = null"
+        print "        }"
+        print "    }"
+        d=1; next }
+      { print }
+    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+    grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
+      || { echo "FEHLER: onActivityResult-FileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    echo "    [+] onActivityResult FileChooser-Routing"
+  fi
+}
+
 any=0
 for entry in "${TARGETS[@]}"; do
   base="${entry%%|*}"; label="${entry##*|}"
@@ -100,6 +177,8 @@ for entry in "${TARGETS[@]}"; do
     echo "  $label:"
     patch_env "$env_f"
     patch_main "$main_f"
+    patch_filechooser_main "$main_f"
+    [ -f "$base/$REL_WEBVIEW" ] && patch_filechooser_webview "$base/$REL_WEBVIEW"
     [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
     any=1
   else
