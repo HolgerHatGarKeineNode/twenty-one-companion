@@ -55,7 +55,3 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     Route::livewire('mine/places', 'pages::mine.places')->name('mine.places');
     Route::livewire('mine/teaching', 'pages::mine.teaching')->name('mine.teaching');
 });
-
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::view('dashboard', 'dashboard')->name('dashboard');
-});

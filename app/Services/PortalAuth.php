@@ -43,35 +43,9 @@ final class PortalAuth
         return rtrim((string) config('services.portal.url'), '/');
     }
 
-    /**
-     * URL of the portal's mobile login page. The portal redirects back via
-     * the einundzwanzig://auth deep link carrying the token.
-     */
-    public function loginUrl(): string
-    {
-        return $this->baseUrl().'/auth/mobile?'.http_build_query([
-            'redirect_uri' => 'einundzwanzig://auth',
-            'device_name' => $this->deviceName(),
-        ]);
-    }
-
     public function deviceName(): string
     {
         return 'TWENTY ONE Companion (Android)';
-    }
-
-    /**
-     * URL of the portal's headless Nostr launcher. Opened in the in-app
-     * browser, it fires the NIP-55 signer (e.g. Amber) via window.location
-     * so the intent carries category.BROWSABLE (required for Amber's
-     * web-signing flow). The signer signs locally — no relay round-trip —
-     * and the token is handed back via the einundzwanzig:// App Link.
-     */
-    public function nostrLoginUrl(): string
-    {
-        return $this->baseUrl().'/auth/mobile/nostr?'.http_build_query([
-            'device_name' => $this->deviceName(),
-        ]);
     }
 
     public function storeToken(string $token): bool
@@ -193,12 +167,16 @@ final class PortalAuth
             return $this->cachedProfile();
         }
 
-        if ($response->unauthorized()) {
-            $this->forgetToken();
-
-            return null;
-        }
-
+        // ponytail: Ein 401 löscht den Token NICHT mehr automatisch. profile()
+        // läuft app-weit bei JEDEM Seitenaufbau (freshProfile() im mobile-Layout);
+        // ein transienter/abgelaufener 401 (Portal-Hiccup, kurzer Server- oder
+        // Netzfehler) warf den Nutzer sonst dauerhaft aus der Session, obwohl der
+        // Token im Keystore steht. Wir behandeln 401 wie jeden anderen Fehlschlag:
+        // gecachtes Profil zeigen, Token behalten. Entfernt wird er nur noch bei
+        // explizitem logout() (bzw. serverseitig durch Ablauf).
+        // Bekannte Grenze: ein serverseitig widerrufener Token bleibt lokal als
+        // „verbunden" sichtbar, bis der Nutzer manuell abmeldet — akzeptabel
+        // gegenüber einem Überraschungs-Logout bei jedem transienten 401.
         if (! $response->successful()) {
             return $this->cachedProfile();
         }

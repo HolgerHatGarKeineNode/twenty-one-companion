@@ -72,9 +72,10 @@ it('redirects to the profile page with an error flag when the token exchange fai
         ->assertSessionHas('portal-connect-failed');
 });
 
-it('shows both login buttons on the profile page when no token is stored', function () {
+it('shows the single Nostr login CTA and no portal web-login on the profile page when no token is stored', function () {
     // Without the native bridge SecureStorage::get() returns null,
-    // so the component renders the guest state.
+    // so the component renders the guest state. Single-Login: nur noch der
+    // Nostr-Login (via Chat-Handoff), kein Portal-Web-Login (Lightning) mehr.
     MockClient::global([
         GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
@@ -82,38 +83,8 @@ it('shows both login buttons on the profile page when no token is stored', funct
     $this->get(route('profile'))
         ->assertOk()
         ->assertSee(__('Mit Nostr anmelden'))
-        ->assertSee(__('Mit Lightning anmelden'));
-});
-
-it('opens the portal nostr launcher in the in-app browser when logging in with Nostr', function () {
-    Browser::shouldReceive('inApp')
-        ->once()
-        ->with(app(PortalAuth::class)->nostrLoginUrl());
-
-    Livewire\Livewire::test('portal.connect')->call('loginWithNostr');
-});
-
-it('opens the portal lightning login in the in-app browser', function () {
-    Browser::shouldReceive('inApp')
-        ->once()
-        ->with(app(PortalAuth::class)->loginUrl());
-
-    Livewire\Livewire::test('portal.connect')->call('loginWithLightning');
-});
-
-it('builds the nostr launcher url with the device name', function () {
-    $url = app(PortalAuth::class)->nostrLoginUrl();
-
-    expect($url)->toStartWith('https://portal.einundzwanzig.space/auth/mobile/nostr?')
-        ->and($url)->toContain('device_name=');
-});
-
-it('builds the lightning login url with the whitelisted redirect uri and device name', function () {
-    $url = app(PortalAuth::class)->loginUrl();
-
-    expect($url)->toStartWith('https://portal.einundzwanzig.space/auth/mobile?')
-        ->and($url)->toContain('redirect_uri=einundzwanzig%3A%2F%2Fauth')
-        ->and($url)->toContain('device_name=');
+        ->assertSee(route('group.nostr-login'), escape: false)
+        ->assertDontSee(__('Mit Lightning anmelden'));
 });
 
 it('fetches the profile with the stored token', function () {
@@ -129,16 +100,20 @@ it('fetches the profile with the stored token', function () {
     Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer 12|secrettoken'));
 });
 
-it('discards the stored token and the cached profile when the portal rejects it', function () {
-    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|revoked');
-    SecureStorage::shouldReceive('delete')->once()->with('portal_api_token')->andReturnTrue();
+it('keeps the stored token and serves the cached profile on a transient 401', function () {
+    // Ein 401 darf NICHT abmelden: profile() läuft app-weit bei jedem
+    // Seitenaufbau, ein transienter Portal-401 würde den Nutzer sonst
+    // dauerhaft aus der Session werfen. Token bleibt, gecachtes Profil kommt.
+    SecureStorage::shouldReceive('get')->with('portal_api_token')->andReturn('12|token');
+    SecureStorage::shouldReceive('delete')->never();
     Cache::put('portal_profile', ['id' => 7, 'name' => 'Satoshi']);
     Http::fake([
         'portal.einundzwanzig.space/api/user' => Http::response(null, 401),
     ]);
 
-    expect(app(PortalAuth::class)->profile())->toBeNull()
-        ->and(Cache::has('portal_profile'))->toBeFalse();
+    expect(app(PortalAuth::class)->profile())->toMatchArray(['id' => 7, 'name' => 'Satoshi'])
+        ->and(app(PortalAuth::class)->hasToken())->toBeTrue()
+        ->and(Cache::has('portal_profile'))->toBeTrue();
 });
 
 it('caches the profile and serves it while the portal is unreachable', function () {

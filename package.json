@@ -9,7 +9,6 @@
     "dependencies": {
         "@einundzwanzig/group": "file:../flotilla-einundzwanzig/packages/einundzwanzig-group",
         "@fontsource/inconsolata": "^5.2.8",
-        "@laravel/passkeys": "^0.2.0",
         "@tailwindcss/vite": "^4.1.11",
         "@welshman/app": "^0.8.16",
         "@welshman/content": "^0.8.16",

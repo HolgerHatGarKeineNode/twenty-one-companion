@@ -12,7 +12,6 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
-                'resources/js/passkeys.js',
                 // Chat-Vollbild-Tab (einundzwanzig/group): eigenes Theme + Insel-Entry.
                 'resources/css/group.css',
                 'resources/js/group.js',
