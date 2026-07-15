@@ -6,8 +6,13 @@ meetups, events, courses, lecturers and places of the Bitcoin community — righ
 - 📅 Meetups & events with a region filter
 - 🗺️ Map of all meetups (OpenStreetMap)
 - 🎓 Courses & lecturers
-- ⚡ Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. [Amber](https://github.com/greenart7c3/Amber))
-- 📦 Offline-ready: recently loaded data stays available
+- 💬 Group chat on Nostr (NIP-29) with Lightning zaps (NIP-57)
+- 🔔 Chat notifications **without Goolag**: your phone checks the relay itself in the
+  background — no Play Services, no second app, no push server in between. Off by default.
+- 👛 Built-in wallet: connect Alby or any NWC wallet, send & receive sats
+- 🔑 Sign in with Nostr: [Amber](https://github.com/greenart7c3/Amber) on-device (NIP-55, no
+  round-trips) or a remote bunker (NIP-46, incl. QR)
+- 📦 Offline-ready: the chat is cached on-device, recently loaded data stays available
 - 🌐 8 languages: German, English, Spanish, Portuguese, Dutch, Polish, Hungarian, Latvian
 
 Built with [NativePHP Mobile](https://nativephp.com/mobile), Laravel, Livewire and Flux UI.

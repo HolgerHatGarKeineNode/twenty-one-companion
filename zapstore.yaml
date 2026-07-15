@@ -7,7 +7,7 @@ repository: https://github.com/HolgerHatGarKeineNode/twenty-one-companion
 pubkey: npub1pt0kw36ue3w2g4haxq3wgm6a2fhtptmzsjlc2j2vphtcgle72qesgpjyc6
 
 name: TWENTY ONE Companion
-summary: Meetups, events, courses and places of the Bitcoin community
+summary: Meetups, events, courses and group chat of the Bitcoin community
 description: |
   The companion app for the TWENTY ONE Portal on Android: meetups, events,
   courses, lecturers and places — right in your pocket.
@@ -15,11 +15,13 @@ description: |
   - Meetups & events with a region filter
   - Map of all meetups (OpenStreetMap)
   - Courses & lecturers
-  - Group chat with Lightning zaps (NIP-57)
+  - Group chat on Nostr (NIP-29) with Lightning zaps (NIP-57)
+  - Chat notifications without Goolag: your phone checks the relay itself in the
+    background — no Play Services, no second app, no push server in between. Off by default.
   - Built-in wallet: connect Alby / any NWC wallet, send & receive sats
   - Amber offline mode: sign on-device via NIP-55, no round-trips
-  - Sign in with Lightning (LNURL-auth) or Nostr (NIP-55, e.g. Amber)
-  - Offline-ready: recently loaded data stays available
+  - Sign in with Nostr: Amber on-device (NIP-55) or a remote bunker (NIP-46, incl. QR)
+  - Offline-ready: the chat is cached on-device, recently loaded data stays available
   - 8 languages: German, English, Spanish, Portuguese, Dutch, Polish, Hungarian, Latvian
 
 tags:
