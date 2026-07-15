@@ -335,7 +335,14 @@ return [
             // ProGuard Rules - currently disabled
             'keep_line_numbers' => env('NATIVEPHP_ANDROID_KEEP_LINE_NUMBERS', false),
             'keep_source_file' => env('NATIVEPHP_ANDROID_KEEP_SOURCE_FILE', false),
-            'custom_proguard_rules' => env('NATIVEPHP_ANDROID_CUSTOM_PROGUARD_RULES', []),
+            // secp256k1-kmp (Push-Plugin, NIP-46-Signatur im Hintergrund) sucht seine
+            // JNI-Klasse per Class.forName("fr.acinq.secp256k1.jni.NativeSecp256k1…") —
+            // R8 sieht keinen Aufrufer und wirft sie im Release-Build weg. Ergebnis war
+            // ein Absturz des Workers: „Could not load native Secp256k1 JNI library".
+            // Debug-Builds sind unauffällig (kein R8), der Fehler trifft nur Releases.
+            'custom_proguard_rules' => env('NATIVEPHP_ANDROID_CUSTOM_PROGUARD_RULES', [
+                '-keep class fr.acinq.secp256k1.** { *; }',
+            ]),
 
             // Build Performance - using Gradle defaults
             'parallel_builds' => env('NATIVEPHP_ANDROID_PARALLEL_BUILDS', true),

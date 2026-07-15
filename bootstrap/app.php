@@ -12,7 +12,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Der push-sync-Partial läuft als nacktes Script in beiden Layouts und
+        // hat kein CSRF-Token zur Hand — im Chat-Layout scheiterte genau daran
+        // schon eine Livewire-Variante mit 419 (plans/PUSH-NOTIFICATIONS.md §4).
+        // Ungefährlich: die Route liest keine Session, sondern schiebt einen vom
+        // Client mitgebrachten Zustand ins Gerät zurück.
+        $middleware->preventRequestForgery(except: ['push/sync']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

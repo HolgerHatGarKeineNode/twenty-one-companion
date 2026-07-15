@@ -2,11 +2,11 @@
 
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
+use Einundzwanzig\Push\Push;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
-use Native\Mobile\Facades\PushNotifications;
 
 new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] class extends Component {
     public int $step = AppPreferences::STEP_LANGUAGE;
@@ -38,6 +38,18 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
     public function mount(AppPreferences $preferences): void
     {
         if ($preferences->isOnboarded()) {
+            // Bestandsnutzer, die das Onboarding vor dem Benachrichtigungs-
+            // Schritt abgeschlossen haben: NUR diesen Schritt nachholen, nicht
+            // den ganzen Pager. Kein Redirect — EnsureOnboarded schickt genau
+            // hierher, ein redirect('home') liefe endlos im Kreis.
+            if (! $preferences->hasAskedNotifications()) {
+                $this->step = AppPreferences::STEP_NOTIFICATIONS;
+                $this->locale = $preferences->locale();
+                $this->country = $preferences->country();
+
+                return;
+            }
+
             // Über die Start-Weiche (/): entscheidet client-seitig Chat vs. Meetups.
             $this->redirect(route('home'));
 
@@ -92,19 +104,59 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
     /** Optionalen Schritt (Portal/Push) ohne Aktion überspringen (Phase 3.4/3.5). */
     public function skip(AppPreferences $preferences): void
     {
+        if ($this->step === AppPreferences::STEP_NOTIFICATIONS) {
+            // Bewusst „nicht jetzt": als gefragt vermerken (sonst fragt die
+            // Nachhol-Weiche bei jedem Seitenaufruf erneut) und Push aus lassen.
+            $preferences->markNotificationsAsked();
+            $preferences->setPushEnabled(false);
+
+            if ($this->leaveAfterNotifications($preferences)) {
+                return;
+            }
+        }
+
         $this->goToStep($this->nextStep(), $preferences);
     }
 
     /**
      * Permission-Priming (Phase 3.5): Erst hier — nach der Erklärung — wird
-     * der OS-Dialog ausgelöst. Im Web-/Test-Kontext ist enroll() ein
-     * geguardeter No-op (kein nativephp_call), danach geht es weiter.
+     * der OS-Dialog ausgelöst.
+     *
+     * Der Dialog ist asynchron; wir warten nicht auf sein Ergebnis. Der Schalter
+     * in den Einstellungen zeigt später den echten Stand, und der Worker prüft
+     * die Berechtigung ohnehin vor jeder Notification.
      */
     public function enableNotifications(AppPreferences $preferences): void
     {
-        PushNotifications::enroll();
+        $preferences->markNotificationsAsked();
+        $preferences->setPushEnabled(true);
+
+        (new Push)->requestNotificationPermission();
+
+        // Das Einplanen des Workers passiert NICHT hier: er braucht den Pubkey,
+        // und der lebt auf Mobile ausschließlich client-seitig (localStorage).
+        // Das übernimmt der push-sync-Partial im Layout bei jedem App-Start.
+
+        if ($this->leaveAfterNotifications($preferences)) {
+            return;
+        }
 
         $this->goToStep($this->nextStep(), $preferences);
+    }
+
+    /**
+     * Bestandsnutzer haben nur diesen einen Schritt nachgeholt — für sie ist
+     * danach Schluss, nicht „weiter zu Fertig!".
+     */
+    private function leaveAfterNotifications(AppPreferences $preferences): bool
+    {
+        if (! $preferences->isOnboarded()) {
+            return false;
+        }
+
+        $this->redirect(route('home'));
+
+        return true;
     }
 
     public function finish(AppPreferences $preferences, CountryOptions $countryOptions): void
@@ -235,8 +287,18 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
                     </span>
                     <div>
                         <flux:heading size="xl" level="1">{{ __('Nichts mehr verpassen') }}</flux:heading>
+                        {{-- Geliefert werden Chat-Nachrichten, nicht Meetup-Erinnerungen — der
+                             Worker holt kind 9 aus den Räumen des Nutzers (plans/PUSH-NOTIFICATIONS.md). --}}
                         <flux:text class="mx-auto mt-2 max-w-xs">
-                            {{ __('Erlaube Benachrichtigungen, damit wir dich vor Terminen deiner Meetups erinnern. Du entscheidest, kein Spam.') }}
+                            {{ __('Erlaube Benachrichtigungen, damit du neue Nachrichten aus deinen Chat-Räumen mitbekommst. Du entscheidest, kein Spam.') }}
+                        </flux:text>
+                        {{-- Der Signer-Hinweis steht hier, obwohl die Anmeldung erst später kommt:
+                             ohne die Freigabe beim Login kann der Worker die NIP-42-Auth nicht
+                             signieren und es bleibt STILL still — kein Fehler, keine Notification.
+                             Die Freigabe selbst ist ein Tap (NIP46_PERMS listet sign_event:22242),
+                             nur eben einer, den man verstehen muss. --}}
+                        <flux:text size="sm" class="mx-auto mt-3 max-w-xs text-muted">
+                            {{ __('Die App holt sie im Hintergrund vom Relay. Dein Signer (Amber oder Bunker) fragt dich beim Anmelden einmal nach der Erlaubnis dafür — lehnst du sie ab, bleibt es still.') }}
                         </flux:text>
                     </div>
                 </div>

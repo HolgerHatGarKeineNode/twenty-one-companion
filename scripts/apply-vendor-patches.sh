@@ -67,6 +67,38 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
       || { echo "FEHLER: opcache-Wipe-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
     echo "    [+] Phase 3b opcache-Wipe bei Extraktion"
   fi
+  # EXTRACT-GATE-FIX: NativePHP-Bug — das Bundle wird nach der ersten Extraktion
+  # NIE wieder entpackt, d.h. jede Blade-/PHP-Änderung ist auf dem Gerät unsichtbar.
+  #
+  # Ursache: der Gate vergleicht ZWEI QUELLEN, die um genau 1 auseinanderlaufen.
+  #   embeddedId := bundle_meta.json          → N
+  #   currentId  := extrahierte .env          → N+1
+  # `native:package` erhöht NATIVEPHP_APP_VERSION_CODE in .env VOR dem Zippen, also
+  # trägt die gebundelte .env immer meta+1. Nach der Extraktion von Build N steht in
+  # laravel/.env N+1 — und Build N+1 liefert embeddedId N+1. Beide gleich →
+  # isUpToDate=true → shouldExtract=false. Da der Build immer um 1 zählt, greift das
+  # bei JEDEM Folge-Build. (Produktion merkt es nicht: dort ändert sich der
+  # Versions-STRING mit, also unterscheiden sich die Ids trotzdem.)
+  #
+  # Fix: nur noch EINE Quelle. `.version` (wird ohnehin geschrieben, aber nie gelesen)
+  # trägt künftig die embeddedId, und der Gate vergleicht dagegen.
+  if ! grep -q 'EXTRACT-GATE-FIX' "$f"; then
+    # Der äußere if/else-Block endet auf einem `}` mit GENAU 8 Spaces Einrückung —
+    # daran wird verankert. Ein non-greedy `.*?} else {` träfe sonst das innere.
+    perl -0777 -i -pe '
+      s{
+        ^\ {8}val\ currentId\ =\ if\ \(laravelDir\.exists\(\)\)\ \{\n
+        .*?
+        ^\ {8}\}\n
+      }{        val currentId = File(laravelDir, VERSION_FILE).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } // EXTRACT-GATE-FIX: gegen .version (embeddedId) statt gegen die .env (die trägt meta+1)\n}smx;
+      s{
+        val\ installedId\ =\ buildVersionId\(getVersionFromEnvFile\(envFile\),\ getVersionCodeFromEnvFile\(envFile\)\)
+      }{val installedId = embeddedId // EXTRACT-GATE-FIX: dieselbe Quelle wie der Vergleich}x;
+    ' "$f"
+    grep -q 'EXTRACT-GATE-FIX: gegen .version' "$f" && grep -q 'EXTRACT-GATE-FIX: dieselbe Quelle' "$f" \
+      || { echo "FEHLER: Extract-Gate-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    echo "    [+] Extract-Gate-Fix (Bundle wird bei jedem version_code-Bump neu entpackt)"
+  fi
 }
 
 patch_iconbg() {  # $1 = Pfad zu ic_launcher_background.xml

@@ -1,0 +1,25 @@
+{
+    "name": "einundzwanzig/push",
+    "description": "Background chat notifications for the TWENTY ONE Companion app (relay polling, NIP-42 auth via NIP-55/NIP-46/NIP-01)",
+    "type": "nativephp-plugin",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "nativephp/mobile": "^3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Einundzwanzig\\Push\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Einundzwanzig\\Push\\PushServiceProvider"
+            ]
+        },
+        "nativephp": {
+            "manifest": "nativephp.json"
+        }
+    }
+}

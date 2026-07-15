@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1064dac30d9cf05ac7ebd9a0e806b7c0",
+    "content-hash": "efa3910fc4c676aa469132bfd024c0f0",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -910,7 +910,7 @@
             "dist": {
                 "type": "path",
                 "url": "../flotilla-einundzwanzig/packages/einundzwanzig-group",
-                "reference": "5d46de1c4075d646bf8d6753cbaf93e33cf8e06f"
+                "reference": "c3795db3923baf65c3e2c42d9550b4a205eab2f4"
             },
             "require": {
                 "illuminate/console": "^13.0",
@@ -939,6 +939,42 @@
             "description": "Nostr-Community-Chat (Spaces/Räume/Directory/Login) für EINUNDZWANZIG — als wiederverwendbares Laravel-Package.",
             "transport-options": {
                 "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "einundzwanzig/push",
+            "version": "dev-master",
+            "dist": {
+                "type": "path",
+                "url": "packages/push",
+                "reference": "ab2e3cb5701e291c168bcc59106c4d664a5c8530"
+            },
+            "require": {
+                "nativephp/mobile": "^3.0",
+                "php": "^8.2"
+            },
+            "type": "nativephp-plugin",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Einundzwanzig\\Push\\PushServiceProvider"
+                    ]
+                },
+                "nativephp": {
+                    "manifest": "nativephp.json"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Einundzwanzig\\Push\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Background chat notifications for the TWENTY ONE Companion app (NIP-55 background-signing probe)",
+            "transport-options": {
                 "relative": true
             }
         },
@@ -15751,7 +15787,8 @@
     "stability-flags": {
         "einundzwanzig/amber-signer": 20,
         "einundzwanzig/calendar": 20,
-        "einundzwanzig/group": 20
+        "einundzwanzig/group": 20,
+        "einundzwanzig/push": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

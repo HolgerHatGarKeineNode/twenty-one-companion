@@ -5,6 +5,7 @@ use App\Services\AppPreferences;
 use App\Services\CountryOptions;
 use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
+use Einundzwanzig\Push\Push;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -33,12 +34,21 @@ new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einst
 
     public string $density = AppPreferences::DEFAULT_DENSITY;
 
+    public bool $pushEnabled = false;
+
     public function mount(AppPreferences $preferences): void
     {
         $this->locale = $preferences->locale();
         $this->country = $preferences->country();
         $this->timezone = $preferences->timezone();
         $this->density = $preferences->density();
+        // Bewusst NUR die Einstellung, ohne `notificationPermissionGranted()`:
+        // Der Schalter kann dadurch AN zeigen, obwohl der Nutzer den OS-Dialog
+        // abgelehnt hat (bekannt, siehe plans/PUSH-NOTIFICATIONS.md). Der
+        // naheliegende Fix ist aber schlimmer als der Fehler — Bridge-Aufrufe
+        // während des Seitenaufbaus sind unzuverlässig (§4), und ein falsches
+        // `false` von dort schaltet dem Nutzer Push still ab.
+        $this->pushEnabled = $preferences->pushEnabled();
 
         // Landeplatz nach dem Login-Deep-Link: Rückmeldung als Toast.
         if (session()->pull('portal-connected')) {
@@ -135,6 +145,29 @@ new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einst
         Flux::toast(text: __('Gespeichert.'), variant: 'success');
     }
 
+    /**
+     * Push-Schalter. Beim Einschalten wird zusätzlich die Berechtigung
+     * angefragt — ohne POST_NOTIFICATIONS zeigt der Worker stillschweigend
+     * nichts an.
+     *
+     * Das Ein-/Ausplanen des Workers macht der push-sync-Partial im Layout:
+     * er braucht den Pubkey aus localStorage, den PHP nicht kennt. Beim
+     * AUSschalten stoppt er den Worker, sodass keine Hintergrundaktivität
+     * mehr läuft (Akku).
+     */
+    public function updatedPushEnabled(AppPreferences $preferences): void
+    {
+        $preferences->setPushEnabled($this->pushEnabled);
+
+        if ($this->pushEnabled) {
+            (new Push)->requestNotificationPermission();
+        } else {
+            (new Push)->sync();
+        }
+
+        Flux::toast(text: __('Gespeichert.'), variant: 'success');
+    }
+
     public function openPortal(PortalAuth $portalAuth): void
     {
         $this->openLink($portalAuth->baseUrl());
@@ -211,6 +244,14 @@ new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einst
                 <flux:radio value="comfortable" :label="__('Normal')"/>
                 <flux:radio value="compact" :label="__('Kompakt')"/>
             </flux:radio.group>
+
+            <flux:separator variant="subtle"/>
+
+            <flux:switch
+                wire:model.live="pushEnabled"
+                :label="__('Chat-Benachrichtigungen')"
+                :description="__('Prüft im Hintergrund auf neue Nachrichten. Aus = keine Hintergrundaktivität, das schont den Akku.')"
+            />
         </div>
     </section>
 

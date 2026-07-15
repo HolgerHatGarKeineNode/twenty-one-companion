@@ -204,3 +204,80 @@ it('redirects onboarded users away from the onboarding', function () {
     // Schon onboardet → über die Start-Weiche (/), die client-seitig Chat vs. Meetups wählt.
     $this->get(route('onboarding'))->assertRedirect(route('home'));
 });
+
+it('holt die Benachrichtigungs-Frage bei Bestandsnutzern nach', function () {
+    withoutPortalToken();
+
+    // Bestandsnutzer: onboardet, bevor es den Benachrichtigungs-Schritt gab.
+    resetOnboarding();
+    app(AppPreferences::class)->completeOnboarding('de', '');
+
+    expect(app(AppPreferences::class)->hasAskedNotifications())->toBeFalse();
+
+    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
+
+    // …und landet direkt auf dem Benachrichtigungs-Schritt, nicht bei der Sprachwahl.
+    $this->get(route('onboarding'))
+        ->assertOk()
+        ->assertSee(__('Nichts mehr verpassen'))
+        ->assertDontSee(__('Deine Sprache'));
+});
+
+/**
+ * Der Schritt hat lange Meetup-Erinnerungen versprochen, geliefert werden
+ * Chat-Nachrichten (plans/PUSH-NOTIFICATIONS.md). Und ohne die Signer-Freigabe
+ * beim Login kann der Worker die NIP-42-Auth nicht signieren — dann bleibt es
+ * still, ohne Fehlermeldung. Beides gehört in den Text, bevor der OS-Dialog kommt.
+ *
+ * Hängt an den Übersetzungs-Keys, nicht am Wortlaut: bricht, wenn der Hinweis
+ * verschwindet, nicht wenn jemand ihn umformuliert.
+ */
+it('erklärt beim Push-Schritt die Signer-Freigabe und verspricht keine Meetup-Erinnerungen', function () {
+    resetOnboarding();
+    withoutPortalToken();
+    app(AppPreferences::class)->setOnboardingStep(AppPreferences::STEP_NOTIFICATIONS);
+
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_NOTIFICATIONS)
+        ->assertSee(__('Die App holt sie im Hintergrund vom Relay. Dein Signer (Amber oder Bunker) fragt dich beim Anmelden einmal nach der Erlaubnis dafür — lehnst du sie ab, bleibt es still.'), escape: false)
+        ->assertDontSee('Meetups erinnern');
+});
+
+it('fragt Bestandsnutzer nur einmal und läuft dabei nicht im Kreis', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    resetOnboarding();
+    app(AppPreferences::class)->completeOnboarding('de', '');
+
+    // „Nicht jetzt" beantwortet die Frage ebenfalls — sonst würde die Weiche in
+    // EnsureOnboarded bei jedem Seitenaufruf erneut hierher schicken (Endlos-Loop
+    // mit dem redirect('home') in mount()).
+    Livewire::test('pages::onboarding.index')
+        ->assertSet('step', AppPreferences::STEP_NOTIFICATIONS)
+        ->call('skip')
+        ->assertRedirect(route('home'));
+
+    $preferences = app(AppPreferences::class);
+    expect($preferences->hasAskedNotifications())->toBeTrue()
+        ->and($preferences->pushEnabled())->toBeFalse();
+
+    // Zweiter Aufruf: keine Umleitung mehr.
+    $this->get(route('meetups'))->assertOk();
+});
+
+it('schaltet Push ein und vermerkt die Frage als gestellt', function () {
+    withoutPortalToken();
+    resetOnboarding();
+    app(AppPreferences::class)->completeOnboarding('de', '');
+
+    Livewire::test('pages::onboarding.index')
+        ->call('enableNotifications')
+        ->assertRedirect(route('home'));
+
+    $preferences = app(AppPreferences::class);
+    expect($preferences->hasAskedNotifications())->toBeTrue()
+        ->and($preferences->pushEnabled())->toBeTrue();
+});

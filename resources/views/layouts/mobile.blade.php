@@ -241,5 +241,11 @@
         </div>
 
         @fluxScripts
+
+        {{-- Hintergrund-Worker mit dem Push-Schalter abgleichen (braucht den
+             Pubkey aus localStorage, den nur der Client kennt). Hängt auch im
+             Chat-Layout (group::einundzwanzig) — eingeloggte Nutzer landen per
+             Launch-Weiche dort und sähen dieses Layout sonst nie. --}}
+        @include('partials.push-sync')
     </body>
 </html>

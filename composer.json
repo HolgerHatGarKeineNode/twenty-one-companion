@@ -13,6 +13,7 @@
         "developernauts/nativephp-mobile-locales": "^1.0",
         "einundzwanzig/amber-signer": "@dev",
         "einundzwanzig/calendar": "@dev",
+        "einundzwanzig/push": "@dev",
         "einundzwanzig/group": "dev-master",
         "laravel/chisel": "^0.1.0",
         "laravel/framework": "^13.7",
@@ -148,6 +149,10 @@
         "name": "calendar",
         "type": "path",
         "url": "packages/calendar"
+    },{
+        "name": "push",
+        "type": "path",
+        "url": "packages/push"
     },{
         "name": "einundzwanzig-group",
         "type": "path",

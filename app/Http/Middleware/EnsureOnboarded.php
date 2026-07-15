@@ -23,6 +23,14 @@ class EnsureOnboarded
             return redirect()->route('onboarding');
         }
 
+        // Bestandsnutzer: haben das Onboarding abgeschlossen, BEVOR es den
+        // Benachrichtigungs-Schritt gab — die Frage wird einmalig nachgereicht.
+        // `markNotificationsAsked()` setzt der Schritt selbst, egal wie der
+        // Nutzer entscheidet; danach greift diese Weiche nie wieder.
+        if (! $this->preferences->hasAskedNotifications()) {
+            return redirect()->route('onboarding');
+        }
+
         app()->setLocale($this->preferences->locale());
 
         return $next($request);

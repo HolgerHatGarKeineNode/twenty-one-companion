@@ -63,6 +63,10 @@ final class AppPreferences
 
     private const KEY_ONBOARDING_STEP = 'onboarding_step';
 
+    private const KEY_PUSH_ENABLED = 'push_enabled';
+
+    private const KEY_NOTIFICATIONS_ASKED = 'notifications_asked_at';
+
     /**
      * Pro Request memoisierte Tabelle (als scoped Singleton registriert),
      * damit Middleware und Seiten nicht mehrfach lesen.
@@ -106,6 +110,38 @@ final class AppPreferences
     public function targetAfterPortalAuth(): string
     {
         return $this->isOnboarded() ? 'profile' : 'onboarding';
+    }
+
+    /**
+     * Ob Chat-Benachrichtigungen eingeschaltet sind. Default AUS: Hintergrund-
+     * Polling kostet Akku, das darf nur laufen, wenn es jemand will.
+     */
+    public function pushEnabled(): bool
+    {
+        return $this->get(self::KEY_PUSH_ENABLED) === '1';
+    }
+
+    public function setPushEnabled(bool $enabled): void
+    {
+        $this->set(self::KEY_PUSH_ENABLED, $enabled ? '1' : '0');
+    }
+
+    /**
+     * Ob der Nutzer schon einmal nach Benachrichtigungen gefragt wurde.
+     *
+     * Getrennt von {@see pushEnabled()}, weil „nie gefragt" und „bewusst aus"
+     * verschiedene Dinge sind: Bestandsnutzer haben das Onboarding vor diesem
+     * Schritt abgeschlossen und müssen die Frage nachgereicht bekommen —
+     * wer sie beantwortet hat, darf nie wieder damit behelligt werden.
+     */
+    public function hasAskedNotifications(): bool
+    {
+        return $this->get(self::KEY_NOTIFICATIONS_ASKED) !== null;
+    }
+
+    public function markNotificationsAsked(): void
+    {
+        $this->set(self::KEY_NOTIFICATIONS_ASKED, now()->toIso8601String());
     }
 
     /**

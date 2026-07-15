@@ -75,6 +75,11 @@ use Native\Mobile\Facades\SecureStorage;
 function completeOnboarding(string $locale = 'de', string $country = ''): void
 {
     app(AppPreferences::class)->completeOnboarding($locale, $country);
+    // Wer den aktuellen Pager durchläuft, wurde zwangsläufig nach
+    // Benachrichtigungen gefragt (STEP_NOTIFICATIONS liegt vor finish()).
+    // Ohne das schickt die Nachhol-Weiche in EnsureOnboarded jeden Seiten-
+    // Test ins Onboarding. Den Nachhol-Fall prüft OnboardingTest gezielt.
+    app(AppPreferences::class)->markNotificationsAsked();
     // Tests laufen deterministisch in UTC (= API-Zeiten), damit Datums-/
     // Zeit-Assertions nicht von der Default-Anzeige-Zeitzone (Europe/Berlin)
     // bzw. der Sommerzeit abhängen. Die Zeitzonen-Umrechnung selbst prüft

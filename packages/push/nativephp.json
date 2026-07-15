@@ -1,0 +1,47 @@
+{
+    "namespace": "Push",
+    "bridge_functions": [
+        {
+            "name": "Push.PollNow",
+            "android": "com.einundzwanzig.push.PushFunctions.PollNow",
+            "description": "Schedule one immediate poll instead of waiting for the 15 minute cycle: connect to the group relay, answer its NIP-42 challenge (Amber, bunker or local key) and pull chat events. Diagnostics only; result goes to logcat, tag PushPoll."
+        },
+        {
+            "name": "Push.Sync",
+            "android": "com.einundzwanzig.push.PushFunctions.Sync",
+            "description": "Store the client state (pubkey, relay, rooms, session) in SharedPreferences and enqueue periodic (15 min, WorkManager minimum) background polling. Empty state or no rooms cancels the polling."
+        },
+        {
+            "name": "Push.RequestNotificationPermission",
+            "android": "com.einundzwanzig.push.PushFunctions.RequestNotificationPermission",
+            "description": "Show the Android 13+ POST_NOTIFICATIONS runtime permission dialog. Async — poll Push.NotificationPermissionStatus for the outcome."
+        },
+        {
+            "name": "Push.NotificationPermissionStatus",
+            "android": "com.einundzwanzig.push.PushFunctions.NotificationPermissionStatus",
+            "description": "Whether POST_NOTIFICATIONS is currently granted"
+        }
+    ],
+    "android": {
+        "min_version": 26,
+        "permissions": [
+            "android.permission.POST_NOTIFICATIONS"
+        ],
+        "dependencies": {
+            "implementation": [
+                "androidx.work:work-runtime:2.9.1",
+                "com.squareup.okhttp3:okhttp:4.12.0",
+                "fr.acinq.secp256k1:secp256k1-kmp-jni-android:0.19.0"
+            ]
+        }
+    },
+    "ios": {
+        "min_version": "18.2",
+        "info_plist": {},
+        "dependencies": {
+            "swift_packages": [],
+            "pods": []
+        }
+    },
+    "events": []
+}

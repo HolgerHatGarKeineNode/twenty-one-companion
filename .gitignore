@@ -32,6 +32,9 @@ auth.json
 # Release-Artefakte (scripts/release.sh)
 /dist/
 
+# Lokale Planungsnotizen
+/plans/
+
 # zapstore/nostr signing temp artifacts
 offline_event.json
 offline_err.log
