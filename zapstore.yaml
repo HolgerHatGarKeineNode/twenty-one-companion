@@ -34,7 +34,7 @@ tags:
 
 website: https://portal.einundzwanzig.space
 
-release_notes: ./dist/v1.7.1/zapstore-changelog.md
+release_notes: ./dist/v1.7.2/zapstore-changelog.md
 
 icon: ./public/icon.png
 
