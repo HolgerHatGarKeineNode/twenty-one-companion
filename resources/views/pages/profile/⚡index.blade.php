@@ -10,8 +10,17 @@ use Flux\Flux;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 
-new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einstellungen'])] class extends PortalPage {
+/*
+ * Verschmolzene Einstellungen (P6, Option A): EIN Screen im group-Vollbild-Layout
+ * (welshman verfügbar) statt der Mobile-Shell — so leben Portal-Prefs (Livewire-
+ * Server-State, diese Klasse) UND die Nostr-Sektionen (welshman-Inseln, per
+ * `@include('group::partials.settings.*')`) auf einer Fläche. Theme und Abmelden
+ * erscheinen genau EINMAL (der Portal+Nostr-`logout()` gewinnt). Reihenfolge nach
+ * plans/merged-mobile-settings-ux.md.
+ */
+new #[Layout('group::einundzwanzig')] #[Title('Einstellungen')] class extends PortalPage {
     /**
      * Kuratierte Anzeige-Zeitzonen (DACH zuerst, dann häufige Bitcoin-Regionen).
      * Eine abweichend gespeicherte Zeitzone wird in {@see timezones()} ergänzt.
@@ -193,94 +202,127 @@ new #[Layout('layouts::mobile', ['title' => 'Einstellungen', 'heading' => 'Einst
 };
 ?>
 
-<div class="flex flex-col gap-6">
-    <livewire:portal.connect/>
+<x-group::app-shell>
 
-    {{-- Nostr-Identität, Räume & Relays leben im welshman-Kontext (group.settings,
-         Chat-Layout) — die Mobile-Shell lädt kein welshman. Ein prominenter Shortcut
-         hält den Einstieg an EINEM Ort (§Settings-Hub); der Nostr-Login gatet server-
-         seitig. Kein wire:navigate: group.* wechselt das Vollbild-Chat-Layout. --}}
-    <a href="{{ route('group.settings') }}"
-       class="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-        <span class="flex size-10 items-center justify-center rounded-xl bg-brand-500/10">
-            <flux:icon.key variant="solid" class="size-5 text-brand-500"/>
-        </span>
-        <span class="min-w-0 flex-1">
-            <span class="block font-semibold">{{ __('Nostr-Identität, Räume & Relays') }}</span>
-            <flux:text class="text-sm">{{ __('Schlüssel, Space & Netzwerk verwalten') }}</flux:text>
-        </span>
-        <flux:icon.chevron-right class="size-4 shrink-0 text-zinc-400"/>
-    </a>
+    <x-group::app-header title="{{ __('Einstellungen') }}">
+        <x-slot:subtitle>
+            <flux:text class="text-sm">{{ __('Konto, Space & Darstellung an einem Ort.') }}</flux:text>
+        </x-slot:subtitle>
+    </x-group::app-header>
 
-    <section class="flex flex-col gap-3">
-        <flux:heading size="lg" level="2">{{ __('Einstellungen') }}</flux:heading>
+    {{-- EINE nostrAuth-Insel für die ganze Seite: die Nostr-Partials (account/space)
+         hängen an diesem Scope; die Portal-Prefs sind Livewire-Server-State dieser
+         Komponente. Theme und Abmelden erscheinen genau EINMAL (De-Dup, s. IA §3). --}}
+    <div class="page-enter space-y-8" x-data="nostrAuth">
 
-        <div class="flex flex-col gap-5 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <x-locale-radio-group wire:model.live="locale"/>
+        {{-- 1 · Konto & Verbindungen: Nostr-Identität (welshman) + Portal-Verbindung.
+             Der npub ist die kanonische Identität → oben; das Portal ist der daran
+             gekoppelte Dienst → direkt darunter. --}}
+        @include('group::partials.settings.account')
+        <livewire:portal.connect/>
 
-            <flux:field>
-                <flux:label>{{ __('Region') }}</flux:label>
-                <x-country-select :countries="$this->countries" wire:model.live="country"/>
-                <flux:description>{{ __('Standardfilter für Meetups und Termine.') }}</flux:description>
-            </flux:field>
+        {{-- 2 · Space & Räume (welshman-Insel) --}}
+        @include('group::partials.settings.space')
 
-            <flux:field>
-                <flux:label>{{ __('Zeitzone') }}</flux:label>
-                <flux:select wire:model.live="timezone">
-                    @foreach ($this->timezones as $value => $label)
-                        <flux:select.option :value="$value" wire:key="tz-{{ $value }}">{{ $label }}</flux:select.option>
-                    @endforeach
-                </flux:select>
-                <flux:description>{{ __('Alle Datums- und Uhrzeitangaben werden in dieser Zeitzone angezeigt.') }}</flux:description>
-            </flux:field>
+        {{-- 3 · Region & Sprache (Portal-Server-Prefs, wire:model.live → AppPreferences) --}}
+        <section aria-labelledby="settings-region">
+            <flux:heading id="settings-region" level="2" size="sm" class="mb-2 text-muted">{{ __('Region & Sprache') }}</flux:heading>
+            <div class="surface-card flex flex-col gap-5 p-4">
+                <x-locale-radio-group wire:model.live="locale"/>
 
-            <flux:radio.group x-data x-model="$flux.appearance" :label="__('Darstellung')" variant="segmented">
-                <flux:radio value="dark" :label="__('Dunkel')"/>
-                <flux:radio value="light" :label="__('Hell')"/>
-                <flux:radio value="system" :label="__('System')"/>
-            </flux:radio.group>
+                <flux:field>
+                    <flux:label>{{ __('Region') }}</flux:label>
+                    <x-country-select :countries="$this->countries" wire:model.live="country"/>
+                    <flux:description>{{ __('Standardfilter für Meetups und Termine.') }}</flux:description>
+                </flux:field>
 
-            <flux:radio.group wire:model.live="density" :label="__('Listendichte')" variant="segmented">
-                <flux:radio value="comfortable" :label="__('Normal')"/>
-                <flux:radio value="compact" :label="__('Kompakt')"/>
-            </flux:radio.group>
-
-            <flux:separator variant="subtle"/>
-
-            <flux:switch
-                wire:model.live="pushEnabled"
-                :label="__('Chat-Benachrichtigungen')"
-                :description="__('Prüft im Hintergrund auf neue Nachrichten. Aus = keine Hintergrundaktivität, das schont den Akku.')"
-            />
-        </div>
-    </section>
-
-    <section class="flex flex-col gap-3">
-        <flux:heading size="lg" level="2">{{ __('Über die App') }}</flux:heading>
-
-        <div class="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <div class="flex items-center justify-between gap-3">
-                <flux:text>{{ __('Version') }}</flux:text>
-                <span class="font-semibold">{{ config('nativephp.version') }}</span>
+                <flux:field>
+                    <flux:label>{{ __('Zeitzone') }}</flux:label>
+                    <flux:select wire:model.live="timezone">
+                        @foreach ($this->timezones as $value => $label)
+                            <flux:select.option :value="$value" wire:key="tz-{{ $value }}">{{ $label }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
+                    <flux:description>{{ __('Alle Datums- und Uhrzeitangaben werden in dieser Zeitzone angezeigt.') }}</flux:description>
+                </flux:field>
             </div>
+        </section>
 
-            <flux:separator/>
+        {{-- 4 · Darstellung: Theme (der EINE — De-Dup, icon+text) + Listendichte.
+             Theme bindet den geteilten $flux.appearance-Store (flackerfrei im <head>). --}}
+        <section aria-labelledby="settings-appearance">
+            <flux:heading id="settings-appearance" level="2" size="sm" class="mb-2 text-muted">{{ __('Darstellung') }}</flux:heading>
+            <div class="surface-card flex flex-col gap-5 p-4">
+                <flux:radio.group x-data x-model="$flux.appearance" :label="__('Theme')" variant="segmented">
+                    <flux:radio value="light" icon="sun" :label="__('Hell')"/>
+                    <flux:radio value="system" icon="computer-desktop" :label="__('Automatisch')"/>
+                    <flux:radio value="dark" icon="moon" :label="__('Dunkel')"/>
+                </flux:radio.group>
 
-            <flux:button wire:click="openPortal" size="sm" icon="globe-alt" class="cursor-pointer">
-                {{ __('EINUNDZWANZIG-Portal öffnen') }}
+                <flux:radio.group wire:model.live="density" :label="__('Listendichte')" variant="segmented">
+                    <flux:radio value="comfortable" :label="__('Normal')"/>
+                    <flux:radio value="compact" :label="__('Kompakt')"/>
+                </flux:radio.group>
+            </div>
+        </section>
+
+        {{-- 5 · Benachrichtigungen --}}
+        <section aria-labelledby="settings-push">
+            <flux:heading id="settings-push" level="2" size="sm" class="mb-2 text-muted">{{ __('Benachrichtigungen') }}</flux:heading>
+            <div class="surface-card p-4">
+                <flux:switch
+                    wire:model.live="pushEnabled"
+                    :label="__('Chat-Benachrichtigungen')"
+                    :description="__('Prüft im Hintergrund auf neue Nachrichten. Aus = keine Hintergrundaktivität, das schont den Akku.')"
+                />
+            </div>
+        </section>
+
+        {{-- 6 · Erweitert (progressive disclosure): Relays + Medien, read-only Fachjargon
+             → standardmäßig eingeklappt. Natives <details> = a11y (aria-expanded) ohne JS. --}}
+        <section aria-labelledby="settings-advanced">
+            <flux:heading id="settings-advanced" level="2" size="sm" class="mb-2 text-muted">{{ __('Erweitert') }}</flux:heading>
+            <details class="surface-card group/adv overflow-hidden [&_summary::-webkit-details-marker]:hidden">
+                <summary class="pressable flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 p-4">
+                    <span class="text-sm font-medium">{{ __('Netzwerk, Relays & Medien') }}</span>
+                    <flux:icon.chevron-down class="size-4 shrink-0 text-muted transition-transform group-open/adv:rotate-180" />
+                </summary>
+                <div class="space-y-8 border-t border-zinc-100 p-4 dark:border-zinc-800">
+                    @include('group::partials.settings.relays')
+                    @include('group::partials.settings.blossom')
+                </div>
+            </details>
+        </section>
+
+        {{-- 7 · Über die App --}}
+        <section aria-labelledby="settings-about">
+            <flux:heading id="settings-about" level="2" size="sm" class="mb-2 text-muted">{{ __('Über die App') }}</flux:heading>
+            <div class="surface-card flex flex-col gap-4 p-4">
+                <div class="flex items-center justify-between gap-3">
+                    <flux:text>{{ __('Version') }}</flux:text>
+                    <span class="font-semibold">{{ config('nativephp.version') }}</span>
+                </div>
+
+                <flux:separator/>
+
+                <flux:button wire:click="openPortal" size="sm" icon="globe-alt" class="cursor-pointer">
+                    {{ __('EINUNDZWANZIG-Portal öffnen') }}
+                </flux:button>
+            </div>
+        </section>
+
+        {{-- Abmelden (De-Dup §3.2): der EINE Logout — Portal-Token widerrufen UND lokale
+             Nostr-Sitzung räumen (PortalPage::logout). Destruktiv, ganz unten. Der Nostr-
+             only-Logout (session-Partial) wird bewusst NICHT eingebunden. --}}
+        <section aria-labelledby="settings-session">
+            <flux:heading id="settings-session" level="2" size="sm" class="mb-2 text-muted">{{ __('Sitzung') }}</flux:heading>
+            <flux:button wire:click="logout"
+                         wire:confirm="{{ __('Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.') }}"
+                         variant="danger" icon="arrow-right-start-on-rectangle" class="w-full cursor-pointer justify-center">
+                {{ __('Abmelden') }}
             </flux:button>
-        </div>
-    </section>
+            <flux:text class="mt-1 px-1 text-xs text-muted">{{ __('Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.') }}</flux:text>
+        </section>
 
-    {{-- Abmelden (§5.4/§6.10): der EINE Ort, ganz unten, destruktiv. Portal-Token +
-         lokale Nostr-Sitzung weg; der Schlüssel bleibt im Signer. --}}
-    <section class="flex flex-col gap-3">
-        <flux:heading size="lg" level="2">{{ __('Sitzung') }}</flux:heading>
-
-        <flux:button wire:click="logout"
-                     wire:confirm="{{ __('Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.') }}"
-                     variant="danger" icon="arrow-right-start-on-rectangle" class="cursor-pointer justify-center">
-            {{ __('Abmelden') }}
-        </flux:button>
-    </section>
-</div>
+    </div>
+</x-group::app-shell>

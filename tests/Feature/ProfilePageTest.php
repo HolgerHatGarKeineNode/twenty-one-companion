@@ -86,16 +86,21 @@ it('opens the portal in the in-app browser', function () {
         ->call('openPortal');
 });
 
-it('is the single settings hub: nostr shortcut + one logout (P5 Settings-Merge)', function () {
-    $this->get(route('profile'))
-        ->assertOk()
-        // Nostr-Identität/Räume/Relays leben im welshman-Kontext (group.settings),
-        // erreichbar per Shortcut — EIN Einstieg statt getrennter Settings-Orte.
-        ->assertSee(route('group.settings'), false)
-        ->assertSee(__('Nostr-Identität, Räume & Relays'))
-        // Abmelden an EINEM Ort, mit Bestätigung (§5.4).
-        ->assertSee('wire:click="logout"', false)
-        ->assertSee(__('Abmelden'));
+it('verschmilzt Portal + Nostr auf EINEM Screen: Nostr-Sektionen inline, Theme 1×, Logout 1× (P6)', function () {
+    $html = $this->get(route('profile'))->assertOk()->getContent();
+
+    // Nostr-Sektionen sind INLINE (welshman-Partials im group-Vollbild-Layout) —
+    // KEIN Shortcut mehr zu group.settings, sondern die echten Sektionen direkt hier.
+    expect($html)
+        ->toContain('x-data="nostrAuth"')              // welshman-Insel aktiv
+        ->toContain('id="settings-account"')           // Konto & Identität (account-Partial)
+        ->toContain('x-data="nostrSpaceSettings"');    // Space & Räume (space-Partial)
+
+    // De-Dup (IA §3): Theme erscheint GENAU EINMAL (aus dem Portal-Block entfernt,
+    // lebt nur noch in „Darstellung"); Abmelden GENAU EINMAL (der Portal+Nostr-logout,
+    // NICHT das Nostr-only session-Partial).
+    expect(substr_count($html, 'x-model="$flux.appearance"'))->toBe(1);
+    expect(substr_count($html, 'wire:click="logout"'))->toBe(1);
 });
 
 it('logout läuft fehlerfrei durch den EINEN Teardown (Portal + Client-Nostr-Session)', function () {
