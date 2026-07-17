@@ -98,8 +98,8 @@ new #[Layout('group::einundzwanzig')] #[Title('Einstellungen')] class extends Po
             return;
         }
 
-        // syncBrand persistiert die Region und löst bei echtem Markenwechsel
-        // (z. B. DE→HU, nicht DE→AT) die Vollbild-Zelebrierung aus.
+        // syncBrand persistiert die Region und meldet bei echtem Markenwechsel
+        // (z. B. DE→HU, nicht DE→AT) `brand-changed` fürs Live-Header-Logo.
         $this->syncBrand($this->country);
         Flux::toast(text: __('Gespeichert.'), variant: 'success');
     }

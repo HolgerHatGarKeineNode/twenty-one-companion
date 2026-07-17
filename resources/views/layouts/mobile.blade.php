@@ -38,9 +38,6 @@
             <flux:toast position="top center"/>
         </flux:toast.group>
 
-        {{-- Vollbild-Zelebrierung beim Regionswechsel (Marke wechselt). --}}
-        <x-brand-switch-overlay/>
-
         <div @class(['flex min-h-dvh flex-col', 'density-compact' => $density === 'compact'])>
             @if ($chrome)
                 <header class="pt-safe px-safe sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">

@@ -101,9 +101,8 @@ abstract class PortalPage extends Component
 
     /**
      * Den Länder-Filter mit der App-Region verdrahten: speichert die Wahl als
-     * Region und löst bei einem echten Markenwechsel die Vollbild-Zelebrierung
-     * (`brand-changed`) aus — dieselbe wie im Profil/Onboarding. Das Top-Bar-
-     * Logo (x-brand-wordmark-live) lauscht auf dasselbe Event.
+     * Region und meldet bei einem echten Markenwechsel `brand-changed` — darauf
+     * aktualisiert das Top-Bar-Logo (x-brand-wordmark-live) live.
      */
     protected function syncBrand(string $country): void
     {
