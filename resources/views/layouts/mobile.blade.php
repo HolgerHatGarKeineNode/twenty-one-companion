@@ -41,13 +41,7 @@
         {{-- Vollbild-Zelebrierung beim Regionswechsel (Marke wechselt). --}}
         <x-brand-switch-overlay/>
 
-        <div
-            @class(['flex min-h-dvh flex-col', 'density-compact' => $density === 'compact'])
-            @if ($chrome)
-                x-data="appRefresh"
-                @portal-refreshed.window="refreshing = false"
-            @endif
-        >
+        <div @class(['flex min-h-dvh flex-col', 'density-compact' => $density === 'compact'])>
             @if ($chrome)
                 <header class="pt-safe px-safe sticky top-0 z-20 border-b border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
                     <div class="flex h-14 items-center gap-3 px-4">
@@ -70,19 +64,6 @@
                         @endif
                         <flux:spacer/>
                         {{ $actions ?? '' }}
-                        {{-- Manueller Refresh (Phase A2): löst den globalen portal-refresh-
-                             Event aus (Layout-Chrome liegt ausserhalb der Seiten-Komponente,
-                             wire:click bände hier nicht). Icon dreht, bis portal-refreshed
-                             zurückkommt. --}}
-                        <flux:button
-                            x-on:click="trigger()"
-                            x-bind:disabled="refreshing"
-                            x-bind:class="refreshing && '[&_svg]:animate-spin'"
-                            variant="ghost"
-                            icon="arrow-path"
-                            :aria-label="__('Aktualisieren')"
-                            class="cursor-pointer"
-                        />
                         <flux:modal.trigger name="global-search">
                             <flux:button variant="ghost" icon="magnifying-glass" :aria-label="__('Suche')" class="cursor-pointer"/>
                         </flux:modal.trigger>

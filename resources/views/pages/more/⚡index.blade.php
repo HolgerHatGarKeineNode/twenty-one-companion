@@ -13,9 +13,8 @@ use Livewire\Attributes\Layout;
  * Konfliktauflösung): Konto/Portal lebt genau einmal, hier steht kein zweites
  * Profil. Gast → „Anmelden“-CTA auf den (bis P6) bestehenden Login-View.
  *
- * Erbt PortalPage, damit der globale Header-Refresh (`portal-refresh`) auch hier
- * sauber quittiert wird (sonst dreht der Spinner endlos) und das Portal-Profil
- * des Headers frisch bleibt.
+ * Erbt PortalPage für die geteilten Portal-Actions (openLink, Region/Brand,
+ * retry/dehydrate-Feedback).
  */
 new #[Layout('layouts::mobile', ['title' => 'Mehr', 'heading' => 'Mehr'])] class extends PortalPage
 {

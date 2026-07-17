@@ -42,36 +42,13 @@ window.haptic = function (pattern = 'light') {
  * importierende Modul (leaflet, group/auth-gate) kann im Android-WebView ERST NACH
  * Alpine.start ausgewertet werden (das lokale Bundle startet Alpine, bevor app.js
  * fertig lädt). Dann ist 'alpine:init' bereits durch und ein reiner Event-Listener
- * feuerte NIE → $haptic/appRefresh/authGate blieben unregistriert: „$haptic is not
+ * feuerte NIE → $haptic/authGate blieben unregistriert: „$haptic is not
  * defined", der Banner-„Verstanden"-Button ohne Wirkung, tote Nav-Gates. Darum wird
  * die Registrierung unten defensiv aufgerufen (Alpine schon da → sofort; sonst Event).
  */
 const registerAlpineExtensions = () => {
     // Nutzung im Markup: x-on:click="$haptic('success')"
     window.Alpine?.magic('haptic', () => window.haptic);
-
-    /**
-     * App-Refresh (Phase A2): Header-Refresh-Button. Das Layout-Chrome liegt
-     * ausserhalb der Seiten-Livewire-Komponente, daher löst der Button einen
-     * GLOBALEN Livewire-Event `portal-refresh` aus (die Seite verwirft ihren
-     * Cache und rendert neu); `portal-refreshed` kommt zurück und stoppt den
-     * Spinner (`refreshing` treibt den Header-Icon-Spin).
-     *
-     * Pull-to-Refresh wurde bewusst entfernt — es griff beim normalen Scrollen
-     * zu aggressiv. Aktualisiert wird nur noch per Button.
-     */
-    window.Alpine?.data('appRefresh', () => ({
-        refreshing: false,
-
-        trigger() {
-            if (this.refreshing) {
-                return;
-            }
-            this.refreshing = true;
-            window.haptic('medium');
-            window.Livewire?.dispatch('portal-refresh');
-        },
-    }));
 
     /**
      * Kontextueller Auth-Gate für die Portal-Shell (§4.2). Die geteilte
@@ -192,8 +169,8 @@ const registerAlpineExtensions = () => {
 };
 
 // Läuft Alpine schon (WebView: das Bundle startet es, bevor dieses Modul lädt),
-// direkt registrieren; sonst regulär über 'alpine:init' — dann greift auch die
-// x-data-Registrierung (appRefresh) rechtzeitig vor der Element-Initialisierung.
+// direkt registrieren; sonst regulär über 'alpine:init' — dann greifen $haptic
+// (magic) und der authGate-Store rechtzeitig vor der Element-Initialisierung.
 if (window.Alpine) {
     registerAlpineExtensions();
 } else {
