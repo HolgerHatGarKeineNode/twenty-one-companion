@@ -14,11 +14,20 @@ afterEach(function (): void {
     @unlink($this->manifestPath);
 });
 
-function fakeManifest(string $launchMode): string
+function fakeManifest(string $launchMode, bool $withAmberQueries = false): string
 {
+    $queries = $withAmberQueries
+        ? <<<'XML'
+            <queries>
+                <package android:name="com.greenart7c3.nostrsigner" />
+            </queries>
+
+            XML
+        : '';
+
     return <<<XML
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:label="Einundzwanzig">
+            {$queries}<application android:label="Einundzwanzig">
                 <activity
                     android:name=".ui.MainActivity"
                     android:exported="true"
@@ -40,7 +49,10 @@ it('ersetzt singleTop durch singleTask im Manifest', function (): void {
 });
 
 it('ist idempotent bei bereits gepatchtem Manifest', function (): void {
-    file_put_contents($this->manifestPath, fakeManifest('singleTask'));
+    // isPatched() prüft seit be63d30 (Amber-Signer) beide Patches (singleTask
+    // + Amber-<queries>) — die Fixture muss also ein vollständig gepatchtes
+    // Manifest simulieren, nicht nur den launchMode-Fix.
+    file_put_contents($this->manifestPath, fakeManifest('singleTask', withAmberQueries: true));
 
     $patcher = new AndroidManifestPatcher($this->manifestPath);
 

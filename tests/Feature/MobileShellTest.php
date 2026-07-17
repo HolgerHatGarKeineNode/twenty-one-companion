@@ -7,6 +7,14 @@ use Saloon\Http\Faking\MockResponse;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
+// Diese Suite prüft die Legacy-Shell (5-Tab-Nav + Hamburger-Flyout), also den
+// AUS-Zustand von UNIFIED_SHELL (config/group.php-Default). mobile.blade liest
+// group.unified_shell zur Render-Zeit direkt aus der Config — ohne diesen Pin
+// hängt der Test am ambienten `.env` (z. B. lokal für manuelles E2E-Testen auf
+// UNIFIED_SHELL=true gestellt) und rendert dann fälschlich die verschmolzene
+// 4-Tab-Shell, die UnifiedShellTest abdeckt. Siehe deren Kopfkommentar.
+beforeEach(fn () => config()->set('group.unified_shell', false));
+
 it('serves a launch page that decides chat-vs-meetups client-side', function () {
     // Der Chat-Login lebt auf Mobile nur in localStorage (welshman), daher kann
     // der Server nicht per Redirect entscheiden — die Launch-Seite liest
