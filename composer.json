@@ -141,7 +141,7 @@
     "repositories": [{
         "name": "amber-signer",
         "type": "path",
-        "url": "../flotilla-einundzwanzig/packages/amber-signer",
+        "url": "../einundzwanzig-group/packages/amber-signer",
         "options": {
             "symlink": true
         }
@@ -156,7 +156,7 @@
     },{
         "name": "einundzwanzig-group",
         "type": "path",
-        "url": "../flotilla-einundzwanzig/packages/einundzwanzig-group",
+        "url": "../einundzwanzig-group/packages/einundzwanzig-group",
         "options": {
             "symlink": true
         }

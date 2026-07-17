@@ -7,7 +7,7 @@
         "dev": "vite"
     },
     "dependencies": {
-        "@einundzwanzig/group": "file:../flotilla-einundzwanzig/packages/einundzwanzig-group",
+        "@einundzwanzig/group": "file:../einundzwanzig-group/packages/einundzwanzig-group",
         "@fontsource/inconsolata": "^5.2.8",
         "@tailwindcss/vite": "^4.1.11",
         "@welshman/app": "^0.8.16",
