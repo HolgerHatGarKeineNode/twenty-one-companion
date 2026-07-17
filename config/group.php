@@ -41,12 +41,15 @@ $config = [
     'unified_shell' => $unifiedShell,
 
     /*
-     * Netzwerk & Relays (App-Shell-Verschmelzung §6.4, read-only) im
-     * verschmolzenen group.settings-Screen einblenden. Der Mobile-Host zeigt die
-     * NIP-65-Relayliste (der Web-Client lässt den Key weg → Default false). Reiner
-     * Anzeige-Block; der welshman-Kontext ist im Chat-Layout ohnehin warm.
+     * Settings-Registry (§4.1): geordnete Section-Keys, die der verschmolzene
+     * group.settings-Hub iteriert. Mobile-Satz: MIT 'relays' (Power-User, NIP-65
+     * read-only Netzwerk & Relays, §6.4), OHNE 'wallet' — die Wallet ist ein eigener
+     * Bottom-Nav-Peer-Tab (Chat·Wallet·Meetups·Mehr), kein doppelter Hub-Einstieg.
+     * Ersetzt den früheren `show_relays`-Flag (Sichtbarkeit = „ist der Key gelistet?").
+     *
+     * @var list<string>
      */
-    'show_relays' => true,
+    'settings' => ['account', 'space', 'relays', 'blossom', 'appearance', 'session'],
 
     /*
      * Rücksprung aus dem Vollbild-Chat zurück in die App. Nur im Legacy-Modus:
@@ -72,7 +75,7 @@ $config = [
  */
 if ($unifiedShell) {
     $config['nav'] = [
-        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.space.settings,group.join', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
+        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.join', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
         ['key' => 'wallet', 'route' => 'group.wallet', 'match' => 'group.wallet', 'icon' => 'bolt', 'label' => 'Wallet', 'gate' => 'nostr'],
         ['key' => 'meetups', 'route' => 'meetups', 'match' => 'meetups,meetups.show', 'icon' => 'calendar', 'label' => 'Meetups', 'gate' => 'guest'],
         ['key' => 'more', 'route' => 'more', 'match' => 'more,events,map,courses,courses.show,lecturers.show,mine,mine.places,mine.teaching,profile', 'icon' => 'squares-2x2', 'label' => 'Mehr', 'gate' => 'guest'],
