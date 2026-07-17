@@ -446,5 +446,13 @@
     "Über das Meetup": "About the meetup",
     "Über den Kurs": "About the course",
     "Über den Referenten": "About the lecturer",
-    "Über die App": "About the app"
+    "Über die App": "About the app",
+    "Konto, Space & Darstellung an einem Ort.": "Account, space & appearance in one place.",
+    "Region & Sprache": "Region & language",
+    "Theme": "Theme",
+    "Automatisch": "Automatic",
+    "Benachrichtigungen": "Notifications",
+    "Erweitert": "Advanced",
+    "Netzwerk, Relays & Medien": "Network, relays & media",
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Your key stays in your signer (Amber/Bunker/extension) — only the local session ends."
 }
