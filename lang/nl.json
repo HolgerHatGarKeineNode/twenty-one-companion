@@ -495,5 +495,8 @@
     "Benachrichtigungen": "Meldingen",
     "Erweitert": "Geavanceerd",
     "Netzwerk, Relays & Medien": "Netwerk, relays & media",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Je sleutel blijft in je signer (Amber/Bunker/extensie) — alleen de lokale sessie eindigt."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Je sleutel blijft in je signer (Amber/Bunker/extensie) — alleen de lokale sessie eindigt.",
+    "Sitzung abgelaufen": "Sessie verlopen",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Je portal-sessie is verlopen. Maak opnieuw verbinding om je eigen inhoud te zien.",
+    "Neu verbinden": "Opnieuw verbinden"
 }

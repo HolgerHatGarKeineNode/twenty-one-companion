@@ -102,6 +102,14 @@ final class PortalApi
     /** Mindestens ein Aufruf dieses Renders blieb ohne Daten (kein Netz/Fehler UND keine Stale-Kopie). */
     private bool $missingData = false;
 
+    /**
+     * Mindestens ein Aufruf dieses Renders wurde mit HTTP 401 abgelehnt: der
+     * Portal-Token ist serverseitig ungültig/abgelaufen. BEWUSST getrennt von
+     * {@see $missingData} (Netz-/Serverfehler), damit die Seiten „Sitzung
+     * abgelaufen — neu verbinden“ statt „Portal nicht erreichbar“ zeigen.
+     */
+    private bool $authExpired = false;
+
     public function __construct(
         private readonly PortalConnector $connector,
         private readonly PortalAuth $portalAuth,
@@ -126,6 +134,19 @@ final class PortalApi
         return $this->missingData;
     }
 
+    /**
+     * Wurde dieser Render mindestens einmal mit HTTP 401 abgewiesen (Token
+     * serverseitig ungültig/abgelaufen)? Die Seiten zeigen dann den ehrlichen
+     * „Sitzung abgelaufen“-Zustand mit Reconnect-CTA statt „Portal nicht
+     * erreichbar“. Nur authentifizierte Endpunkte können 401 liefern; der
+     * Token wird dabei NICHT gelöscht (ponytail: kein Überraschungs-Logout,
+     * {@see PortalAuth::profile()}).
+     */
+    public function hasAuthExpired(): bool
+    {
+        return $this->authExpired;
+    }
+
     public function isOffline(): bool
     {
         return ! $this->isOnline();
@@ -143,6 +164,7 @@ final class PortalApi
         $this->online = null;
         $this->servedStale = false;
         $this->missingData = false;
+        $this->authExpired = false;
         $this->generation = null;
     }
 
@@ -641,6 +663,16 @@ final class PortalApi
         // Verbindungsproblem — weder Stale-Kopie noch Fehler-Status.
         if ($response->status() === 404) {
             return null;
+        }
+
+        // 401 = serverseitig ungültiger/abgelaufener Token, KEIN Verbindungs-
+        // problem. Getrennt flaggen, damit die Seiten den ehrlichen „Sitzung
+        // abgelaufen“-Zustand mit Reconnect-CTA zeigen statt „Portal nicht
+        // erreichbar“. Öffentliche Endpunkte können nicht 401en — nur auth-
+        // Endpunkte landen hier. Der Token bleibt erhalten (kein Auto-Logout);
+        // gibt es eine Stale-Kopie, wird sie weiter mit ausgeliefert.
+        if ($response->status() === 401) {
+            $this->authExpired = true;
         }
 
         if ($response->failed()) {

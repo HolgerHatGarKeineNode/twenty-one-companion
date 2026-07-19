@@ -455,5 +455,8 @@
     "Benachrichtigungen": "Notifications",
     "Erweitert": "Advanced",
     "Netzwerk, Relays & Medien": "Network, relays & media",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Your key stays in your signer (Amber/Bunker/extension) — only the local session ends."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Your key stays in your signer (Amber/Bunker/extension) — only the local session ends.",
+    "Sitzung abgelaufen": "Session expired",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Your portal session has expired. Reconnect to see your own content.",
+    "Neu verbinden": "Reconnect"
 }

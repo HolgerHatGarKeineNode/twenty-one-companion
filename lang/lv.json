@@ -495,5 +495,8 @@
     "Benachrichtigungen": "Paziņojumi",
     "Erweitert": "Papildu",
     "Netzwerk, Relays & Medien": "Tīkls, releji un multivide",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Tava atslēga paliek tavā parakstītājā (Amber/Bunker/paplašinājums) — beidzas tikai vietējā sesija."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Tava atslēga paliek tavā parakstītājā (Amber/Bunker/paplašinājums) — beidzas tikai vietējā sesija.",
+    "Sitzung abgelaufen": "Sesija ir beigusies",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Tava portāla sesija ir beigusies. Pievienojies vēlreiz, lai redzētu savu saturu.",
+    "Neu verbinden": "Pievienoties atkārtoti"
 }

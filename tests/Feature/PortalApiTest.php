@@ -417,7 +417,46 @@ it('clears the status flags on resetStatus', function () {
     $api->resetStatus();
 
     expect($api->hasMissingData())->toBeFalse()
-        ->and($api->servedStaleData())->toBeFalse();
+        ->and($api->servedStaleData())->toBeFalse()
+        ->and($api->hasAuthExpired())->toBeFalse();
+});
+
+it('flags an expired session on a 401 without deleting the token', function () {
+    withPortalToken('12|secrettoken');
+    MockClient::global([GetMyMeetupsRequest::class => MockResponse::make(['message' => 'Unauthenticated.'], 401)]);
+
+    $api = portalApi();
+
+    // 401 = ungültiger/abgelaufener Token: getrennt geflaggt, damit die Seiten
+    // „Sitzung abgelaufen“ statt „Portal nicht erreichbar“ zeigen.
+    expect($api->myMeetups())->toBeEmpty()
+        ->and($api->hasAuthExpired())->toBeTrue()
+        // Der Token bleibt erhalten (ponytail: kein Auto-Logout bei 401).
+        ->and(app(PortalAuth::class)->hasToken())->toBeTrue();
+});
+
+it('serves the stale copy on a 401 yet still flags the expired session', function () {
+    withPortalToken('12|secrettoken');
+    Cache::forever('portal_api:v2:my-meetups:stale', [myMeetupFixture()]);
+    MockClient::global([GetMyMeetupsRequest::class => MockResponse::make(['message' => 'Unauthenticated.'], 401)]);
+
+    $api = portalApi();
+
+    expect($api->myMeetups())->toHaveCount(1)
+        ->and($api->servedStaleData())->toBeTrue()
+        ->and($api->hasAuthExpired())->toBeTrue();
+});
+
+it('does not flag an expired session on a plain server error', function () {
+    withoutPortalToken();
+    MockClient::global([GetCoursesRequest::class => MockResponse::make([], 500)]);
+
+    $api = portalApi();
+    $api->courses();
+
+    // Ein 500/Netzfehler bleibt „Portal nicht erreichbar“, kein 401.
+    expect($api->hasMissingData())->toBeTrue()
+        ->and($api->hasAuthExpired())->toBeFalse();
 });
 
 it('maps the lecturer profile with courses and social links', function () {

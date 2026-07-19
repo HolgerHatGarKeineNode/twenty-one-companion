@@ -495,5 +495,8 @@
     "Benachrichtigungen": "Értesítések",
     "Erweitert": "Speciális",
     "Netzwerk, Relays & Medien": "Hálózat, relayek és média",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "A kulcsod az aláíródban marad (Amber/Bunker/bővítmény) — csak a helyi munkamenet ér véget."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "A kulcsod az aláíródban marad (Amber/Bunker/bővítmény) — csak a helyi munkamenet ér véget.",
+    "Sitzung abgelaufen": "A munkamenet lejárt",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "A portál-munkameneted lejárt. Csatlakozz újra, hogy lásd a saját tartalmaidat.",
+    "Neu verbinden": "Újracsatlakozás"
 }

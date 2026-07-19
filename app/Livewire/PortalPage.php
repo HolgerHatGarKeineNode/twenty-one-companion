@@ -62,6 +62,14 @@ abstract class PortalPage extends Component
                 __('Keine Verbindung'),
                 __('Du bist offline. Stelle eine Internetverbindung her und versuche es erneut.'),
             );
+        } elseif ($portalApi->hasAuthExpired()) {
+            // Ehrlicher 401: Token serverseitig ungültig/abgelaufen — KEIN
+            // „Portal nicht erreichbar“. Reconnect führt über den Verbinden-Flow.
+            $this->vibrate();
+            Dialog::alert(
+                __('Sitzung abgelaufen'),
+                __('Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.'),
+            );
         } elseif ($portalApi->hasMissingData()) {
             $this->vibrate();
             Dialog::alert(

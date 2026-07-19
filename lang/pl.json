@@ -495,5 +495,8 @@
     "Benachrichtigungen": "Powiadomienia",
     "Erweitert": "Zaawansowane",
     "Netzwerk, Relays & Medien": "Sieć, przekaźniki i multimedia",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Twój klucz pozostaje w Twoim podpisującym (Amber/Bunker/rozszerzenie) — kończy się tylko sesja lokalna."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Twój klucz pozostaje w Twoim podpisującym (Amber/Bunker/rozszerzenie) — kończy się tylko sesja lokalna.",
+    "Sitzung abgelaufen": "Sesja wygasła",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Twoja sesja portalu wygasła. Połącz się ponownie, aby zobaczyć swoje treści.",
+    "Neu verbinden": "Połącz ponownie"
 }

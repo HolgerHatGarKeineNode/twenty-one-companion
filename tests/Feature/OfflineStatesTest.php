@@ -134,6 +134,39 @@ it('gives native haptic feedback when retrying (Phase 1.3)', function () {
     Livewire::test('pages::meetups.index')->call('retry');
 });
 
+it('shows the session-expired state with a reconnect cta on a 401, not the unreachable error', function () {
+    withPortalToken();
+    withFastConnector();
+    MockClient::global([MockResponse::make(['message' => 'Unauthenticated.'], 401)]);
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->call('load')
+        ->assertSee('Sitzung abgelaufen')
+        ->assertSee('Neu verbinden')
+        // Ein 401 ist KEIN Verbindungsproblem — der Netzfehler-Zustand bleibt aus.
+        ->assertDontSee('Meetups nicht verfügbar');
+});
+
+it('alerts with the expired-session dialog when a retry still returns 401', function () {
+    withPortalToken();
+    withFastConnector();
+    MockClient::global([
+        MockResponse::make(['message' => 'Unauthenticated.'], 401),
+        MockResponse::make(['message' => 'Unauthenticated.'], 401),
+    ]);
+
+    Dialog::shouldReceive('alert')
+        ->once()
+        ->withArgs(fn (string $title, string $message): bool => $title === 'Sitzung abgelaufen');
+
+    Livewire::test('pages::meetups.index')
+        ->set('tab', 'meine')
+        ->call('load')
+        ->assertSee('Neu verbinden')
+        ->call('retry');
+});
+
 it('shows the error state on the events page when loading fails', function () {
     withoutPortalToken();
     withFastConnector();

@@ -495,5 +495,8 @@
     "Benachrichtigungen": "Notificações",
     "Erweitert": "Avançado",
     "Netzwerk, Relays & Medien": "Rede, relays e mídia",
-    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "A tua chave permanece no teu assinante (Amber/Bunker/extensão) — só termina a sessão local."
+    "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "A tua chave permanece no teu assinante (Amber/Bunker/extensão) — só termina a sessão local.",
+    "Sitzung abgelaufen": "Sessão expirada",
+    "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "A tua sessão do portal expirou. Liga-te novamente para veres os teus conteúdos.",
+    "Neu verbinden": "Voltar a ligar"
 }
