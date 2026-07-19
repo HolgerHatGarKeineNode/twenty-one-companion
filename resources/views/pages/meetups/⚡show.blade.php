@@ -43,6 +43,25 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
     }
 
     /**
+     * Der NIP-29-Raum-`h` dieses Meetups, wenn auf dem Space ein privater Raum
+     * existiert, sonst null. `h = "m"+sha256(id)[:12]` (identisch zur Prod-Anlage,
+     * rename-fest). Die Existenz liefert das Portal autoritativ per `has_room`
+     * (der member-only Prod-Relay gibt kind-39000 nur AUTH-gated heraus, deshalb
+     * kein Relay-Read). Ohne id (alte gecachte Antwort) fehlt der Button.
+     */
+    #[Computed]
+    public function roomH(): ?string
+    {
+        $meetup = $this->meetup;
+
+        if ($meetup?->id === null || ! $meetup->has_room) {
+            return null;
+        }
+
+        return 'm'.substr(hash('sha256', (string) $meetup->id), 0, 12);
+    }
+
+    /**
      * Das RSVP der Detailseite bezieht sich auf den nächsten Termin.
      */
     protected function rsvpEventId(): ?int
@@ -247,7 +266,24 @@ new #[Layout('layouts::mobile', ['title' => 'Meetup', 'back' => '/meetups'])] cl
                     <flux:text class="mt-1">{{ $this->meetup->city }} · {{ $this->meetup->country }}</flux:text>
                 </div>
             </div>
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4 flex flex-wrap gap-2">
+                @if ($this->roomH)
+                    {{-- Deep-Link in den privaten NIP-29-Raum-Chat des Meetups.
+                         Harter Full-Load (authGate → location.assign), NICHT
+                         wire:navigate, sonst bootet die welshman-Chat-Insel nicht.
+                         Nicht-Angemeldete fängt derselbe authGate an das Login-Gate;
+                         die Route selbst ist zusätzlich per `nostr.auth` geschützt. --}}
+                    <flux:button
+                        :href="route('group.room', $this->roomH)"
+                        x-on:click="$haptic('light'); $store.authGate.gateTap($event)"
+                        size="sm"
+                        variant="primary"
+                        icon="chat-bubble-left-right"
+                        class="cursor-pointer"
+                    >
+                        {{ __('Zum Raum-Chat') }}
+                    </flux:button>
+                @endif
                 <flux:button wire:click="share" size="sm" icon="share" class="cursor-pointer">
                     {{ __('Teilen') }}
                 </flux:button>

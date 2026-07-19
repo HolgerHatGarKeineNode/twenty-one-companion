@@ -44,6 +44,15 @@ final class MapMeetupData extends Data
         // Default true für ältere (gecachte) Map-Antworten ohne diese Felder.
         public bool $rsvp_enabled = true,
         public bool $attendees_public = true,
+        // Portal-Meetup-ID (nullable). Quelle für den NIP-29-Raum-`h`
+        // (`m`+sha256(id)[:12]). `/api/meetups` liefert das Feld additiv;
+        // ältere (gecachte) Antworten ohne id lassen den Raum-Chat-Button aus.
+        public ?int $id = null,
+        // Existiert für dieses Meetup ein privater NIP-29-Raum auf dem Space?
+        // Autoritativ vom Portal geliefert (kennt den gegateten Satz), da der
+        // member-only Prod-Relay kind-39000 nur AUTH-gated herausgibt. Default
+        // false → alte gecachte Antworten ohne das Feld → kein Raum-Chat-Button.
+        public bool $has_room = false,
     ) {}
 
     public function introHtml(): ?string
