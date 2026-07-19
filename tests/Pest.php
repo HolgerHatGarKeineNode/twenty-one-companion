@@ -145,6 +145,10 @@ function mapMeetupFixture(array $overrides = []): array
         ],
         'intro' => null,
         'logo' => null,
+        // Additiv (Portal liefert seit dem Raum-Chat-Deep-Link auch id/has_room);
+        // Default null/false hält bestehende Tests ohne Raum-Button unverändert.
+        'id' => null,
+        'has_room' => false,
     ], $overrides);
 }
 

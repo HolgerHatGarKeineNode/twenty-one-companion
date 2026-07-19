@@ -319,6 +319,40 @@ it('hides the own-event management section for non-owners', function () {
         ->assertDontSee(__('Bearbeiten'));
 });
 
+it('shows the room-chat deep-link button when the meetup has a private room', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => 7, 'has_room' => true])]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
+        ->assertSee(__('Zum Raum-Chat'))
+        ->assertSee(route('group.room', 'm7902699be42c'));
+});
+
+it('hides the room-chat deep-link button when the meetup has no room', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => 7, 'has_room' => false])]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
+        ->assertDontSee(__('Zum Raum-Chat'));
+});
+
+it('hides the room-chat deep-link button when the meetup has no id even with has_room true', function () {
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => null, 'has_room' => true])]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
+        ->assertDontSee(__('Zum Raum-Chat'));
+});
+
 it('shows a friendly fallback for unknown meetup slugs', function () {
     withoutPortalToken();
     MockClient::global([
