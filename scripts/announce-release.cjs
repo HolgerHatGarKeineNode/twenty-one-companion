@@ -18,7 +18,8 @@
 // are loaded; the fallback is the default relays below.
 //
 // Gates (always run, before signing):
-//   - release text is non-empty and ≤ 1000 characters
+//   - release text is non-empty and ≤ 1500 characters (higher than before: the
+//     new format weaves inline image URLs per feature, which cost ~90 chars each)
 //   - version is a real version (not "DEBUG"/empty)
 // With --go additionally:
 //   - the signer pubkey must match PUBLISHER_NPUB (only announce as the official
@@ -49,15 +50,79 @@ const TOPICS = ['bitcoin', 'nostr', 'einundzwanzig', 'android']
 
 // Fixed layout building blocks (English-only, per the release policy).
 // Functions receive the version; ${...} links come from LINKS.
+const DIV = '━━━━━━━━━━━━━━━━━━'
 const L10N = {
-  header: (v) => `🟧⚡ TWENTY ONE Companion v${v} is out! 🎉`,
-  headerShort: (v) => `🟧🩹 TWENTY ONE Companion v${v} — hotfix`,
-  downloadsIntro: '📥 Get it / update now:',
-  zapstore: `⚡ Zapstore (recommended — Nostr-signed, auto-verified updates):\n   ① Install the Zapstore app ② search "TWENTY ONE" ③ tap install.\n   ${LINKS.zapstore}`,
-  obtainium: `📦 Obtainium (auto-updates straight from GitHub):\n   ① Open this link in Obtainium → "Add app" ② it self-updates on every release.\n   ${LINKS.obtainium}`,
-  github: `🐙 GitHub (manual — APK + signature verification):\n   ① Download the .apk from the latest release ② verify ③ install.\n   ${LINKS.github}`,
-  source: `🛠️ Source code (open source, MIT):\n   ${LINKS.source}`,
+  header: (v) => `⚡ TWENTY ONE Companion · v${v}`,
+  headerShort: (v) => `🩹 TWENTY ONE Companion · v${v} hotfix`,
+  // Download channels are one-liners now — regulars already know the drill, just links.
+  downloadsIntro: '📥 Get it / update:',
+  zapstore: `⚡ Zapstore (recommended) → ${LINKS.zapstore}`,
+  obtainium: `📦 Obtainium (auto-updates) → ${LINKS.obtainium}`,
+  github: `🐙 GitHub (APK + signature) → ${LINKS.github}`,
+  source: `🛠️ Source, MIT → ${LINKS.source}`,
 }
+// Renders the composed note as a standalone HTML file that mimics how a Nostr
+// client displays it: bare image URLs become inline images, links stay clickable,
+// hashtags get the accent colour. The design lives HERE (authored once) and is
+// reused for every release — the content is injected from the composed note, so
+// no per-release design work is needed. Written to dist/v<ver>/announce-preview.html
+// on every preview run; open it in a browser to eyeball the post before --go.
+function buildPreviewHtml(content, version) {
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const IMG_RE = /^https?:\/\/\S+\.(?:webp|png|jpe?g|gif)(?:\?\S*)?$/i
+  const linkify = (s) => s.replace(/(https?:\/\/[^\s<]+)/g, (u) => '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>')
+  const tagify = (s) => s.replace(/(^|\s)(#[\p{L}\p{N}_]+)/gu, (_m, pre, tag) => pre + '<span class="tag">' + tag + '</span>')
+  const body = content.split('\n').map((raw) => {
+    const t = raw.trim()
+    if (t === '') { return '<div class="sp"></div>' }
+    if (IMG_RE.test(t)) { return '<a class="shot" href="' + t + '" target="_blank" rel="noopener"><img src="' + t + '" alt="feature screenshot" loading="lazy"></a>' }
+    if (/^[·•━—\-\s]+$/.test(t)) { return '<div class="ln div">' + esc(t) + '</div>' }
+    return '<div class="ln">' + tagify(linkify(esc(raw))) + '</div>'
+  }).join('\n')
+  const npub = PUBLISHER_NPUB.slice(0, 12) + '…' + PUBLISHER_NPUB.slice(-6)
+  return [
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1">',
+    '<title>Nostr preview · TWENTY ONE Companion v' + esc(version) + '</title>',
+    '<style>',
+    ':root{--bg:#0e1013;--card:#181b21;--border:#292d36;--text:#e8eaee;--muted:#8a91a1;--accent:#f7931a;--chip:rgba(247,147,26,.13)}',
+    '@media (prefers-color-scheme:light){:root{--bg:#eceef2;--card:#fff;--border:#e0e3e9;--text:#191c20;--muted:#616877;--accent:#c9760a;--chip:rgba(201,118,10,.10)}}',
+    '*{box-sizing:border-box}',
+    'body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;padding:32px 16px}',
+    '.wrap{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:12px}',
+    '.caption{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}',
+    '.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 18px 20px}',
+    '.head{display:flex;align-items:center;gap:12px;margin-bottom:14px}',
+    '.avatar{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#fff;flex:none}',
+    '.who{min-width:0}',
+    '.name{font-weight:700;font-size:15px;display:flex;align-items:center;gap:6px}',
+    '.badge{color:var(--accent);font-size:12px}',
+    '.handle{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.body{font-size:15.5px;word-wrap:break-word}',
+    '.ln{white-space:pre-wrap}',
+    '.ln.div{color:var(--muted);letter-spacing:.15em}',
+    '.sp{height:.72em}',
+    '.body a{color:var(--accent);text-decoration:none;word-break:break-all}',
+    '.body a:hover{text-decoration:underline}',
+    '.tag{color:var(--accent);font-weight:600}',
+    '.shot{display:block;margin:10px 0 4px}',
+    '.shot img{display:block;width:100%;max-width:300px;max-height:600px;object-fit:contain;border:1px solid var(--border);border-radius:14px;background:#000}',
+    '.legend{font-size:12px;color:var(--muted);text-align:center;padding:0 8px}',
+    '</style></head><body>',
+    '<div class="wrap">',
+    '<div class="caption">Nostr preview · how this note posts · v' + esc(version) + '</div>',
+    '<article class="card">',
+    '<header class="head"><img class="avatar" src="../../public/icon.png" alt="">',
+    '<div class="who"><div class="name">EINUNDZWANZIG <span class="badge">✔</span></div>',
+    '<div class="handle">' + esc(npub) + ' · now · via TWENTY ONE Companion</div></div></header>',
+    '<div class="body">',
+    body,
+    '</div></article>',
+    '<div class="legend">Screenshots load live from blossom.einundzwanzig.space — exactly the files that post to Nostr.</div>',
+    '</div></body></html>',
+  ].join('\n')
+}
+
 // Default broadcast relays in case the publisher has no kind 10002.
 const DEFAULT_RELAYS = [
   'wss://relay.damus.io', 'wss://nos.lol', 'wss://nostr.einundzwanzig.space',
@@ -109,8 +174,8 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     process.exit(1)
   }
   const text = fs.readFileSync(textPath, 'utf8').trim()
-  if (!text || text.length > 1000) {
-    console.error('GATE FAIL (text): ' + JSON.stringify({ empty: !text, len: text.length, max: 1000 }))
+  if (!text || text.length > 1500) {
+    console.error('GATE FAIL (text): ' + JSON.stringify({ empty: !text, len: text.length, max: 1500 }))
     process.exit(1)
   }
 
@@ -118,14 +183,12 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
   const t = L10N
   const header = SHORT ? t.headerShort(version) : t.header(version)
   const downloads = [
+    DIV,
     t.downloadsIntro,
     '',
     t.zapstore,
-    '',
     t.obtainium,
-    '',
     t.github,
-    '',
     t.source,
   ].join('\n')
   const hashtags = TOPICS.map(topic => '#' + topic).join(' ')
@@ -157,6 +220,9 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     console.log('\n──────── content preview ────────\n')
     console.log(content)
     console.log('\n─────────────────────────────────')
+    const htmlRel = path.join('dist', 'v' + version, 'announce-preview.html')
+    fs.writeFileSync(path.join(ROOT, htmlRel), buildPreviewHtml(content, version))
+    console.log('🖼  HTML preview → ' + htmlRel + '  (open in a browser to eyeball the post)')
     process.exit(0)
   }
 
