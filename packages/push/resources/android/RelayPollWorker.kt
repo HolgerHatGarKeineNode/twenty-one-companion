@@ -73,6 +73,23 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
         /** Cursor je Relay: bis hierhin wurde bereits benachrichtigt. */
         private const val CURSOR_PREFIX = "push.cursor."
 
+        /**
+         * `limit` je Raum-Filter. Klein, weil die Obergrenze jetzt N × dieser Wert
+         * ist (ein Filter pro beigetretenem Raum). Mehr als ein paar Nachrichten
+         * pro Raum und Lauf braucht niemand — wer 20 verpasst hat, öffnet den Chat.
+         */
+        private const val PER_ROOM_LIMIT = 5
+
+        /**
+         * Harte Obergrenze der Notifications PRO LAUF. Ohne sie könnte ein
+         * Nachrichtenschwall N × PER_ROOM_LIMIT Einzel-Notifications erzeugen und
+         * die Leiste unbrauchbar machen. Was darüber liegt, wird unterdrückt und
+         * nur gezählt (Log) — der Cursor wandert trotzdem darüber, die Nachrichten
+         * stehen also beim nächsten Öffnen im Chat. Eine Sammelmeldung („und N
+         * weitere") wäre der nächste Schritt, ist hier bewusst NICHT gebaut.
+         */
+        private const val MAX_NOTIFICATIONS = 5
+
         private const val KIND_RELAY_AUTH = 22242
         private const val KIND_NIP46_RPC = 24133
         private const val KIND_GROUP_CHAT = 9
@@ -279,6 +296,12 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
         var lastCursor = 0L
             private set
 
+        /** Tatsächlich gepostete Notifications dieses Laufs (gegen MAX_NOTIFICATIONS). */
+        private var posted = 0
+
+        /** Wegen des Deckels unterdrückte Meldungen — nur fürs Log. */
+        private var suppressed = 0
+
         override fun onOpen(webSocket: WebSocket, response: Response) {
             Log.i(TAG, "RELAY: socket open")
             sendReq(webSocket)
@@ -341,6 +364,18 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
                             return
                         }
 
+                        // Deckel: bei einem Schwall lieber wenige Meldungen als eine
+                        // unbrauchbare Leiste. Der Cursor wandert trotzdem weiter (oben
+                        // schon geschehen) — die Nachrichten sind nicht verloren, sie
+                        // stehen beim nächsten Öffnen im Chat.
+                        if (posted >= MAX_NOTIFICATIONS) {
+                            suppressed++
+                            Log.i(TAG, "RELAY: Deckel erreicht — $suppressed unterdrückt")
+
+                            return
+                        }
+                        posted++
+
                         postNotification(event)
                     }
 
@@ -389,19 +424,43 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
             // ponytail: `since + 1` ist exklusiv — Nachrichten in derselben
             // Sekunde wie die zuletzt gemeldete fallen unter den Tisch. Upgrade:
             // persistente seen-Menge wie Flotillas Dedup, falls das je auffällt.
+            //
+            // EIN Filter PRO RAUM statt einem gemeinsamen — sonst verliert der
+            // Poller stillschweigend Nachrichten: `limit` gilt beim Relay für die
+            // GESAMTE Query (nicht je `#h`-Wert), und die Antwort ist nach
+            // `created_at DESC` sortiert. Füllte ein geschwätziger Raum die 20
+            // Plätze, fielen die Nachrichten aller stilleren Räume heraus — und
+            // weil der Cursor danach auf das globale Maximum wandert, wurden sie
+            // auch beim nächsten Lauf nie nachgeholt. Kein Log, keine Spur.
+            //
+            // Kosten: N Filter im SELBEN REQ, also derselbe Socket, dieselbe eine
+            // NIP-42-AUTH (die gilt pro Verbindung, nicht pro Filter) und ein
+            // EOSE. Kein zusätzlicher Amber-Roundtrip, nur ein paar hundert Byte
+            // mehr im Frame.
+            //
+            // `PER_ROOM_LIMIT` klein halten: das Limit gilt jetzt je Filter, die
+            // Obergrenze ist also N × PER_ROOM_LIMIT. Der Nutzer will ohnehin
+            // wissen DASS etwas da ist, nicht jede einzelne Nachricht sehen —
+            // `MAX_NOTIFICATIONS` deckelt zusätzlich, was tatsächlich aufpoppt.
             val req = JSONArray().apply {
                 put("REQ")
                 put(subId)
-                put(JSONObject().apply {
-                    put("kinds", JSONArray().apply { put(KIND_GROUP_CHAT) })
-                    put("#h", rooms)
-                    if (since > 0) {
-                        put("since", since + 1)
+                for (i in 0 until rooms.length()) {
+                    val room = rooms.optString(i)
+                    if (room.isEmpty()) {
+                        continue
                     }
-                    put("limit", 20)
-                })
+                    put(JSONObject().apply {
+                        put("kinds", JSONArray().apply { put(KIND_GROUP_CHAT) })
+                        put("#h", JSONArray().apply { put(room) })
+                        if (since > 0) {
+                            put("since", since + 1)
+                        }
+                        put("limit", PER_ROOM_LIMIT)
+                    })
+                }
             }
-            Log.i(TAG, "RELAY: REQ ${req.optJSONObject(2)}")
+            Log.i(TAG, "RELAY: REQ ${rooms.length()} Filter, seit $since")
             webSocket.send(req.toString())
         }
 
