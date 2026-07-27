@@ -97,6 +97,39 @@
                     whenPostsWork(sync);
                 }, 1000);
             });
+
+            /*
+                Beim Verlassen der App erneut abgleichen — sonst meldet der
+                Hintergrund-Lauf, was der Nutzer gerade gelesen hat.
+
+                `activeSince` ist der Boden des Laufs (`since = max(cursor,
+                activeSince)`) und wird NATIV beim Sync gestempelt
+                (PushFunctions). Gestempelt wurde bisher nur beim Seitenaufbau;
+                das LESEN stempelt nichts — der Lesestand lebt in der IndexedDB
+                des WebViews, die der Worker nicht erreicht. Zwischen letztem
+                Aufbau und dem Verlassen klafft damit ein Fenster, in dem jede
+                eintreffende und im Vordergrund gelesene Nachricht erneut als
+                Benachrichtigung kommt, obwohl das Ungelesen-Badge auf 0 steht.
+
+                Am Gerät gemessen (v1.8.0, 2026-07-27): `REQ 13 Filter, seit
+                1785168479` (18:07:59 = letzter Aufbau) bei einem Lesestand von
+                18:08:39 — 40 s Fenster, das mit jeder Minute Lesezeit ohne
+                Navigation wächst.
+
+                Frischer als „beim Verlassen" geht nicht: der Worker bricht ab,
+                solange die App vorne ist (RelayPollWorker), läuft also nur,
+                wenn dieses WebView schon tot ist.
+
+                `visibilitychange` statt `pagehide`: Android feuert es
+                zuverlässig beim Wechsel in den Hintergrund (Home, Task-Switch,
+                Bildschirm aus). Die Route ist idempotent, ein zusätzlicher
+                Aufruf kostet nichts.
+            */
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'hidden') {
+                    whenPostsWork(sync);
+                }
+            });
         })();
     </script>
 @endonce

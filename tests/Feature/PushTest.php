@@ -85,3 +85,24 @@ describe('push/sync', function () {
         $this->postJson(route('push.sync'), $state)->assertOk();
     });
 });
+
+/**
+ * Regressionsanker für den Geister-Push.
+ *
+ * `activeSince` ist der Boden des Hintergrund-Laufs und wird nativ BEIM SYNC
+ * gestempelt — das Lesen stempelt nichts, weil der Lesestand in der IndexedDB
+ * des WebViews liegt, die der Kotlin-Worker nicht erreicht. Ohne einen Sync
+ * beim Verlassen der App bleibt der Boden auf dem letzten Seitenaufbau stehen,
+ * und alles, was danach eintrifft und im Vordergrund gelesen wird, kommt
+ * trotzdem als Benachrichtigung — bei Ungelesen-Badge 0.
+ *
+ * Am Gerät gemessen (v1.8.0, 2026-07-27): `REQ 13 Filter, seit 1785168479`
+ * (18:07:59) bei Lesestand 18:08:39.
+ */
+it('gleicht beim Wechsel in den Hintergrund erneut ab', function () {
+    $html = view('partials.push-sync')->render();
+
+    expect($html)
+        ->toContain("addEventListener('visibilitychange'")
+        ->toContain("visibilityState === 'hidden'");
+});
