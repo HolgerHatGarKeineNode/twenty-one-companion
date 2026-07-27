@@ -105,6 +105,23 @@ Route::post('push/sync', function (Request $request, AppPreferences $preferences
     return response()->json(['scheduled' => $push->sync($state)]);
 })->name('push.sync');
 
+// Räumt die Chat-Benachrichtigungen, wenn die App in den Vordergrund kommt.
+//
+// Der Poll-Worker postet, hat aber keinen Gegenweg: eine gemeldete Nachricht
+// blieb in der Leiste stehen, auch nachdem der Nutzer sie gelesen hatte —
+// Ungelesen-Badge 0, Leiste behauptet weiter „neu". Seit v1.8.0 widerspricht
+// dem ein sichtbarer Zähler, vorher fiel es nur niemandem auf.
+//
+// Kein Zustand im Body, daher POST ohne Validierung — die Route liest nichts
+// und schreibt nichts, sie räumt nur die eigene Statusleiste. CSRF-Ausnahme wie
+// bei push.sync (bootstrap/app.php): der Aufrufer ist dasselbe nackte Script.
+//
+// NICHT an den Push-Schalter gekoppelt: wer ihn gerade ausgeschaltet hat, soll
+// die zuletzt gemeldeten Nachrichten trotzdem loswerden.
+Route::post('push/seen', function (Push $push) {
+    return response()->json(['cleared' => $push->clearNotifications()]);
+})->name('push.seen');
+
 Route::livewire('onboarding', 'pages::onboarding.index')->name('onboarding');
 
 Route::middleware(EnsureOnboarded::class)->group(function () {

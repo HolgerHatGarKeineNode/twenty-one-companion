@@ -125,11 +125,34 @@
                 Bildschirm aus). Die Route ist idempotent, ein zusätzlicher
                 Aufruf kostet nichts.
             */
+            /*
+                Beim Zurückkommen die Chat-Meldungen aus der Statusleiste
+                räumen. Der Worker postet, hatte aber keinen Gegenweg — eine
+                gemeldete Nachricht blieb stehen, auch nachdem sie gelesen war.
+                Grob geräumt wird der ganze Chat-Channel, nicht der einzelne
+                Raum: raumgenau ginge nur mit einem Hook im Package-JS.
+            */
+            var seen = function () {
+                fetch(@js(url('push/seen')), {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: '{}',
+                }).catch(function () { /* kein natives Runtime (Web/Tests) → egal */ });
+            };
+
             document.addEventListener('visibilitychange', function () {
                 if (document.visibilityState === 'hidden') {
                     whenPostsWork(sync);
+
+                    return;
                 }
+
+                whenPostsWork(seen);
             });
+
+            // Beim ersten Aufbau ist visibilitychange noch nicht gefeuert — wer
+            // die App über eine Benachrichtigung öffnet, landet direkt hier.
+            whenPostsWork(seen);
         })();
     </script>
 @endonce

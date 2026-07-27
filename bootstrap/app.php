@@ -17,7 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // schon eine Livewire-Variante mit 419 (plans/PUSH-NOTIFICATIONS.md §4).
         // Ungefährlich: die Route liest keine Session, sondern schiebt einen vom
         // Client mitgebrachten Zustand ins Gerät zurück.
-        $middleware->preventRequestForgery(except: ['push/sync']);
+        $middleware->preventRequestForgery(except: ['push/sync', 'push/seen']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

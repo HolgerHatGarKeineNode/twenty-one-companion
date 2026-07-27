@@ -1,6 +1,7 @@
 package com.einundzwanzig.push
 
 import android.Manifest
+import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Handler
@@ -184,5 +185,59 @@ object PushFunctions {
                         PackageManager.PERMISSION_GRANTED
                     ),
             )
+    }
+
+    /**
+     * Räumt die Chat-Benachrichtigungen aus der Statusleiste.
+     *
+     * [RelayPollWorker] postet mit `notify(id)` und hat keinen Gegenweg — eine
+     * einmal gemeldete Nachricht blieb stehen, auch nachdem der Nutzer sie in
+     * der App gelesen hatte. Das Ungelesen-Badge stand dann auf 0, während die
+     * Leiste weiter „neue Nachricht" behauptete.
+     *
+     * Gefiltert wird über die Channel-ID statt über gemerkte IDs: der Worker
+     * vergibt `event.id.hashCode()` und persistiert das nirgends, eine Liste
+     * offener IDs gäbe es also gar nicht. `activeNotifications` ist die
+     * Wahrheitsquelle, die Android ohnehin führt.
+     *
+     * Bewusst grob: geräumt wird der GANZE Chat-Channel, nicht der einzelne
+     * Raum. Raumgenau ginge nur mit einem Hook im Package-JS (bridge.ts
+     * markRead) — das ist ein eigener Schnitt über eine Repo-Grenze. Wer die
+     * App öffnet, sieht die Räume samt Zählern; die Meldungen haben ihren
+     * Zweck dann erfüllt.
+     */
+    class ClearNotifications(private val context: Context) : BridgeFunction {
+        override fun execute(parameters: Map<String, Any>): Map<String, Any> {
+            val manager = context.getSystemService(NotificationManager::class.java)
+                ?: return mapOf("cleared" to 0)
+
+            var cleared = 0
+
+            // activeNotifications kann werfen, wenn der Prozess gerade stirbt —
+            // das darf den Vordergrund-Wechsel nicht mitreißen.
+            try {
+                for (active in manager.activeNotifications) {
+                    if (active.notification?.channelId != CHAT_CHANNEL_ID) {
+                        continue
+                    }
+
+                    manager.cancel(active.tag, active.id)
+                    cleared++
+                }
+            } catch (t: Throwable) {
+                Log.w("PushPoll", "CLEAR: activeNotifications nicht lesbar: ${t.message}")
+
+                return mapOf("cleared" to cleared)
+            }
+
+            Log.i("PushPoll", "CLEAR: $cleared Benachrichtigung(en) geräumt")
+
+            return mapOf("cleared" to cleared)
+        }
+
+        private companion object {
+            /** Muss zu RelayPollWorker.CHANNEL_ID passen. */
+            const val CHAT_CHANNEL_ID = "einundzwanzig_chat"
+        }
     }
 }

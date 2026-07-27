@@ -20,6 +20,11 @@
             "name": "Push.NotificationPermissionStatus",
             "android": "com.einundzwanzig.push.PushFunctions.NotificationPermissionStatus",
             "description": "Whether POST_NOTIFICATIONS is currently granted"
+        },
+        {
+            "name": "Push.ClearNotifications",
+            "android": "com.einundzwanzig.push.PushFunctions.ClearNotifications",
+            "description": "Dismiss all chat notifications of the einundzwanzig_chat channel from the status bar. Called when the app returns to the foreground, so messages the user has just read stop claiming to be new. Returns the number cleared."
         }
     ],
     "android": {

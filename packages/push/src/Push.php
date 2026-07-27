@@ -58,6 +58,22 @@ class Push
     }
 
     /**
+     * Räumt die Chat-Benachrichtigungen aus der Statusleiste und gibt zurück,
+     * wie viele es waren.
+     *
+     * Gegenstück zum Posten im RelayPollWorker, das bisher fehlte: eine
+     * gemeldete Nachricht blieb stehen, auch nachdem der Nutzer sie gelesen
+     * hatte — Ungelesen-Badge 0, Leiste behauptet „neu". Gerufen wird das beim
+     * Wechsel in den Vordergrund.
+     *
+     * Ohne Gerät (Web/Tests) sind es 0 — die Bridge liefert dann nichts.
+     */
+    public function clearNotifications(): int
+    {
+        return (int) ($this->call('Push.ClearNotifications')['cleared'] ?? 0);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function call(string $method, array $params = []): array

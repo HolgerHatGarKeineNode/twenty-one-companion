@@ -106,3 +106,38 @@ it('gleicht beim Wechsel in den Hintergrund erneut ab', function () {
         ->toContain("addEventListener('visibilitychange'")
         ->toContain("visibilityState === 'hidden'");
 });
+
+/**
+ * Gegenstück zum Posten: der Worker meldet, hatte aber keinen Weg zurück.
+ * Eine gemeldete Nachricht blieb in der Leiste stehen, auch nachdem der Nutzer
+ * sie gelesen hatte — Ungelesen-Badge 0, Leiste behauptet weiter „neu".
+ */
+it('raeumt Benachrichtigungen ohne Geraet sauber mit 0 statt zu werfen', function () {
+    expect((new Push)->clearNotifications())->toBe(0);
+});
+
+it('nimmt push/seen ohne CSRF-Token an', function () {
+    // Läuft aus demselben nackten Script wie push/sync und hat kein Token.
+    $this->post(route('push.seen'))
+        ->assertOk()
+        ->assertJson(['cleared' => 0]);
+});
+
+it('raeumt auch bei ausgeschaltetem Push-Schalter', function () {
+    // Wer den Schalter gerade aus hat, soll die zuletzt gemeldeten Nachrichten
+    // trotzdem loswerden — die Route ist bewusst nicht ans Gate gekoppelt.
+    app(AppPreferences::class)->setPushEnabled(false);
+
+    $this->post(route('push.seen'))->assertOk();
+});
+
+it('meldet beim Zurueckkommen in den Vordergrund', function () {
+    // Nicht auf die URL prüfen: `@js()` escapt die Slashes (`push\/seen`).
+    // Getestet wird der Mechanismus — Räum-Aufruf im visible-Zweig und beim
+    // ersten Aufbau, für den Fall, dass die App über eine Meldung geöffnet wird.
+    $html = view('partials.push-sync')->render();
+
+    expect($html)
+        ->toContain('var seen = function ()')
+        ->toContain('whenPostsWork(seen)');
+});
