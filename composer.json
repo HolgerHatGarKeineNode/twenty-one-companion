@@ -9,19 +9,19 @@
     ],
     "license": "MIT",
     "require": {
-        "php": "^8.3",
+        "php": "^8.4",
         "developernauts/nativephp-mobile-locales": "^1.0",
         "einundzwanzig/amber-signer": "@dev",
         "einundzwanzig/calendar": "@dev",
-        "einundzwanzig/push": "@dev",
         "einundzwanzig/group": "dev-master",
+        "einundzwanzig/push": "@dev",
         "laravel/chisel": "^0.1.0",
         "laravel/framework": "^13.7",
         "laravel/tinker": "^3.0",
         "livewire/blaze": "^1.0",
         "livewire/flux": "^2.13.1",
         "livewire/flux-pro": "^2.14",
-        "livewire/livewire": "^4.1",
+        "livewire/livewire": "^4.1,!=4.3.4",
         "nativephp/mobile": "~3.3.6",
         "nativephp/mobile-browser": "^1.0",
         "nativephp/mobile-camera": "^1.0",
@@ -44,10 +44,10 @@
         "laravel/sail": "^1.53",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
-        "pestphp/pest": "^4.7",
-        "pestphp/pest-plugin-browser": "^4.3",
-        "pestphp/pest-plugin-drift": "^4.1",
-        "pestphp/pest-plugin-laravel": "^4.1"
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-browser": "^5.0",
+        "pestphp/pest-plugin-drift": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0"
     },
     "autoload": {
         "psr-4": {

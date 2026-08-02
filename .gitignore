@@ -33,7 +33,7 @@ auth.json
 /dist/
 
 # Lokale Planungsnotizen
-/plans/
+plans/
 
 # zapstore/nostr signing temp artifacts
 offline_event.json
