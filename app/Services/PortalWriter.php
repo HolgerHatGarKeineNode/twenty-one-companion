@@ -159,7 +159,16 @@ final class PortalWriter
         $result = $this->send(new UpdateUserProfileRequest($payload));
 
         if ($result->successful() && $result->data !== []) {
-            $this->portalAuth->cacheProfile($result->data);
+            $profile = $this->profileFrom($result->data);
+
+            // Fail-closed: passt die Antwort nicht auf ein Profil-Objekt
+            // (JSON-Liste oder gemischte Keys statt der zugesagten Shape),
+            // wird NICHT gecacht. Ein veralteter Cache heilt beim nächsten
+            // Lesezugriff; ein vergifteter stünde bis zu PROFILE_CACHE_TTL_DAYS
+            // lang unbemerkt app-weit im Profil.
+            if ($profile !== null) {
+                $this->portalAuth->cacheProfile($profile);
+            }
         }
 
         return $result;
@@ -353,5 +362,31 @@ final class PortalWriter
         $message = $response->json('message');
 
         return is_string($message) ? $message : null;
+    }
+
+    /**
+     * Engt WriteResult::$data (bewusst weit als array<int|string, mixed>
+     * typisiert, weil dort jeder geparste Response-Body landet) auf ein
+     * Profil-Objekt ein. Der Portal-Contract für PATCH /api/user verspricht
+     * ein JSON-Objekt mit String-Keys — geprüft statt angenommen, damit eine
+     * strukturell unerwartete Antwort (JSON-Liste, gemischte Keys) nicht
+     * ungeprüft im Profil-Cache landet.
+     *
+     * @param  array<int|string, mixed>  $data
+     * @return array<string, mixed>|null
+     */
+    private function profileFrom(array $data): ?array
+    {
+        $profile = [];
+
+        foreach ($data as $key => $value) {
+            if (! is_string($key)) {
+                return null;
+            }
+
+            $profile[$key] = $value;
+        }
+
+        return $profile;
     }
 }

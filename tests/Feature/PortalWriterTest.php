@@ -4,6 +4,7 @@ use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
+use App\Http\Integrations\Portal\Requests\UpdateUserProfileRequest;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use App\Services\PortalWriter;
@@ -143,6 +144,30 @@ it('refuses to send a write without a portal token', function () {
     expect($result->status)->toBe(WriteStatus::Unauthorized);
 
     MockClient::global()->assertNothingSent();
+});
+
+it('caches the fresh profile after a successful profile update', function () {
+    withPortalToken();
+    MockClient::global([UpdateUserProfileRequest::class => MockResponse::make(userProfileFixture(['name' => 'Hal Finney']))]);
+
+    $result = portalWriter()->updateUserProfile(['name' => 'Hal Finney']);
+
+    expect($result->successful())->toBeTrue()
+        ->and(Cache::get(PortalAuth::PROFILE_CACHE_KEY))->toBe(userProfileFixture(['name' => 'Hal Finney']));
+});
+
+it('does not overwrite the profile cache when the portal answers with a JSON list instead of a profile object', function () {
+    withPortalToken();
+    withCachedPortalProfile(['name' => 'Satoshi']);
+    // Strukturell kein Profil, obwohl der Request erfolgreich war (2xx):
+    // eine JSON-Liste statt eines Objekts. Der Guard muss das Cachen
+    // verweigern, statt die Liste unter dem Profil-Key abzulegen.
+    MockClient::global([UpdateUserProfileRequest::class => MockResponse::make(['unexpected', 'list', 'shape'])]);
+
+    $result = portalWriter()->updateUserProfile(['name' => 'Hal Finney']);
+
+    expect($result->successful())->toBeTrue()
+        ->and(Cache::get(PortalAuth::PROFILE_CACHE_KEY))->toBe(userProfileFixture(['name' => 'Satoshi']));
 });
 
 it('builds the correct request for each write entity', function (string $entity, string $endpointFragment) {
