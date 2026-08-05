@@ -12,6 +12,17 @@
 # Nutzung (aus dem Mobile-App-Repo):
 #   scripts/run-browser.sh                  # alle Smoke-Routen
 #   scripts/run-browser.sh --filter=meetups # Argumente gehen an pest
+#
+# Offen (2026-08-06): Dieses Skript ist der EINZIGE Einstieg — anders als die
+# Integration-Suite (`composer test:integration`) hat der Browser-Pfad kein
+# eigenes composer-Script. Wer nur composer.json liest, findet ihn nicht.
+# Ein `test:browser` zu ergänzen wäre der naheliegende Schritt.
+#
+# Ebenfalls offen: Die Chromium-Anbindung baut hier auf `npx playwright
+# install`. Ein Nachbau über PLAYWRIGHT_BROWSERS_PATH-Symlinks auf ein
+# Host-Chromium schlug am 2026-08-06 in einer Prüfung mit
+# PlaywrightOutdatedException fehl (Revisions-Mismatch). Wer den Pfad braucht:
+# dieses Skript nehmen, nicht selbst verdrahten.
 set -euo pipefail
 
 # Chromium für Playwright sicherstellen (idempotent, schneller No-op wenn da).
