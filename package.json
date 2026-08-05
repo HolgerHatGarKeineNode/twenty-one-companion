@@ -30,6 +30,10 @@
         "tailwindcss": "^4.0.7",
         "vite": "^8.0.0"
     },
+    "_overrides_comment": "shell-quote: concurrently@9.2.3 pinnt exakt 1.8.4 (kein Range), das ist GHSA-395f-4hp3-45gv (quadratischer DoS in parse()). Der Override hebt es auf den gefixten Minor. Entfernen, sobald concurrently auf ^10 gehoben wird — dort ist 1.9.0 bereits die Direktabhaengigkeit.",
+    "overrides": {
+        "shell-quote": "1.9.0"
+    },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
