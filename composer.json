@@ -96,8 +96,7 @@
         ],
         "test:integration": [
             "Composer\\Config::disableProcessTimeout",
-            "@php artisan config:clear --ansi",
-            "@php vendor/bin/pest -c phpunit.integration.xml"
+            "php artisan config:clear --ansi && php vendor/bin/pest -c phpunit.integration.xml"
         ],
         "test:browser": [
             "Composer\\Config::disableProcessTimeout",

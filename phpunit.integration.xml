@@ -14,6 +14,38 @@
 
     Abweichende Portal-URL (Shell-Env hat Vorrang, da hier kein force):
         PORTAL_URL="http://127.0.0.1:9000" vendor/bin/pest -c phpunit.integration.xml
+
+    Einzelnen Test herausgreifen (Trenner, dann Filter-Option):
+        composer test:integration [trenner] [filter]="creates a venue"
+
+    Zum composer-Script (Stand 2026-08-06): Es besteht bewusst aus nur EINEM
+    Shell-Kommando, das config:clear und pest per Und-Verkettung zusammenfasst.
+    Composer haengt zusaetzliche CLI-Argumente an JEDES Kommando eines
+    Script-Arrays an. Stuenden config:clear und pest als getrennte Eintraege
+    da, bekaeme auch `artisan config:clear` die Filter-Option und der Lauf
+    braeche ab ("The filter option does not exist"). Durch die Verkettung
+    landen die Argumente am Ende der Zeile, also hinter pest. Gleiches Muster
+    wie `test:browser`, siehe scripts/run-browser.sh.
+
+    Randnotiz zu diesem Kommentarblock: XML-Kommentare duerfen keine zwei
+    aufeinanderfolgenden Bindestriche enthalten. Deshalb stehen CLI-Schalter
+    hier ohne ihr uebliches Praefix. Wer hier ergaenzt, achte darauf, sonst
+    ist die Datei fuer PHPUnit unlesbar.
+
+    Nicht parallelisieren. Der tragende Grund ist der Zustand, nicht die
+    Technik: die Schreibtests legen denselben Datensatz im Portal idempotent
+    an und aktualisieren ihn. Parallele Worker waeren ein Race gegen externen,
+    geteilten Zustand — anders als die Haupt-Suite, deren Worker je eine
+    isolierte :memory:-DB bekommen. Daran aendert keine Paratest-Option etwas.
+
+    Nachrangig, und nur fuer den Default-Modus: tests/Integration enthaelt eine
+    einzige Testdatei, und Paratest verteilt per Default auf Dateiebene — dort
+    gaebe es also ohnehin nichts zu verteilen. Das gilt NICHT kategorisch:
+    Paratest kennt einen funktionalen Modus, der auf Methodenebene shardet
+    (Options.php, SuiteLoader.php), und Pest reicht das Flag ungefiltert durch
+    (Plugins/Parallel.php). Mit 14 Testmethoden waere im funktionalen Modus
+    sehr wohl etwas zu verteilen — es bleibt trotzdem beim Nein, wegen des
+    Race-Arguments oben.
 -->
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
