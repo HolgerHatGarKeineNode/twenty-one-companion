@@ -99,6 +99,10 @@
             "@php artisan config:clear --ansi",
             "@php vendor/bin/pest -c phpunit.integration.xml"
         ],
+        "test:browser": [
+            "Composer\\Config::disableProcessTimeout",
+            "bash scripts/run-browser.sh"
+        ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php artisan config:clear --ansi",

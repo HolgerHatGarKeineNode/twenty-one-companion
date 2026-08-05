@@ -9,21 +9,30 @@
 #   - Node + die Dev-Dependency `playwright` (yarn install)
 #   - Der Chromium-Build (wird bei Bedarf unten installiert)
 #
-# Nutzung (aus dem Mobile-App-Repo):
-#   scripts/run-browser.sh                  # alle Smoke-Routen
-#   scripts/run-browser.sh --filter=meetups # Argumente gehen an pest
+# Nutzung:
+#   composer test:browser                          # alle Smoke-Routen
+#   composer test:browser -- --filter=meetups      # Argumente gehen an pest
+#   scripts/run-browser.sh --filter=meetups        # direkt, gleichwertig
 #
-# Offen (2026-08-06): Dieses Skript ist der EINZIGE Einstieg — anders als die
-# Integration-Suite (`composer test:integration`) hat der Browser-Pfad kein
-# eigenes composer-Script. Wer nur composer.json liest, findet ihn nicht.
-# Ein `test:browser` zu ergänzen wäre der naheliegende Schritt.
+# Das composer-Script ruft ausschliesslich dieses Skript auf — bewusst als
+# EINZIGES Kommando im Array. Composer haengt zusaetzliche Argumente
+# (`composer test:browser -- --filter=x`) an JEDES Kommando des Arrays an,
+# nicht nur an das erste. Stuende neben dem `bash`-Aufruf noch ein zweites
+# Kommando, das den Schalter nicht kennt — etwa `artisan config:clear` —,
+# braeche der Lauf ab, und zwar unabhaengig von der Reihenfolge. (Am
+# 2026-08-06 genau so passiert; die Positionsabhaengigkeit war eine
+# Fehldiagnose, per Positionstausch-Probe mit composer 2.10.2 widerlegt.)
+# Deshalb macht dieses Skript den config:clear selbst.
 #
-# Ebenfalls offen: Die Chromium-Anbindung baut hier auf `npx playwright
-# install`. Ein Nachbau über PLAYWRIGHT_BROWSERS_PATH-Symlinks auf ein
-# Host-Chromium schlug am 2026-08-06 in einer Prüfung mit
-# PlaywrightOutdatedException fehl (Revisions-Mismatch). Wer den Pfad braucht:
-# dieses Skript nehmen, nicht selbst verdrahten.
+# Zur Chromium-Anbindung: `npx playwright install` unten ist der einzige
+# unterstuetzte Weg. Ein Nachbau ueber PLAYWRIGHT_BROWSERS_PATH-Symlinks auf
+# ein Host-Chromium schlug am 2026-08-06 mit PlaywrightOutdatedException fehl
+# (Revisions-Mismatch). Nicht selbst verdrahten.
 set -euo pipefail
+
+# Analog zu den uebrigen Test-Scripts in composer.json: ein gecachter Config-
+# Stand wuerde die Testumgebung verfaelschen.
+php artisan config:clear --ansi
 
 # Chromium für Playwright sicherstellen (idempotent, schneller No-op wenn da).
 if ! npx playwright install chromium >/dev/null 2>&1; then
