@@ -12,14 +12,44 @@ parameters:
 
     level: 7
 
-    # Das Editor-Feedback-Concern wird ausschließlich von den Livewire-SFC-
-    # Editoren (anonyme Klassen in resources/views/livewire/*.blade.php) per
-    # `use` eingebunden. PHPStan analysiert Traits nur im Kontext nutzender
-    # Klassen innerhalb der Analyse-Pfade; die SFC-Consumer werden erst zur
-    # Laufzeit nach storage/ kompiliert und sind statisch nicht erfassbar →
-    # sonst „trait.unused"-False-Positive. Verhalten ist über die Editor-
-    # Feature-Tests (MeetupEditorTest, VenueEditorTest, …) abgesichert.
+    # Default-PHP-Memory-Limit (128M) reicht fuer diesen Codebase-Umfang
+    # nicht - `phpstan analyse` ohne Anhebung scheitert immer mit "Allowed
+    # memory size ... exhausted", unabhaengig von jeder Codeaenderung. Damit
+    # war `composer run types:check` (ruft `phpstan analyse` ohne Flags auf)
+    # in dieser Umgebung dauerhaft rot.
+    #
+    # `parameters: memoryLimit:` existiert NICHT als PHPStan-Konfigurations-
+    # schluessel (empirisch verifiziert: "Invalid configuration: Unexpected
+    # item 'parameters › memoryLimit'."). `memoryLimit` ist ausschliesslich
+    # eine CLI-Option (`--memory-limit`). Der von PHPStan dafuer vorgesehene
+    # Weg ohne CLI-Flag ist ein Bootstrap-File, siehe phpstan-bootstrap.php.
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+
+    # Diese Concerns werden ausschließlich von den Livewire-SFC-Seiten und
+    # -Editoren (anonyme Klassen in resources/views/**/*.blade.php) per `use`
+    # eingebunden. PHPStan analysiert Traits nur im Kontext nutzender Klassen
+    # innerhalb der Analyse-Pfade; die SFC-Consumer werden erst zur Laufzeit
+    # nach storage/ kompiliert und sind statisch nicht erfassbar → sonst
+    # „trait.unused"-False-Positive. Verhalten ist über die Feature-Tests
+    # abgesichert (MeetupEditorTest, VenueEditorTest, MeetupsPageTest,
+    # EventsPageTest, CoursesPageTest, MeetupLeaderManagerTest, …).
+    #
+    # Die unteren drei kamen am 2026-08-06 dazu — derselbe Fall, nur bis dahin
+    # nicht eingetragen. Vor der Aufnahme je Trait per Grep verifiziert, dass
+    # es echte `use`-Stellen gibt und kein toter Code stillgelegt wird:
+    #   HandlesNativeConfirm    → pages/meetups/⚡index, livewire/meetup-leaders
+    #   InteractsWithCalendar   → pages/meetups/⚡show, pages/events/⚡index,
+    #                             pages/courses/⚡show
+    #   InteractsWithEventRsvp  → pages/meetups/⚡show, pages/events/⚡index
+    #
+    # Wer hier etwas ergänzt, führt denselben Grep zuerst: ein Trait ohne
+    # Nutzungsstelle gehört gelöscht, nicht ausgeschlossen — sonst versteckt
+    # dieser Block echten toten Code hinter einer False-Positive-Begründung.
     excludePaths:
         analyse:
             - app/Livewire/Concerns/HandlesPortalWriteFeedback.php
             - app/Livewire/Concerns/HandlesImageUpload.php
+            - app/Livewire/Concerns/HandlesNativeConfirm.php
+            - app/Livewire/Concerns/InteractsWithCalendar.php
+            - app/Livewire/Concerns/InteractsWithEventRsvp.php

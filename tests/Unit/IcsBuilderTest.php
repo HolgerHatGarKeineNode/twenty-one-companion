@@ -88,6 +88,23 @@ it('normalises CRLF and bare CR to an escaped newline without leaving a raw carr
         ->and(preg_match('/\r(?!\n)/', $out))->toBe(0);
 });
 
+it('generates a random 32-char hex UID per event, unique across calls', function () {
+    $out1 = ics()->event(title: 'X', start: CarbonImmutable::parse('2026-07-15 17:00', 'UTC'));
+    $out2 = ics()->event(title: 'X', start: CarbonImmutable::parse('2026-07-15 17:00', 'UTC'));
+
+    preg_match('/^UID:(.+?)\r?$/m', $out1, $match1);
+    preg_match('/^UID:(.+?)\r?$/m', $out2, $match2);
+
+    [$hex1, $suffix1] = explode('@', $match1[1]);
+    [$hex2, $suffix2] = explode('@', $match2[1]);
+
+    expect($suffix1)->toBe('einundzwanzig')
+        ->and($hex1)->toHaveLength(32)->toBeHexadecimal()
+        ->and($suffix2)->toBe('einundzwanzig')
+        ->and($hex2)->toHaveLength(32)->toBeHexadecimal()
+        ->and($hex1)->not->toBe($hex2);
+});
+
 it('omits location and description when empty or null', function () {
     $out = ics()->event(
         title: 'X',
