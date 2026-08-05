@@ -19,7 +19,6 @@
         "@welshman/store": "^0.8.16",
         "@welshman/util": "^0.8.16",
         "axios": "^1.17.0",
-        "concurrently": "^9.0.1",
         "cropperjs": "^1.6.2",
         "laravel-vite-plugin": "^3.1",
         "leaflet": "^1.9.4",
@@ -30,16 +29,13 @@
         "tailwindcss": "^4.0.7",
         "vite": "^8.0.0"
     },
-    "_overrides_comment": "shell-quote: concurrently@9.2.3 pinnt exakt 1.8.4 (kein Range), das ist GHSA-395f-4hp3-45gv (quadratischer DoS in parse()). Der Override hebt es auf den gefixten Minor. Entfernen, sobald concurrently auf ^10 gehoben wird — dort ist 1.9.0 bereits die Direktabhaengigkeit.",
-    "overrides": {
-        "shell-quote": "1.9.0"
-    },
     "optionalDependencies": {
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1"
     },
     "devDependencies": {
+        "concurrently": "^10.0.4",
         "playwright": "^1.60.0"
     }
 }
