@@ -42,6 +42,31 @@ pest()->extend(TestCase::class)
 
 /*
 |--------------------------------------------------------------------------
+| Test Impact Analysis (TIA)
+|--------------------------------------------------------------------------
+|
+| Bewusst NICHT ->locally() — das würde TIA bei jedem lokalen Lauf (auch
+| `composer test`/`php artisan test`) automatisch aktivieren, ohne dass der
+| Vorspann `-d pcov.directory=<projektwurzel>` aus `composer.json:test:tia`
+| dabei wäre. Pests eigener PcovRestarter versucht diesen Vorspann selbst
+| nachzuziehen (Pest\Restarters\PcovRestarter), verliert die `-d`-Flags beim
+| Selbst-Restart aber nachweislich (empirisch reproduziert, 2026-08-05:
+| ini_get('pcov.directory') bleibt im neu gestarteten Kind-Prozess leer,
+| obwohl der Restart-Befehl das Flag korrekt enthält — vermutlich ein Bug in
+| PcovRestarter::restart(), nicht in dieser Konfiguration). Ohne den Vorspann
+| zeichnet TIA nur `app/`, `storage/`, `resources/` auf (185 statt 250
+| Dateien) und würde `packages/push`, `packages/calendar`, `config/`,
+| `routes/` unbemerkt aus dem Graphen lassen — ein stiller Fail-Open bei
+| jedem normalen Testlauf. Aktivierung deshalb ausschließlich explizit über
+| `composer run test:tia` (setzt den Vorspann korrekt) oder manuell mit
+| `php -d pcov.enabled=1 -d pcov.directory=$(pwd) vendor/bin/pest --tia`.
+|
+*/
+
+pest()->tia()->filtered();
+
+/*
+|--------------------------------------------------------------------------
 | Expectations
 |--------------------------------------------------------------------------
 |

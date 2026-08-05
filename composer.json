@@ -98,6 +98,16 @@
             "@php artisan config:clear --ansi",
             "@php vendor/bin/pest -c phpunit.integration.xml"
         ],
+        "test:coverage": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --ansi",
+            "@php -d pcov.enabled=1 vendor/bin/pest --coverage --compact"
+        ],
+        "test:tia": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan config:clear --ansi",
+            "php -d pcov.enabled=1 -d pcov.directory=\"$(pwd)\" vendor/bin/pest --tia --compact"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi",
