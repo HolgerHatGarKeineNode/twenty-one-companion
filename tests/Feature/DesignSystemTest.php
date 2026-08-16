@@ -51,3 +51,17 @@ it('renders the empty state with the icon tile and a call to action slot', funct
         ->and($html)->toContain('Leer')
         ->and($html)->toContain('Anlegen');
 });
+
+it('renders the language picker without a native select so it keeps the dark theme', function () {
+    // Ein natives <select> lässt die Android-WebView als System-Dialog
+    // aufklappen, der sein Theme aus dem App-Context zieht — in der dunklen
+    // App eine weiße Liste. Die Listbox-Variante ist reines HTML.
+    $html = Blade::render('<x-locale-radio-group/>');
+
+    expect($html)->not->toContain('<select')
+        ->and($html)->toContain('<ui-select');
+
+    foreach (['Deutsch', 'English', 'Español', 'Magyar', 'Latviešu', 'Nederlands', 'Polski', 'Português'] as $language) {
+        expect($html)->toContain($language);
+    }
+});
