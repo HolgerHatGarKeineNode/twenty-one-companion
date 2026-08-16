@@ -7,6 +7,11 @@ meetups, events, courses, lecturers and places of the Bitcoin community — righ
 - 🗺️ Map of all meetups (OpenStreetMap)
 - 🎓 Courses & lecturers
 - 💬 Group chat on Nostr (NIP-29) with Lightning zaps (NIP-57)
+- 🗂️ Workspaces: a second space next to the community relay, with its own channels
+- 📰 Read the community's longform articles right in the app
+- ✍️ Create and manage your own meetups, events, courses, lecturers and places
+- 🎫 Join the association in-app: statutes, application and the BTCPay checkout for the
+  annual fee — after paying, activation arrives on its own
 - 🔔 Chat notifications **without Goolag**: your phone checks the relay itself in the
   background — no Play Services, no second app, no push server in between. Off by default.
 - 👛 Built-in wallet: connect Alby or any NWC wallet, send & receive sats
