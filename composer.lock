@@ -910,7 +910,7 @@
             "dist": {
                 "type": "path",
                 "url": "../einundzwanzig-group/packages/einundzwanzig-group",
-                "reference": "70410a9faa1b26fb1228f7418e01bc8deac58f62"
+                "reference": "3547fc349e27fc92f4af93784b5ff78f5a1f2b69"
             },
             "require": {
                 "illuminate/console": "^13.0",
