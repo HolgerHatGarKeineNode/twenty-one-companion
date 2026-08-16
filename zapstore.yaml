@@ -47,8 +47,9 @@ images:
   - ./assets/screenshots/06-spaces.webp
   - ./assets/screenshots/07-chat.webp
   - ./assets/screenshots/08-meetups.webp
-  - ./assets/screenshots/09-events.webp
-  - ./assets/screenshots/10-map.webp
-  - ./assets/screenshots/11-articles.webp
-  - ./assets/screenshots/12-search.webp
-  - ./assets/screenshots/13-wallet.webp
+  - ./assets/screenshots/09-meetup.webp
+  - ./assets/screenshots/10-events.webp
+  - ./assets/screenshots/11-map.webp
+  - ./assets/screenshots/12-articles.webp
+  - ./assets/screenshots/13-search.webp
+  - ./assets/screenshots/14-wallet.webp
