@@ -18,6 +18,9 @@
 // are loaded; the fallback is the default relays below.
 //
 // Gates (always run, before signing):
+//   - NOT already announced: the relays are asked whether a kind-1 of the publisher
+//     already carries this version. In preview a hint, with --go the abort. Override
+//     with --again (only when you knowingly want a second note, e.g. a fixed text).
 //   - release text is non-empty and ≤ 1500 characters (higher than before: the
 //     new format weaves inline image URLs per feature, which cost ~90 chars each)
 //   - version is a real version (not "DEBUG"/empty)
@@ -133,6 +136,31 @@ const BOOTSTRAP = [
   'wss://relay.nostr.band', 'wss://purplepag.es',
 ]
 
+// Already announced? Reads the publisher's own kind-1 notes off the relays and looks
+// for one that already carries this version.
+//
+// Warum das eine eigene Vorrichtung braucht: der Lauf ist NICHT idempotent. Wer --go
+// zweimal absetzt — weil die erste Ausgabe im Rohr hängen blieb, weil der Bunker beim
+// ersten Versuch nicht kam, oder schlicht aus Gewohnheit — schickt zwei identische
+// Notizen los. Am 2026-08-16 ist das zweimal passiert: v1.9.0 bekam zwei Events
+// (14:50:16 + 14:50:38), v1.9.1 ebenfalls (20:10:16 + 20:10:51), inhaltlich Byte für
+// Byte gleich. Ein kind-1 lässt sich nicht zurückholen, nur per NIP-09 zum Löschen
+// bitten — der Gate davor ist deshalb billiger als jede Nachsorge.
+async function findExistingAnnouncement(pool, pubkey, version) {
+  const rx = new RegExp('v' + version.replace(/\./g, '\\.') + '(\\D|$)')
+  let evs = []
+  try {
+    evs = await pool.querySync(BOOTSTRAP, { kinds: [1], authors: [pubkey], limit: 60 }, { maxWait: 8000 })
+  } catch (e) {
+    // Netz weg? Dann NICHT stillschweigend durchwinken — der Aufrufer entscheidet.
+    return { error: String(e && e.message || e) }
+  }
+  const hit = evs
+    .filter(e => rx.test(String(e.content || '').slice(0, 200)))
+    .sort((a, b) => a.created_at - b.created_at)
+  return { found: hit.map(e => ({ id: e.id, created_at: e.created_at })) }
+}
+
 function loadEnv() {
   const p = path.join(ROOT, '.env'); const out = {}
   if (!fs.existsSync(p)) return out
@@ -153,6 +181,7 @@ const args = process.argv.slice(2)
 const get = (flag) => { const i = args.indexOf(flag); return i >= 0 ? args[i + 1] : undefined }
 const GO = args.includes('--go')
 const SHORT = args.includes('--short')
+const AGAIN = args.includes('--again')
 let version = get('--version')
 
 const env = loadEnv()
@@ -210,11 +239,34 @@ const textFile = get('--text-file') || path.join('dist', 'v' + version, 'announc
     ...mentionPubkeys.map(pk => ['p', pk]),
   ]
 
+  // 3b) Doppel-Gate: liegt für diese Version schon eine Ankündigung auf den Relays?
+  //     Läuft in BEIDEN Betriebsarten und braucht keinen Signer — die Autorenschaft
+  //     steht als PUBLISHER_NPUB fest. In der Vorschau ist es ein Hinweis, bei --go
+  //     der Abbruch; `--again` hebt ihn bewusst auf (Text nachgebessert o. Ä.).
+  const gatePool = new SimplePool()
+  const already = await findExistingAnnouncement(gatePool, nip19.decode(PUBLISHER_NPUB).data, version)
+  gatePool.close(BOOTSTRAP)
+  if (already.error) {
+    console.error('⚠ Duplikat-Prüfung nicht möglich (' + already.error + ') — Relays nicht erreichbar.')
+    if (GO && !AGAIN) {
+      console.error('GATE FAIL: ohne diese Prüfung wird nicht gesendet. Netz prüfen oder --again setzen.')
+      process.exit(1)
+    }
+  } else if (already.found.length) {
+    const list = already.found.map(e => e.id.slice(0, 16) + '… (' + new Date(e.created_at * 1000).toISOString().slice(0, 16).replace('T', ' ') + ')')
+    console.error('⚠ v' + version + ' ist bereits angekündigt: ' + list.join(', '))
+    if (GO && !AGAIN) {
+      console.error('GATE FAIL: nichts gesendet. Eine zweite identische Notiz lässt sich nicht zurückholen.')
+      console.error('  → Wirklich noch einmal senden (z. B. korrigierter Text): --again')
+      process.exit(1)
+    }
+  }
+
   // 4) Preview (no signing) — built-in dry run.
   if (!GO) {
     console.log(JSON.stringify({
       ok: true, stage: 'preview', version,
-      gates: { textLen: text.length, contentLen: content.length },
+      gates: { textLen: text.length, contentLen: content.length, alreadyAnnounced: (already.found || []).length },
       kind: 1, tags,
     }, null, 2))
     console.log('\n──────── content preview ────────\n')
