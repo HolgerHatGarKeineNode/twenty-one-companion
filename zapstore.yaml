@@ -43,8 +43,12 @@ images:
   - ./assets/screenshots/02-language.webp
   - ./assets/screenshots/03-welcome.webp
   - ./assets/screenshots/04-region.webp
-  - ./assets/screenshots/05-meetups.webp
-  - ./assets/screenshots/06-map.webp
-  - ./assets/screenshots/07-events.webp
-  - ./assets/screenshots/08-chat.webp
-  - ./assets/screenshots/09-wallet.webp
+  - ./assets/screenshots/05-notifications.webp
+  - ./assets/screenshots/06-spaces.webp
+  - ./assets/screenshots/07-chat.webp
+  - ./assets/screenshots/08-meetups.webp
+  - ./assets/screenshots/09-events.webp
+  - ./assets/screenshots/10-map.webp
+  - ./assets/screenshots/11-articles.webp
+  - ./assets/screenshots/12-search.webp
+  - ./assets/screenshots/13-wallet.webp
