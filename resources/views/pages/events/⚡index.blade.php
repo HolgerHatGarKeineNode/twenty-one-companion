@@ -232,7 +232,9 @@ new #[Layout('layouts::mobile', ['title' => 'Termine', 'heading' => 'Termine'])]
         {{-- Erster Render: Skeleton statt des ~0,6s-Portal-Fetches im kritischen Pfad. --}}
         <x-skeleton-card :count="6"/>
     @else
-    <flux:select wire:model.live="country">
+    {{-- listbox statt nativem Select: der System-Dialog der Android-WebView
+         ignoriert das Dark-Theme (siehe x-locale-radio-group). --}}
+    <flux:select variant="listbox" wire:model.live="country">
         <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
         @foreach ($this->countries as $code)
             <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>

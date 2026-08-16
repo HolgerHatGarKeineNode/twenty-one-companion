@@ -1,6 +1,13 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use Illuminate\Support\Facades\Blade;
+use Livewire\Livewire;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+
+afterEach(fn () => MockClient::destroyGlobal());
 
 it('renders the skeleton card with the requested number of placeholders', function () {
     $html = Blade::render('<x-skeleton-card :count="2" />');
@@ -63,5 +70,41 @@ it('renders the language picker without a native select so it keeps the dark the
 
     foreach (['Deutsch', 'English', 'Español', 'Magyar', 'Latviešu', 'Nederlands', 'Polski', 'Português'] as $language) {
         expect($html)->toContain($language);
+    }
+});
+
+it('renders the region picker without a native select', function () {
+    $html = Blade::render('<x-country-select :countries="$countries"/>', [
+        'countries' => collect([
+            ['code' => 'de', 'name' => 'Deutschland'],
+            ['code' => 'at', 'name' => 'Österreich'],
+        ]),
+    ]);
+
+    expect($html)->not->toContain('<select')
+        ->and($html)->toContain('<ui-select')
+        ->and($html)->toContain('Deutschland')
+        ->and($html)->toContain('Österreich')
+        ->and($html)->toContain(__('Alle Länder'));
+});
+
+it('keeps the country filters of the browse pages free of native selects', function () {
+    // Dieselbe Falle wie bei der Sprachauswahl, nur inline auf den drei
+    // Browse-Seiten: ein natives <select> reißt hier ein weißes System-Blatt
+    // über die dunkle Liste.
+    withoutPortalToken();
+    MockClient::global([
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
+        GetMeetupEventsRequest::class => MockResponse::make([]),
+    ]);
+
+    // Meetups und Termine holen ihre Länder-Optionen erst im Lazy-Load; die
+    // Karte rendert sie sofort.
+    foreach (['pages::meetups.index' => true, 'pages::events.index' => true, 'pages::map.index' => false] as $page => $lazy) {
+        $component = Livewire::test($page);
+        $html = ($lazy ? $component->call('load') : $component)->html();
+
+        expect($html)->not->toContain('<select')
+            ->and($html)->toContain('<ui-select');
     }
 });
