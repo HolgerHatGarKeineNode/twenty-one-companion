@@ -5,6 +5,7 @@ use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\ViewErrorBag;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -48,6 +49,43 @@ it('renders the bottom sheet with a grabber handle', function () {
     expect($html)->toContain('rounded-full') // Greifer
         ->and($html)->toContain('Titel')
         ->and($html)->toContain('Body');
+});
+
+it('lets the sheet close button follow the locale instead of freezing', function () {
+    // Der Schließen-Knopf des Pakets trägt `aria-label="{{ __('Close modal') }}"`
+    // in einem `@blaze(fold: true)`-Stub — Blaze backt das Ergebnis beim
+    // Kompilieren ein, der Text bliebe danach in JEDER Sprache derselbe.
+    // Deshalb zeichnet x-sheet ihn selbst. Dieser Test misst genau das: zweimal
+    // rendern, zwei verschiedene Sprachen, zwei verschiedene Texte.
+    $render = function (string $locale): string {
+        app()->setLocale($locale);
+
+        return Blade::render('<x-sheet name="demo">Body</x-sheet>');
+    };
+
+    $de = $render('de');
+    $en = $render('en');
+
+    expect($de)->toContain('aria-label="Fenster schließen"')
+        ->and($de)->not->toContain('Close modal')
+        ->and($en)->toContain('aria-label="Close dialog"')
+        ->and($en)->not->toContain('Fenster schließen');
+});
+
+it('labels the clear button of an input from the app strings, not the package default', function () {
+    // resources/views/flux/input/clearable.blade.php übersteuert den Paket-Stub.
+    // Anders als beim Sheet bleibt der Text beim Kompilieren eingefroren (der
+    // umgebende flux:input ist gefaltet) — diese Kopie entscheidet also nur,
+    // WELCHE Sprache einfriert. Der Test hält genau das fest: die Standard-
+    // sprache der App gewinnt, nicht das englische Paket-Label.
+    app()->setLocale('de');
+
+    $html = Blade::render('<flux:input clearable wire:model="q"/>', [
+        'errors' => new ViewErrorBag,
+    ]);
+
+    expect($html)->toContain('aria-label="Eingabe leeren"')
+        ->and($html)->not->toContain('aria-label="Clear input"');
 });
 
 it('renders the empty state with the icon tile and a call to action slot', function () {

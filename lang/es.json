@@ -497,5 +497,7 @@
     "Dein Schlüssel bleibt in deinem Signer (Amber/Bunker/Erweiterung) — nur die lokale Sitzung endet.": "Tu clave permanece en tu firmante (Amber/Bunker/extensión) — solo termina la sesión local.",
     "Sitzung abgelaufen": "Sesión expirada",
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Tu sesión del portal ha expirado. Vuelve a conectarte para ver tus propios contenidos.",
-    "Neu verbinden": "Reconectar"
+    "Neu verbinden": "Reconectar",
+    "Fenster schließen": "Cerrar diálogo",
+    "Eingabe leeren": "Borrar entrada"
 }

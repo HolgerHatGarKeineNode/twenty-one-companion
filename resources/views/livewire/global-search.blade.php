@@ -121,7 +121,9 @@ new class extends Component
 };
 ?>
 
-<flux:modal name="global-search" class="!rounded-sheet w-full max-w-md self-start sm:mt-12">
+{{-- closable="false" + eigener Knopf: das aria-label des Pakets friert beim
+     Kompilieren auf eine Sprache ein (Begründung in components/sheet.blade.php). --}}
+<flux:modal name="global-search" :closable="false" class="!rounded-sheet w-full max-w-md self-start sm:mt-12">
     <div class="flex flex-col gap-4">
         <flux:heading size="lg">{{ __('Suche') }}</flux:heading>
 
@@ -203,5 +205,17 @@ new class extends Component
                 @endif
             </div>
         @endif
+    </div>
+
+    <div class="absolute top-0 end-0 mt-4 me-4">
+        <flux:modal.close>
+            <flux:button
+                variant="ghost"
+                icon="x-mark"
+                size="sm"
+                :aria-label="__('Fenster schließen')"
+                class="text-zinc-400! hover:text-zinc-800! dark:text-zinc-500! dark:hover:text-white!"
+            />
+        </flux:modal.close>
     </div>
 </flux:modal>

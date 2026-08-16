@@ -152,7 +152,10 @@
                 {{-- Legacy-Flyout: im Unified-Modus durch den „Mehr"-Hub (pages/⚡more,
                      §3.4) ersetzt — dieselben Sektionen als eigener Tab-Screen. --}}
                 @unless ($unifiedShell)
-                <flux:modal name="main-menu" variant="flyout" class="menu-flyout !p-0">
+                {{-- closable="false" + eigener Knopf: das aria-label des Pakets
+                     friert beim Kompilieren auf eine Sprache ein (Begründung in
+                     components/sheet.blade.php). --}}
+                <flux:modal name="main-menu" variant="flyout" :closable="false" class="menu-flyout !p-0">
                     <div class="pt-safe flex h-dvh flex-col">
                         {{-- Profil-Header mit Avatar + Verbindungsstatus (Phase 2.5). --}}
                         <a href="{{ route('profile') }}" wire:navigate x-on:click="$haptic('light')" class="pressable flex items-center gap-3 border-b border-zinc-200 p-4 active:bg-zinc-50 dark:border-zinc-800 dark:active:bg-zinc-900">
@@ -212,6 +215,18 @@
                                 {{ $brand->appName() }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
                             </flux:text>
                         </div>
+                    </div>
+
+                    <div class="absolute top-0 end-0 mt-4 me-4">
+                        <flux:modal.close>
+                            <flux:button
+                                variant="ghost"
+                                icon="x-mark"
+                                size="sm"
+                                :aria-label="__('Fenster schließen')"
+                                class="text-zinc-400! hover:text-zinc-800! dark:text-zinc-500! dark:hover:text-white!"
+                            />
+                        </flux:modal.close>
                     </div>
                 </flux:modal>
                 @endunless
