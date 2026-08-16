@@ -48,8 +48,9 @@ it('preselects the only own course when creating from the FAB', function () {
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
     ]);
 
-    // Wie beim Termin-Editor: native Select zeigt den ersten Kurs an → course_id
-    // muss vorausgewählt sein (Emulator-Bug-Fix), sonst „course_id required".
+    // Wie beim Termin-Editor: ursprünglich ein Emulator-Bugfix gegen die native
+    // Select-Box; seit variant="listbox" ist die Vorauswahl Bequemlichkeit und
+    // dieser Test hält sie fest.
     Livewire::test('course-event-editor')
         ->call('open')
         ->assertSet('form.course_id', 5)

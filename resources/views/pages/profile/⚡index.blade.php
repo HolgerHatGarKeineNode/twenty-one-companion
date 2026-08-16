@@ -238,7 +238,19 @@ new #[Layout('group::einundzwanzig')] #[Title('Einstellungen')] class extends Po
 
                 <flux:field>
                     <flux:label>{{ __('Zeitzone') }}</flux:label>
-                    <flux:select wire:model.live="timezone">
+                    {{-- listbox statt nativem Select (Dark-Theme, siehe
+                         x-locale-radio-group).
+
+                         Bewusst OHNE `searchable`, obwohl 26 Zonen zum Rollen
+                         einladen: das Suchfeld bringt Flux-eigene Strings mit
+                         („Search...", „No results found"), und Flux faltet seine
+                         Stubs mit `@blaze(fold: true)` — das Ergebnis von `__()`
+                         wird beim Kompilieren eingebacken und ändert sich danach
+                         nicht mehr mit der Sprache. Gemessen: nach einem Render
+                         in `de` liefert derselbe Aufruf unter `en` weiterhin
+                         „Suchen …". In einer App mit acht Sprachen wäre das
+                         Suchfeld also für sieben davon falsch beschriftet. --}}
+                    <flux:select variant="listbox" wire:model.live="timezone">
                         @foreach ($this->timezones as $value => $label)
                             <flux:select.option :value="$value" wire:key="tz-{{ $value }}">{{ $label }}</flux:select.option>
                         @endforeach

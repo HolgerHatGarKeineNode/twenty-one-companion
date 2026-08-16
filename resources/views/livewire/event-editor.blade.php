@@ -76,11 +76,14 @@ new class extends Component {
             return;
         }
 
-        // Den ersten eigenen Meetup vorauswählen: die native Select-Box zeigt
-        // ohnehin den ersten Eintrag an, bindet wire:model aber erst bei einer
-        // echten Änderung (change-Event). Ohne Vorauswahl bliebe meetup_id null,
-        // obwohl ein Meetup sichtbar gewählt ist → „meetup_id required" beim
-        // Speichern. Der Nutzer kann jederzeit auf ein anderes wechseln.
+        // Den ersten eigenen Meetup vorauswählen. Ursprünglich ein Bugfix: die
+        // native Select-Box zeigte ohnehin den ersten Eintrag an, band wire:model
+        // aber erst bei einer echten Änderung — meetup_id blieb null, obwohl
+        // sichtbar etwas gewählt war („meetup_id required" beim Speichern).
+        // Seit variant="listbox" stünde dort stattdessen der Platzhalter, die
+        // Falle ist also weg; die Vorauswahl bleibt als Bequemlichkeit, weil die
+        // allermeisten Nutzer genau ein eigenes Meetup haben. Wechseln geht
+        // jederzeit.
         $first = $this->myMeetups->first();
 
         if ($first !== null) {
@@ -278,7 +281,9 @@ new class extends Component {
                         <span class="truncate font-semibold">{{ $form->meetupName !== '' ? $form->meetupName : __('Meetup gewählt') }}</span>
                     </div>
                 @else
-                    <flux:select wire:model="form.meetup_id" :placeholder="__('Meetup wählen …')">
+                    {{-- listbox statt nativem Select: der System-Dialog der
+                         Android-WebView ignoriert das Dark-Theme. --}}
+                    <flux:select variant="listbox" wire:model="form.meetup_id" :placeholder="__('Meetup wählen …')">
                         @foreach ($this->myMeetups as $meetup)
                             <flux:select.option :value="$meetup->id" wire:key="event-meetup-{{ $meetup->id }}">{{ $meetup->name }}</flux:select.option>
                         @endforeach
@@ -351,7 +356,7 @@ new class extends Component {
 
                     @if ($form->repeats)
                         <div class="flex flex-col gap-2">
-                            <flux:select wire:model.live="form.recurrence_type" :label="__('Wiederholung')" :placeholder="__('Typ wählen …')">
+                            <flux:select variant="listbox" wire:model.live="form.recurrence_type" :label="__('Wiederholung')" :placeholder="__('Typ wählen …')">
                                 <flux:select.option value="weekly">{{ __('Wöchentlich') }}</flux:select.option>
                                 <flux:select.option value="monthly">{{ __('Monatlich (gleiches Datum)') }}</flux:select.option>
                                 <flux:select.option value="custom">{{ __('Monatlich (an einem Wochentag)') }}</flux:select.option>
@@ -379,7 +384,7 @@ new class extends Component {
 
                         @if ($form->recurrence_type === 'custom')
                             <div class="flex flex-col gap-2">
-                                <flux:select wire:model="form.recurrence_day_position" :label="__('Position im Monat')" :placeholder="__('Position wählen …')">
+                                <flux:select variant="listbox" wire:model="form.recurrence_day_position" :label="__('Position im Monat')" :placeholder="__('Position wählen …')">
                                     <flux:select.option value="first">{{ __('Erster') }}</flux:select.option>
                                     <flux:select.option value="second">{{ __('Zweiter') }}</flux:select.option>
                                     <flux:select.option value="third">{{ __('Dritter') }}</flux:select.option>

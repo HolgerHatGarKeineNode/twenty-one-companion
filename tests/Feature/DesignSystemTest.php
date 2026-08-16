@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
@@ -104,6 +106,42 @@ it('keeps the country filters of the browse pages free of native selects', funct
         $component = Livewire::test($page);
         $html = ($lazy ? $component->call('load') : $component)->html();
 
+        expect($html)->not->toContain('<select')
+            ->and($html)->toContain('<ui-select');
+    }
+});
+
+it('keeps the settings page free of native selects', function () {
+    withoutPortalToken();
+    MockClient::global([GetMobileMeetupsRequest::class => MockResponse::make([])]);
+
+    // Sprache, Region und Zeitzone sitzen hier nebeneinander — bliebe eine
+    // davon nativ, klappte genau dort ein weißes Blatt auf.
+    $html = Livewire::test('pages::profile.index')->html();
+
+    expect($html)->not->toContain('<select')
+        ->and(substr_count($html, '</ui-select>'))->toBe(3);
+
+    // Kein `searchable` an der Zeitzone: dessen Flux-Strings frieren beim
+    // Kompilieren auf eine Sprache ein (Begründung an der Komponente).
+    expect($html)->not->toContain('data-flux-select-search');
+});
+
+it('keeps the editor sheets free of native selects', function () {
+    withPortalToken();
+    // Ohne gecachtes Profil bleibt myCourses() leer und das Kurs-Sheet zeigt
+    // seinen Leerzustand statt der Auswahl.
+    withCachedPortalProfile();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
+        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
+    ]);
+
+    foreach (['event-editor', 'course-event-editor'] as $editor) {
+        $html = Livewire::test($editor)->call('open')->html();
+
+        // Das toContain ist die Kalibrierung: ohne es wäre der Test auch dann
+        // grün, wenn das Sheet die Auswahl gar nicht gerendert hat.
         expect($html)->not->toContain('<select')
             ->and($html)->toContain('<ui-select');
     }

@@ -65,9 +65,10 @@ new class extends Component {
             return;
         }
 
-        // Ersten eigenen Kurs vorauswählen: die native Select-Box zeigt sonst den
-        // ersten Eintrag an, ohne wire:model zu binden (kein change-Event) →
-        // „course_id required" beim Speichern. Der Nutzer kann wechseln.
+        // Ersten eigenen Kurs vorauswählen — wie im Termin-Editor. Ursprünglich
+        // ein Bugfix gegen die native Select-Box (zeigte den ersten Eintrag, ohne
+        // wire:model zu binden → „course_id required"); seit variant="listbox"
+        // stünde dort der Platzhalter, die Vorauswahl bleibt als Bequemlichkeit.
         $first = $this->myCourses->first();
 
         if ($first !== null) {
@@ -257,7 +258,9 @@ new class extends Component {
                         <span class="truncate font-semibold">{{ $form->courseName !== '' ? $form->courseName : __('Kurs gewählt') }}</span>
                     </div>
                 @else
-                    <flux:select wire:model="form.course_id" :placeholder="__('Kurs wählen …')">
+                    {{-- listbox statt nativem Select: der System-Dialog der
+                         Android-WebView ignoriert das Dark-Theme. --}}
+                    <flux:select variant="listbox" wire:model="form.course_id" :placeholder="__('Kurs wählen …')">
                         @foreach ($this->myCourses as $course)
                             <flux:select.option :value="$course->id" wire:key="ce-course-{{ $course->id }}">{{ $course->name }}</flux:select.option>
                         @endforeach

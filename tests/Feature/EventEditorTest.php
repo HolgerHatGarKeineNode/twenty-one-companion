@@ -42,8 +42,11 @@ it('preselects the only own meetup when creating from the FAB', function () {
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21])]]),
     ]);
 
-    // Der native Select zeigt den ersten Eintrag an — ohne Vorauswahl bliebe
-    // meetup_id ungebunden (Bug, auf dem Emulator gefunden). Jetzt ist es gesetzt.
+    // Ursprünglich ein Bugfix: der native Select zeigte den ersten Eintrag an,
+    // ohne dass meetup_id gebunden war (auf dem Emulator gefunden). Seit dem
+    // Wechsel auf variant="listbox" stünde dort stattdessen der Platzhalter —
+    // die Vorauswahl bleibt trotzdem, sie spart bei genau einem eigenen Meetup
+    // einen überflüssigen Tap.
     Livewire::test('event-editor')
         ->call('open')
         ->assertSet('form.meetup_id', 21)
