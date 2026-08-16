@@ -118,6 +118,26 @@
                 {{-- Globale Suche (Phase 2.3), per Header-Lupe geöffnet. --}}
                 <livewire:global-search/>
 
+                @if ($unifiedShell)
+                    {{-- Brücke für die Lupe der geteilten Shell: <x-group::bottom-nav>
+                         schickt `open-command-palette` los, und die Befehlspalette, die
+                         darauf hört, hängt im Layout des group-Pakets
+                         (`<x-group::command-palette/>` in `group::einundzwanzig`). Auf
+                         unseren Folio-Seiten läuft dieses Layout nicht — der Knopf tat
+                         dort schlicht nichts.
+
+                         Statt die Palette hier zusätzlich zu mounten (sie will
+                         welshman-Sessions und Raum-Daten, die auf diesen Seiten gar
+                         nicht geladen sind), fangen wir das Ereignis ab und öffnen die
+                         App-eigene Suche. Die ist auf Meetups/Terminen/Karte ohnehin
+                         die passende: sie findet Meetups, Kurse und Referenten. --}}
+                    <div
+                        x-data
+                        x-on:open-command-palette.window="$flux.modal('global-search').show()"
+                        hidden
+                    ></div>
+                @endif
+
                 {{-- Editor-Sheets (Phase 4/5/6): Meetup-Editor besitzt `create-meetup`,
                      Termin-Editor `create-event`, Venue-Editor `create-venue`,
                      City-Editor `create-city`. Geöffnet vom FAB, den „Meine“-Listen,

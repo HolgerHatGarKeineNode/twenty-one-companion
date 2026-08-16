@@ -84,6 +84,36 @@ it('renders the unified 4-tab shell instead of the 5-tab nav on a page', functio
         ->assertDontSee(__('Karte'));
 });
 
+it('wires the shell magnifier to the app search on folio pages', function () {
+    // Die Lupe der geteilten Shell schickt `open-command-palette`; die Palette,
+    // die darauf hört, hängt im Layout des group-Pakets und läuft auf diesen
+    // Seiten nicht mit. Ohne Brücke wäre der Knopf hier tot.
+    enableUnifiedShell();
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    $this->get(route('meetups'))
+        ->assertOk()
+        ->assertSee('open-command-palette', false)
+        ->assertSee("\$flux.modal('global-search').show()", false);
+});
+
+it('leaves the bridge out of the legacy shell, which has no magnifier tab', function () {
+    // .env dieser App hat UNIFIED_SHELL=true, der Testlauf erbt das — der
+    // Legacy-Zustand muss hier ausdrücklich hergestellt werden.
+    config()->set('group.unified_shell', false);
+    withoutPortalToken();
+    MockClient::global([
+        GetMapMeetupsRequest::class => MockResponse::make([]),
+    ]);
+
+    $this->get(route('meetups'))
+        ->assertOk()
+        ->assertDontSee('open-command-palette', false);
+});
+
 it('activates a tab via multi-route match (Mehr on a discover sub-route)', function () {
     // /events ist kein eigener Tab, sondern Teil des Mehr-`match`. Vor dem
     // explode-Fix in nav-tab matchte der Komma-String nie → kein Aktiv-Tab.
