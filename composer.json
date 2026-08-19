@@ -102,6 +102,10 @@
             "Composer\\Config::disableProcessTimeout",
             "bash scripts/run-browser.sh"
         ],
+        "test:push-kotlin": [
+            "Composer\\Config::disableProcessTimeout",
+            "bash scripts/run-push-kotlin.sh"
+        ],
         "test:coverage": [
             "Composer\\Config::disableProcessTimeout",
             "@php artisan config:clear --ansi",
