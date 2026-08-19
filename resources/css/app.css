@@ -441,8 +441,39 @@
     @apply  !mb-0 !leading-tight;
 }
 
-input:focus[data-flux-control],
-textarea:focus[data-flux-control],
-select:focus[data-flux-control] {
-    @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+/* Sichtbarer Tastaturfokus (WCAG 2.4.7).
+
+   Hier stand ein Ring: `outline-hidden ring-2 ring-accent ring-offset-2
+   ring-offset-accent-foreground`. Gemessen am 2026-08-19 mit
+   `tests/Browser/Accessibility/KeyboardFocusTest.php` kam davon NICHTS an — der
+   `box-shadow` des fokussierten Feldes war vollstaendig transparent, auf `/meetups`
+   und `/courses` je ein Suchfeld ohne jeden Indikator. Ein Ring ist ein `box-shadow`
+   und damit angreifbar durch jedes spaetere `shadow-*` am selben Element (die
+   Flux-Inputs tragen `disabled:shadow-none dark:shadow-none`); ein `outline` liegt
+   auf einer eigenen Eigenschaft und kann so nicht verlorengehen.
+
+   `:focus-visible` statt `:focus`: nach einem Mausklick soll kein Rahmen stehen.
+
+   Ungelayert, wie die Flux-Overrides in den Schwesterprojekten: Tailwind liefert
+   `outline-hidden`/`focus:outline-none` als Utility aus, und eine ungelayerte Regel
+   schlaegt jede layered Regel unabhaengig von der Spezifitaet — das ist der Weg ohne
+   `!important`. */
+input:focus-visible[data-flux-control],
+textarea:focus-visible[data-flux-control],
+select:focus-visible[data-flux-control] {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* Dieselbe Luecke bei den tappbaren Flaechen: `.pressable` liefert Press-Feedback,
+   aber keinen Fokusindikator, und die Traeger bringen ein `focus:outline-none` mit.
+   Gemessen auf `/profile`: 7 von 18 Tastaturhalten ohne Indikator — Kopfzeilen-Link,
+   `<summary>` und die komplette untere Navigationsleiste. Die Tab-Leiste ist der
+   Hauptbedienweg dieser App; ohne Indikator ist sie per Tastatur unbedienbar. */
+a.pressable:focus-visible,
+button.pressable:focus-visible,
+summary.pressable:focus-visible,
+summary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }

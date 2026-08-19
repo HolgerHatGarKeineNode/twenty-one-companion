@@ -108,10 +108,13 @@ new #[Layout('layouts::mobile', ['title' => 'Kurse', 'heading' => 'Kurse'])] cla
         @endif
     </flux:tabs>
 
+    {{-- aria-label zusaetzlich zum placeholder: der Platzhalter verschwindet beim
+         Tippen und gilt WCAG 4.1.2 nicht als zugaenglicher Name. --}}
     <flux:input
         wire:model.live.debounce.300ms="search"
         type="search"
         icon="magnifying-glass"
+        :aria-label="$tab === 'referenten' ? __('Referenten suchen') : __('Kurs oder Referent suchen')"
         :placeholder="$tab === 'referenten' ? __('Referenten suchen …') : __('Kurs oder Referent suchen …')"
         clearable
     />

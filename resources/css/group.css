@@ -17,3 +17,43 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
 @source '../../vendor/livewire/flux/stubs/**/*.blade.php';
+
+/* Sichtbarer Tastaturfokus (WCAG 2.4.7) — dieselbe Regel wie in `app.css`, und die
+   Dopplung ist Absicht.
+
+   Die beiden Vite-Einstiege sind vollstaendig getrennt: eine Regel in `app.css`
+   erreicht keine Seite, die auf `group::einundzwanzig` liegt. Der Kommentar oben
+   ("die Portal-Shell zieht ihr app.css") gilt nur fuer den Chat — `/profile` traegt
+   `#[Layout('group::einundzwanzig')]` und laedt gemessen NUR `group-*.css`, gar kein
+   `app-*.css`. Genau daran lief die erste Behebung ins Leere: `/meetups` und
+   `/courses` wurden gruen, `/profile` blieb mit 7 von 18 Tastaturhalten ohne
+   Indikator unveraendert rot, obwohl die Regel im Bundle stand — nur eben im
+   falschen.
+
+   Betroffen sind die Kopfzeile, das `<summary>` der Detailbloecke und die komplette
+   untere Navigationsleiste. Die Tab-Leiste ist der Hauptbedienweg dieser App; ohne
+   Indikator ist sie per Tastatur unbedienbar.
+
+   Ungelayert, damit sie das `outline-hidden`/`focus:outline-none` aus Tailwinds
+   `utilities`-Layer schlaegt — unabhaengig von der Spezifitaet und ohne `!important`.
+
+   Die Selektoren sind mit dem Element qualifiziert (`a.pressable`, `summary.pressable`),
+   und das ist nicht Kosmetik: das Paket-Theme bringt selbst ein
+   `.pressable:focus-visible { outline-hidden; ring-2 ... }` mit (0-2-0), dessen Ring
+   ebenfalls unsichtbar bleibt. Ein blosses `summary:focus-visible` ist 0-1-1 und
+   verliert dagegen — gemessen: `outline-style` blieb `none`, waehrend `outline-width`
+   schon von hier kam. Beide Regeln sind ungelayert, hier entscheidet also wirklich
+   die Spezifitaet.
+
+   Der dauerhafte Ort waere `einundzwanzig/group`s eigenes `theme.css`; das Paket-Repo
+   ist offen (G1 im Ernte-Plan). Bis dahin steht die Regel hier. */
+a.pressable:focus-visible,
+button.pressable:focus-visible,
+summary.pressable:focus-visible,
+summary:focus-visible,
+input:focus-visible[data-flux-control],
+textarea:focus-visible[data-flux-control],
+select:focus-visible[data-flux-control] {
+    outline: 2px solid var(--color-accent, #f7931a);
+    outline-offset: 2px;
+}

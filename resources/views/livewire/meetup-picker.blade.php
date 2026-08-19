@@ -104,10 +104,13 @@ new class extends Component {
             {{ __('Suche zuerst, ob es dein Meetup schon gibt — füge es dann zu „Meine“ hinzu, statt ein Duplikat anzulegen.') }}
         </flux:text>
 
+        {{-- aria-label zusaetzlich zum placeholder: der Platzhalter verschwindet beim
+             Tippen und gilt WCAG 4.1.2 nicht als zugaenglicher Name. --}}
         <flux:input
             wire:model.live.debounce.300ms="search"
             type="search"
             icon="magnifying-glass"
+            :aria-label="__('Meetup oder Stadt suchen')"
             :placeholder="__('Meetup oder Stadt suchen …')"
             clearable
         />

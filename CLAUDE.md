@@ -173,3 +173,82 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - Do NOT delete tests without approval.
 
 </laravel-boost-guidelines>
+
+# Project notes
+
+## The accessibility harness — four criteria, and they are load-bearing
+
+`tests/Browser/Accessibility/` holds four browser tests. Each one already found real defects here,
+and each carries controls that exist because an earlier version of the measurement was silently
+wrong.
+
+| File | Criterion | What it asserts |
+|---|---|---|
+| `ContrastTest.php` | K1 · WCAG 1.4.3 | every visible text ≥ 4.5:1 (large/bold ≥ 3:1) against the **actually rendered** background |
+| `KeyboardFocusTest.php` | K2 · WCAG 2.4.7 | every keyboard stop has a painted focus indicator |
+| `AccessibleNameTest.php` | K3 · WCAG 4.1.2 | every interactive element has a non-empty accessible name |
+| `TargetSizeTest.php` | K4 · WCAG 2.5.8 | every target ≥ 24×24, or far enough from its neighbours |
+
+Run with `composer test:browser` (opt-in suite via `phpunit.browser.xml`, like the smoke tests).
+
+## Measured in the app's default: mobile viewport, dark mode
+
+`seite($pfad)` in `tests/Pest.php` does that. On a desktop viewport this would be a different
+surface — the bottom navigation bar and its controls do not exist there.
+
+**K4 is the exception and opens pages itself.** `on()->mobile()` brings its own device viewport and
+beats a later `setViewportSize`; the run measured 369 px instead of the requested 320. K4 controls
+the width itself and takes only the dark mode along. It only came out because the test asserts the
+actual width against the requested one — keep that assertion.
+
+## Two stylesheets, and a rule in the wrong one reaches nothing
+
+`/profile` carries `#[Layout('group::einundzwanzig')]` and loads **only** `group-*.css`, no
+`app-*.css` at all — two completely separate Vite entries. A focus rule added to `app.css` fixed
+`/meetups` and `/courses` and left `/profile` untouched, although it was in the bundle. The comment
+in `group.css` ("die Portal-Shell zieht ihr app.css") holds for the chat only.
+
+The focus rules therefore live in **both** entries, deliberately duplicated and commented as such.
+Their durable home is `einundzwanzig/group`'s own `theme.css` — move them there when that package is
+next touched.
+
+Also: the selectors are element-qualified (`a.pressable`, `summary.pressable`) on purpose. The
+package theme ships its own `.pressable:focus-visible` (0-2-0) with the same invisible ring; a bare
+`summary:focus-visible` is 0-1-1 and loses. Both rules are unlayered, so specificity really does
+decide here.
+
+## A ring is a box-shadow — prefer `outline`
+
+The old rule gave Flux controls `outline-hidden ring-2 ring-accent`. **None of it arrived**: the
+focused field's `box-shadow` was fully transparent, because a ring *is* a box-shadow and any later
+`shadow-*` on the same element wins — and the Flux inputs carry `disabled:shadow-none
+dark:shadow-none`. An `outline` sits on its own property and cannot be lost that way.
+
+## Every one of these has a control. Do not delete them.
+
+Each file starts with a test that injects a known-bad and a known-good element and asserts the
+detector sorts both correctly. **A green run without a passing control is worthless.** The K3
+controls check only the **injected** elements (marked `data-k3`) — an earlier version demanded the
+whole page be clean, which is a control that depends on the thing it controls.
+
+## Things that look like cleanup and are not
+
+- **`FOKUS_LESEN` must contain no `//` comments** — a comment block makes `script()` return nothing
+  and all cases report zero tab stops.
+- **Tab presses go to `:root`, never `:focus`** — `Locator::press()` runs actionability checks and
+  hangs. `.focus()` on `<html>` does not reset the tab order; measured.
+- **K2 tabs through up to twice.** On `/events` a "retry" button only appears after the portal
+  request has failed — the tab run was already past its position and reported 8 of 10 targets.
+- **Colours are read through a 1×1 canvas** — Tailwind v4 emits `oklch()`, Flux `oklab()`.
+- **K4's spacing exception is part of the criterion.** 44×44 (Apple HIG) is counted but does not
+  fail the run: it is a design figure, not a legal threshold.
+
+## Playwright uses this machine's Chromium — never download one
+
+`scripts/run-browser.sh` calls `scripts/link-host-chromium.sh`, which builds a symlink registry
+under `~/.cache/ms-playwright` pointing at `/usr/bin/chromium`. **Never run
+`npx playwright install`** — that cache is shared between all repos on this machine while their
+Playwright versions are not, and an install prunes foreign revisions; after one such run here the
+*entire* suite of a sister project was red. The script reads the revision from
+`node_modules/playwright-core/browsers.json`; never hardcode it. (The older claim in
+`run-browser.sh` that symlinks fail applied to an attempt that *did* hardcode it.)

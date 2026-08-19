@@ -24,21 +24,30 @@
 # Fehldiagnose, per Positionstausch-Probe mit composer 2.10.2 widerlegt.)
 # Deshalb macht dieses Skript den config:clear selbst.
 #
-# Zur Chromium-Anbindung: `npx playwright install` unten ist der einzige
-# unterstuetzte Weg. Ein Nachbau ueber PLAYWRIGHT_BROWSERS_PATH-Symlinks auf
-# ein Host-Chromium schlug am 2026-08-06 mit PlaywrightOutdatedException fehl
-# (Revisions-Mismatch). Nicht selbst verdrahten.
+# Zur Chromium-Anbindung: es wird NICHTS heruntergeladen. `link-host-chromium.sh`
+# legt eine Symlink-Registry unter ~/.cache/ms-playwright an, die auf das Chromium
+# dieses Rechners zeigt (/usr/bin/chromium).
+#
+# Hier stand das Gegenteil ("`npx playwright install` ist der einzige unterstuetzte
+# Weg, Symlinks schlugen am 2026-08-06 mit PlaywrightOutdatedException fehl"). Das
+# galt fuer jenen Versuch, nicht fuer diesen: der Fehler war ein Revisions-Mismatch,
+# und genau den vermeidet dieses Skript, indem es die Revision aus
+# node_modules/playwright-core/browsers.json LIEST statt sie festzuschreiben. Am
+# 2026-08-19 gegengeprueft — die heruntergeladene Revision 1228 geloescht, nur die
+# Symlinks gelegt, Browser-Suite 6 gruen.
+#
+# Der Anlass fuer den Wechsel war ein echter Ausfall: ~/.cache/ms-playwright ist
+# zwischen den Repos geteilt, die Playwright-Versionen sind es nicht (hier 1.61.1,
+# fair-btc 1.62.1, mim-pulse-flux ^1.59.1). Ein `playwright install` raeumt fremde
+# Revisionen weg — nach einem Lauf hier war fair-btcs GESAMTE Suite rot. Was nie
+# heruntergeladen wird, kann auch niemand wegraeumen.
 set -euo pipefail
 
 # Analog zu den uebrigen Test-Scripts in composer.json: ein gecachter Config-
 # Stand wuerde die Testumgebung verfaelschen.
 php artisan config:clear --ansi
 
-# Chromium für Playwright sicherstellen (idempotent, schneller No-op wenn da).
-if ! npx playwright install chromium >/dev/null 2>&1; then
-    echo "✗ Konnte Chromium für Playwright nicht installieren." >&2
-    echo "  Prüfe Node/Playwright: yarn install && npx playwright install chromium" >&2
-    exit 1
-fi
+# Host-Chromium verdrahten (idempotent, legt nur Symlinks).
+"$(dirname "$0")/link-host-chromium.sh"
 
 exec php vendor/bin/pest -c phpunit.browser.xml "$@"

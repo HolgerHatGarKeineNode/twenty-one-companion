@@ -231,10 +231,13 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
         {{-- Filterleiste rendert sofort (braucht keine Portal-Daten) — nur die
              Länder-Optionen und die Liste warten auf den Lazy-Load. --}}
         <div class="flex flex-col gap-2">
+            {{-- aria-label zusaetzlich zum placeholder: der Platzhalter verschwindet
+                 beim Tippen und gilt WCAG 4.1.2 nicht als zugaenglicher Name. --}}
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 type="search"
                 icon="magnifying-glass"
+                :aria-label="__('Meetup oder Stadt suchen')"
                 :placeholder="__('Meetup oder Stadt suchen …')"
                 clearable
             />
