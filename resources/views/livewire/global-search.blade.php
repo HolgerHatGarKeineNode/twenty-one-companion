@@ -214,7 +214,7 @@ new class extends Component
                 icon="x-mark"
                 size="sm"
                 :aria-label="__('Fenster schließen')"
-                class="text-zinc-400! hover:text-zinc-800! dark:text-zinc-500! dark:hover:text-white!"
+                class="text-zinc-500! hover:text-zinc-800! dark:text-zinc-400! dark:hover:text-white!"
             />
         </flux:modal.close>
     </div>
