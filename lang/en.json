@@ -460,5 +460,8 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Your portal session has expired. Reconnect to see your own content.",
     "Neu verbinden": "Reconnect",
     "Fenster schließen": "Close dialog",
-    "Eingabe leeren": "Clear input"
+    "Eingabe leeren": "Clear input",
+    "Meetup oder Stadt suchen": "Search meetup or city",
+    "Referenten suchen": "Search lecturers",
+    "Kurs oder Referent suchen": "Search course or lecturer"
 }

@@ -229,23 +229,6 @@ function tabbeDurch(object $seite, int $maxHalte = 400): array
 }
 
 /**
- * Oeffnet den Pfad so, wie die App tatsaechlich benutzt wird.
- *
- * Mobiler Viewport und Dark Mode sind hier kein Sonderfall, sondern der Default
- * dieser Telefon-App — dieselbe Einstellung wie in `tests/Browser/SmokeTest.php`.
- * Auf einem Desktop-Viewport gemessen waere es eine andere Oberflaeche: die untere
- * Navigationsleiste und die Bedienelemente in ihr gaebe es dort gar nicht.
- *
- * Angemeldet wird nicht: das Onboarding wird per `beforeEach` in `tests/Pest.php`
- * geseedet, und das Portal ist im Browser-Env unerreichbar gesetzt (PORTAL_URL) —
- * gemessen werden also die Offline-/Leer-Zustaende der Seiten.
- */
-function seite(string $pfad): object
-{
-    return visit($pfad)->on()->mobile()->inDarkMode();
-}
-
-/**
  * Negativkontrolle fuer den Detektor.
  *
  * Sie prueft genau eine Sache: erkennt FOKUS_LESEN ein fokussiertes Element OHNE
