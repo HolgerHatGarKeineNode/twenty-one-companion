@@ -79,6 +79,14 @@
                         relay: state.relay || '',
                         rooms: state.rooms || [],
                         names: state.names || {}, /* Raum-ID → Name, nur für den Notification-Titel */
+                        /*
+                            Übersetzte Wörter für den Worker. Kotlin erreicht
+                            Laravels Katalog nicht, die App läuft aber in acht
+                            Sprachen — ohne diesen Weg stünde in jeder Meldung
+                            ein deutsches Wort. Gerendert wird hier, weil dieses
+                            Partial ohnehin serverseitig entsteht.
+                        */
+                        labels: {quote: @js(__('Zitat'))},
                         session: sessions[pubkey] || null,
                     }),
                 }).catch(function () { /* kein natives Runtime (Web/Tests) → egal */ });

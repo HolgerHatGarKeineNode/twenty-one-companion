@@ -243,6 +243,37 @@ whole page be clean, which is a control that depends on the thing it controls.
 - **K4's spacing exception is part of the criterion.** 44×44 (Apple HIG) is counted but does not
   fail the run: it is a design figure, not a legal threshold.
 
+## The push notification text is measured, not assumed
+
+`RelayPollWorker.postNotification` used to post `event.content` raw. A quote reply therefore
+opened with ~100 characters of `nostr:nevent1…` and pushed the actual sentence below the fold
+(user report with screenshot, 2026-08-19). `readableBody` now applies the web chat's rules:
+drop the leading quote prefix (same `QUOTE_PREFIX` as `einundzwanzig-group`'s `js/polls.ts`),
+replace remaining `nostr:` references with a word, shorten mentions, strip the markup that a
+notification cannot render (`chatMarkup.ts stripInlineMarkup`).
+
+**Where a reference ends is decided by the bech32 checksum, not by a length pattern.** Two
+earlier versions used `[0-9a-z]+` and then `{60,1024}`; both ran past the entity, because a TLV
+identifier carrying relay hints has no fixed length and the text behind it is made of the same
+characters. Reproduced in review: a word glued to a `nevent1` was swallowed, and two adjacent
+references became one match reaching into the second, leaving raw bech32 in the status bar — the
+reported bug all over again. `kennungsEnde` therefore runs BIP-173's polymod as a rolling state
+and stops at the first position where it reaches 1. That is the same disambiguation the web chat
+gets from `nip19.decode` behind its `REF_TOKEN`. Consequence for the tests: every identifier in
+`ReadableBodyTest.kt` must be a real one (`nostr-tools/nip19`) — an invented `"b".repeat(58)` is
+not bech32 at all, the alphabet has no `b`.
+
+**The word comes from the client**, through `push/sync` as `labels.quote`. Kotlin cannot reach
+Laravel's catalogue and the app runs in eight languages; a hardcoded German word would reach
+seven of them. Missing label → `…`, never the wrong word.
+
+**It is really tested — on the JVM, not by a PHP replica.** `composer test:push-kotlin` copies
+the plugin sources plus `packages/push/tests/ReadableBodyTest.kt` into the generated Android
+project and runs Gradle on them. The test lives outside `nativephp/` because that whole tree is
+generated and gitignored — a test placed there is gone after the next `native:install`. Needs
+`php artisan native:install` to have run once; everything else about the worker (socket, NIP-42,
+Amber, WorkManager) stays device-only.
+
 ## Playwright uses this machine's Chromium — never download one
 
 `scripts/run-browser.sh` calls `scripts/link-host-chromium.sh`, which builds a symlink registry

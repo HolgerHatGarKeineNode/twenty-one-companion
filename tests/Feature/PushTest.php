@@ -141,3 +141,44 @@ it('meldet beim Zurueckkommen in den Vordergrund', function () {
         ->toContain('var seen = function ()')
         ->toContain('whenPostsWork(seen)');
 });
+
+it('schickt das übersetzte Wort für einen Beitrag mit', function () {
+    // Der Kotlin-Worker erreicht Laravels Katalog nicht — ohne dieses Label
+    // stünde in jeder fremdsprachigen Meldung ein deutsches Wort.
+    $html = view('partials.push-sync')->render();
+
+    expect($html)->toContain('labels: {quote:');
+});
+
+it('reicht die Labels durch die Sync-Route hindurch', function () {
+    app(AppPreferences::class)->setPushEnabled(true);
+
+    $this->instance(Push::class, new class extends Push
+    {
+        public array $state = [];
+
+        public function sync(array $state = []): bool
+        {
+            $this->state = $state;
+
+            return true;
+        }
+    });
+
+    $this->postJson(route('push.sync'), [
+        'pubkey' => str_repeat('a1', 32),
+        'relay' => 'wss://group.einundzwanzig.space/',
+        'rooms' => ['general'],
+        'labels' => ['quote' => 'Quote'],
+    ])->assertOk();
+
+    expect(app(Push::class)->state['labels'] ?? null)->toBe(['quote' => 'Quote']);
+});
+
+/**
+ * Den Meldungstext selbst (`RelayPollWorker.readableBody`) prüft ein
+ * JVM-Test, nicht diese Suite: `composer test:push-kotlin` führt
+ * `packages/push/tests/ReadableBodyTest.kt` gegen den echten Kotlin-Code aus,
+ * statt seine Regeln hier nachzubauen. Ein Nachbau hätte grün bleiben können,
+ * während der Worker etwas anderes tut.
+ */

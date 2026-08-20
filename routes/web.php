@@ -82,6 +82,10 @@ Route::post('push/sync', function (Request $request, AppPreferences $preferences
         // deshalb gedeckelt. Fehlt er, nimmt der Worker die Raum-ID.
         'names' => ['nullable', 'array', 'max:100'],
         'names.*' => ['string', 'max:200'],
+        // Übersetzte Wörter für die Notification (der Worker hat keinen Katalog).
+        // Gedeckelt wie die Namen: der Wert landet im Meldungstext.
+        'labels' => ['nullable', 'array'],
+        'labels.quote' => ['nullable', 'string', 'max:40'],
         'session' => ['nullable', 'array'],
     ]);
 

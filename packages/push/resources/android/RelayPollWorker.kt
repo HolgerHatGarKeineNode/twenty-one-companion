@@ -139,6 +139,211 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
         /** Toleranz für Uhren-Drift zwischen Relay und Gerät beim Cursor. */
         private const val CLOCK_SKEW_SECONDS = 60L
         private const val DEFAULT_SIGNER = "com.greenart7c3.nostrsigner"
+
+        /**
+         * Das vorangestellte Zitat einer Antwort. Wortgleich zu `QUOTE_PREFIX` im
+         * Web-Chat (`einundzwanzig-group`, `js/polls.ts`) — inklusive der lockeren
+         * Zeichenklasse `[0-9a-z]` statt des exakten bech32-Alphabets.
+         *
+         * Der Chat rendert an dieser Stelle eine Zitatkarte und nimmt den Präfix
+         * deshalb aus dem Textkörper (`feeds.ts bodyWithoutQuote`). Die
+         * Notification hat keine Karte — hier fällt er ersatzlos weg, sofern noch
+         * Text folgt. Ohne diesen Schritt begann die Meldung mit rund 100 Zeichen
+         * bech32, und die eigentliche Antwort stand unter dem Falz.
+         */
+        private val QUOTE_PREFIX = Regex("""^nostr:(?:nevent1|note1)[0-9a-z]+\n\n""")
+
+        /**
+         * Das bech32-Alphabet (BIP-173). Ohne `1`, `b`, `i`, `o` — genau die
+         * Zeichen, die man beim Abschreiben verwechselt.
+         */
+        private const val BECH32 = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+
+        /** Generator des bech32-Polymods (BIP-173). */
+        private val BECH32_GEN = intArrayOf(0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3)
+
+        /**
+         * Die Kennungsarten aus NIP-19, die im Text vorkommen. Die Reihenfolge ist
+         * gleichgültig: geprüft wird `<art>1`, und dieses `1` trennt `npub1` und
+         * `nprofile1` schon vollständig, obwohl beide mit `np` beginnen.
+         *
+         * `nsec` fehlt bewusst: ein privater Schlüssel gehört in keine Meldung,
+         * und wer einen im Chat postet, soll das ungeschönt sehen.
+         */
+        private val KENNUNGEN = listOf("nevent", "nprofile", "naddr", "note", "npub")
+
+        /** Kennungsarten, die eine PERSON meinen (Erwähnung statt Zitat). */
+        private val PROFIL_KENNUNGEN = setOf("npub", "nprofile")
+
+        /**
+         * Wie viel Text überhaupt abgesucht wird. Angezeigt werden ohnehin 400
+         * Zeichen; der Deckel begrenzt, was ein Relay an Suchaufwand auslösen
+         * kann (der Scan ist im schlechtesten Fall quadratisch, etwa bei
+         * `nostr:nostr:nostr:…`).
+         */
+        private const val SCAN_LIMIT = 2_000
+
+        /** Ein Schritt des bech32-Polymods über einen 5-Bit-Wert. */
+        private fun polymodSchritt(chk: Int, wert: Int): Int {
+            val b = chk ushr 25
+            var neu = ((chk and 0x1ffffff) shl 5) xor wert
+
+            for (i in 0..4) {
+                if (((b ushr i) and 1) != 0) {
+                    neu = neu xor BECH32_GEN[i]
+                }
+            }
+
+            return neu
+        }
+
+        /** Polymod-Zustand nach dem menschenlesbaren Teil (`bech32_hrp_expand`). */
+        private fun hrpZustand(hrp: String): Int {
+            var chk = 1
+
+            for (c in hrp) {
+                chk = polymodSchritt(chk, c.code ushr 5)
+            }
+
+            chk = polymodSchritt(chk, 0)
+
+            for (c in hrp) {
+                chk = polymodSchritt(chk, c.code and 31)
+            }
+
+            return chk
+        }
+
+        /**
+         * Wo die Kennung endet, die bei [von] beginnt — oder 0, wenn dort keine
+         * steht. Zurück kommt der Index HINTER dem letzten Zeichen der Kennung.
+         *
+         * WARUM DIE PRÜFSUMME UND KEIN LÄNGENMUSTER: Zwei Fassungen vorher
+         * standen hier Regexe mit `[0-9a-z]+` und dann mit `{60,1024}`. Beide
+         * fraßen über das Ende hinaus, weil eine TLV-Kennung mit Relay-Hints
+         * keine feste Länge hat und der Text dahinter aus denselben Zeichen
+         * besteht. Reproduziert (Review, 2026-08-19): aus einem `nevent1` samt
+         * direkt anschließendem Wort wurde das Wort mitverschluckt, aus zwei
+         * aneinanderstoßenden Referenzen ein Treffer bis zum Doppelpunkt der
+         * zweiten — es blieb rohes bech32 in der Meldung stehen, also genau der
+         * gemeldete Fehler. Die Grenze ist ohne Prüfsumme nicht entscheidbar; der
+         * Web-Chat löst dasselbe Problem mit `nip19.decode` hinter seinem Muster
+         * (`nostrEventLink.ts`).
+         *
+         * Gerechnet wird in EINEM Durchlauf: der Polymod ist ein fortlaufender
+         * Zustand, `chk == 1` gilt genau am Ende einer gültigen Zeichenkette
+         * (BIP-173). Genommen wird die ERSTE solche Stelle — eine zufällig
+         * passende Prüfsumme weiter hinten ist mit 2^-30 unwahrscheinlich, und
+         * angehängter Text bietet dafür mehr Gelegenheiten als die Kennung selbst.
+         */
+        private fun kennungsEnde(text: String, von: Int): Int {
+            val hrp = KENNUNGEN.firstOrNull { text.startsWith(it + "1", von) } ?: return 0
+
+            var chk = hrpZustand(hrp)
+            var i = von + hrp.length + 1
+            val datenBeginn = i
+            val grenze = minOf(text.length, von + 1_023)
+
+            while (i < grenze) {
+                val wert = BECH32.indexOf(text[i])
+                if (wert < 0) {
+                    return 0
+                }
+
+                chk = polymodSchritt(chk, wert)
+                i++
+
+                // Sechs Zeichen sind die Prüfsumme selbst; kürzer trägt sie nichts.
+                if (chk == 1 && i - datenBeginn >= 6) {
+                    return i
+                }
+            }
+
+            return 0
+        }
+
+        /**
+         * Ersetzt jede NIP-21-Referenz durch etwas Lesbares — Beiträge durch das
+         * übersetzte Wort, Profile durch die gekürzte Kennung.
+         *
+         * Ersetzt und nicht gelöscht: „schau dir das an" ohne jeden Hinweis wäre
+         * eine andere Nachricht als die geschriebene. Auflösen könnte den Verweis
+         * nur, wer den zitierten Beitrag hat — der liegt aber nicht zwingend im
+         * Poll-Fenster und oft auf einem anderen Relay. Dafür eine zweite
+         * Verbindung zu öffnen, ist ein Vorschautext nicht wert (gleiche Abwägung
+         * wie beim Absendernamen, siehe unten).
+         *
+         * Eigener Durchlauf statt `Regex.replace`: der Ersatztext wird von einem
+         * `replace` nicht erneut abgesucht, zwei aneinanderstoßende Referenzen
+         * blieben damit halb stehen.
+         */
+        private fun ersetzeReferenzen(text: String, quoteLabel: String): String {
+            val sb = StringBuilder(text.length)
+            var i = 0
+
+            while (i < text.length) {
+                val start = text.indexOf("nostr:", i)
+
+                if (start < 0) {
+                    sb.append(text, i, text.length)
+                    break
+                }
+
+                sb.append(text, i, start)
+
+                val inhalt = start + "nostr:".length
+                val ende = kennungsEnde(text, inhalt)
+
+                // Kein gültiges bech32 dahinter → stehen lassen. Das ist dann
+                // kein Verweis, sondern Text, der zufällig so aussieht.
+                if (ende == 0) {
+                    sb.append("nostr:")
+                    i = inhalt
+                    continue
+                }
+
+                val kennung = text.substring(inhalt, ende)
+                val hrp = KENNUNGEN.first { kennung.startsWith(it + "1") }
+
+                sb.append(if (hrp in PROFIL_KENNUNGEN) "@" + kennung.take(12) + "…" else quoteLabel)
+                i = ende
+            }
+
+            return sb.toString()
+        }
+
+        /**
+         * Auszeichnung des Chats (`chatMarkup.ts`). Die Notification kann sie so
+         * wenig darstellen wie die Antwort-Vorschau oder die Update-Liste, für die
+         * dort `stripInlineMarkup` existiert — also fallen die Marker hier
+         * genauso, sonst stünde sichtbar `**21Meetup**` in der Leiste.
+         */
+        private val MARKUP = listOf(
+            Regex("""\*\*(?=\S)([^\n]*?\S)\*\*""") to "$1",
+            Regex("""~~(?=\S)([^\n]*?\S)~~""") to "$1",
+            Regex("""```([\s\S]*?)```""") to "$1",
+            Regex("""`([^\n`]+)`""") to "$1",
+        )
+
+        /**
+         * Der Nachrichtentext, wie ihn ein Mensch lesen kann.
+         *
+         * Bewusst dieselbe Reihenfolge wie im Web-Chat: erst der Zitat-Präfix,
+         * dann die Verweise, zuletzt die Auszeichnung. Andersherum träfe das
+         * Fett-Muster auf einen bereits eingesetzten Ersatztext.
+         *
+         * Bleibt nichts übrig (die Nachricht war NUR ein geteilter Beitrag), steht
+         * das Wort allein da — eine leere Notification wäre schlimmer als eine
+         * knappe.
+         */
+        internal fun readableBody(content: String, quoteLabel: String): String {
+            var text = QUOTE_PREFIX.replace(content.take(SCAN_LIMIT), "")
+
+            text = ersetzeReferenzen(text, quoteLabel)
+            text = MARKUP.fold(text) { acc, (muster, ersatz) -> muster.replace(acc, ersatz) }
+
+            return text.trim().ifEmpty { quoteLabel }
+        }
     }
 
     override fun doWork(): Result {
@@ -201,6 +406,11 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
             relay,
             rooms,
             state.optJSONObject("names") ?: JSONObject(),
+            // Übersetzt vom Client (push/sync), weil dieser Worker keinen Zugriff
+            // auf Laravels Katalog hat und die App in acht Sprachen läuft. Fehlt
+            // das Label (Zustand aus einer älteren Version), bleibt das
+            // sprachneutrale Auslassungszeichen — nie das falsche Wort.
+            state.optJSONObject("labels")?.optString("quote")?.takeIf { it.isNotEmpty() } ?: "…",
             since,
             latch,
         )
@@ -278,6 +488,8 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
         private val rooms: JSONArray,
         /** Raum-ID → Anzeigename, aus dem letzten Sync. Kann leer sein. */
         private val roomNames: JSONObject,
+        /** Übersetztes Wort für einen Beitrag, den die Meldung nicht auflösen kann. */
+        private val quoteLabel: String,
         private val since: Long,
         private val latch: CountDownLatch,
     ) : WebSocketListener() {
@@ -792,7 +1004,7 @@ class RelayPollWorker(context: Context, params: WorkerParameters) :
             // Gruppen-Relay, an dem dieser Worker hängt. Dafür eine zweite
             // Verbindung aufzumachen ist den Namen nicht wert.
             val title = roomNames.optString(h).takeIf { it.isNotEmpty() } ?: h
-            val content = event.optString("content")
+            val content = readableBody(event.optString("content"), quoteLabel)
 
             val notification = Notification.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_chat)
