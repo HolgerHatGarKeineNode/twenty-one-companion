@@ -243,7 +243,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meetups', 'heading' => 'Meetups'])]
             />
             {{-- listbox statt nativem Select: der System-Dialog der Android-WebView
                  ignoriert das Dark-Theme (siehe x-locale-radio-group). --}}
-            <flux:select variant="listbox" wire:model.live="country">
+            <flux:select variant="listbox" :prefix="__('Region')" wire:model.live="country">
                 <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
                 @if ($loaded)
                     @foreach ($this->countries as $code)

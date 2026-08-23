@@ -8,7 +8,7 @@
 @endphp
 
 @if ($parts['prefix'] !== null)
-    <span {{ $attributes->class('truncate') }}><span class="font-normal text-zinc-400 dark:text-zinc-500">{{ $parts['prefix'] }}</span> <span class="font-semibold">{{ $parts['rest'] }}</span></span>
+    <span {{ $attributes->class('truncate') }}><span class="font-normal text-zinc-500 dark:text-zinc-400">{{ $parts['prefix'] }}</span> <span class="font-semibold">{{ $parts['rest'] }}</span></span>
 @else
     <span {{ $attributes->class('truncate font-semibold') }}>{{ $name }}</span>
 @endif
