@@ -253,7 +253,7 @@ test('die Kompositionskette rechnet Transparenz und Verlaeufe richtig', function
 })->group('a11y');
 
 test('jeder sichtbare Text erreicht seine Kontrastschwelle', function (string $pfad) {
-    $seite = seite($pfad);
+    $seite = seiteFuerA11y($pfad);
 
     $mess = $seite->script(K1_LAUF);
 
@@ -275,4 +275,5 @@ test('jeder sichtbare Text erreicht seine Kontrastschwelle', function (string $p
     '/courses',
     '/more',
     '/profile',
+    '/forge',
 ])->group('a11y');
