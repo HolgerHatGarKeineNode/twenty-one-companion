@@ -278,7 +278,7 @@ test('der Detektor erkennt einen fokussierten Knopf ohne Indikator', function ()
 })->group('a11y');
 
 test('jeder Tastaturhalt hat einen sichtbaren Fokus', function (string $pfad) {
-    $ergebnis = tabbeDurch(seite($pfad));
+    $ergebnis = tabbeDurch(seiteFuerA11y($pfad));
 
     $abbruch = $ergebnis['abgebrochen'] ? 'ja' : 'nein';
     $faenger = $ergebnis['faenger'] !== '' ? "<{$ergebnis['faenger']}>" : 'keiner';
@@ -328,4 +328,5 @@ test('jeder Tastaturhalt hat einen sichtbaren Fokus', function (string $pfad) {
     '/courses',
     '/more',
     '/profile',
+    '/forge',
 ])->group('a11y');

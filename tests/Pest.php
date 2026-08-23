@@ -57,6 +57,41 @@ function seite(string $pfad): object
     return visit($pfad)->on()->mobile()->inDarkMode();
 }
 
+/**
+ * Wie `seite()`, aber HINTER dem Nostr-Gate (`EnsureNostrAuth`) — fuer Flaechen wie
+ * `/forge`, die im Web-Host per `nostr.auth`-Middleware verlangen, dass
+ * `session()->has('nostr_pubkey')` wahr ist.
+ *
+ * `test()->withSession(...)` traegt bis zum Chromium-Cookie: `LaravelHttpServer`
+ * mischt `test()->prepareCookiesForRequest()` in JEDE Anfrage, die der Browser gegen
+ * den eingebetteten Kernel stellt (`pest-plugin-browser/src/Drivers/
+ * LaravelHttpServer.php:248`). Belegt per Wegwerf-Probe (P3, 2026-08-23): mit
+ * gesetzter Session landet `visit('/forge')` auf `/forge`, ohne Session auf
+ * `/nostr-login` — beide Richtungen gemessen, nicht nur behauptet.
+ *
+ * Der pubkey ist ein Fantasie-Hex wie `fakeSessionPubkey()` im Web-Host
+ * (`EmptyStatesAndA11yTest.php`) — die Middleware prueft nur Praesenz, keine echte
+ * NIP-98-Signatur.
+ */
+function seiteAlsNostrNutzer(string $pfad): object
+{
+    test()->withSession(['nostr_pubkey' => str_repeat('a', 64)]);
+
+    return seite($pfad);
+}
+
+/**
+ * Fuer die K1-K4-Datensaetze: oeffnet $pfad so, wie er tatsaechlich erreichbar ist —
+ * hinter dem Nostr-Gate, wenn die Flaeche eins hat. EINE Stelle, die weiss, welche
+ * Pfade `nostr.auth` verlangen, statt das in jeder Kriteriums-Datei zu wiederholen.
+ */
+function seiteFuerA11y(string $pfad): object
+{
+    return str_starts_with($pfad, '/forge')
+        ? seiteAlsNostrNutzer($pfad)
+        : seite($pfad);
+}
+
 /*
 |--------------------------------------------------------------------------
 | Test Impact Analysis (TIA)

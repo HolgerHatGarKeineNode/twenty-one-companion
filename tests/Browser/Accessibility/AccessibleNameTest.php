@@ -192,7 +192,7 @@ test('der Namensdetektor meldet korrekt benannte Elemente nicht', function () {
 })->group('a11y');
 
 test('jedes Bedienelement hat einen zugaenglichen Namen', function (string $pfad) {
-    $seite = seite($pfad);
+    $seite = seiteFuerA11y($pfad);
 
     $mess = $seite->script(K3_LAUF);
 
@@ -213,4 +213,5 @@ test('jedes Bedienelement hat einen zugaenglichen Namen', function (string $pfad
     '/courses',
     '/more',
     '/profile',
+    '/forge',
 ])->group('a11y');

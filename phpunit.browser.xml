@@ -37,5 +37,10 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="PORTAL_URL" value="http://127.0.0.1:9"/>
+        <!-- Wie PORTAL_URL: toter Port. Ohne diese Zeile fällt NOSTR_WORKSPACE_URL auf
+             den Wert aus .env zurück — dort steht die echte Produktions-Relay-URL
+             wss://buzz.einundzwanzig.space, die ein /forge-Browsertest sonst ansprechen
+             würde. -->
+        <env name="NOSTR_WORKSPACE_URL" value="ws://127.0.0.1:9"/>
     </php>
 </phpunit>

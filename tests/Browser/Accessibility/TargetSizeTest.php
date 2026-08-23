@@ -138,6 +138,12 @@ test('jedes Ziel ist gross genug oder hat Platz um sich', function (string $pfad
     // Viewport und Skalierung, und die schlaegt das spaetere setViewportSize — der Lauf
     // meldete 369 px statt der verlangten 320. K4 steuert die Breite selbst, also nur
     // der Dunkelmodus als App-Default.
+    //
+    // `/forge` liegt hinter `nostr.auth` — dieselbe Session wie in `seiteAlsNostrNutzer()`
+    // (tests/Pest.php), hier von Hand gesetzt, weil K4 seite() bewusst nicht benutzt.
+    if (str_starts_with($pfad, '/forge')) {
+        test()->withSession(['nostr_pubkey' => str_repeat('a', 64)]);
+    }
     $seite = visit($pfad)->inDarkMode();
     $seite->page()->setViewportSize($breite, 900);
 
@@ -162,4 +168,6 @@ test('jedes Ziel ist gross genug oder hat Platz um sich', function (string $pfad
     ['/more', 320],
     ['/profile', 320],
     ['/profile', 1280],
+    ['/forge', 320],
+    ['/forge', 1280],
 ])->group('a11y');
