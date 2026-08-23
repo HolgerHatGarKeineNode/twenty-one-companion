@@ -329,4 +329,19 @@ test('jeder Tastaturhalt hat einen sichtbaren Fokus', function (string $pfad) {
     '/more',
     '/profile',
     '/forge',
+    // `?tab=repos` ist eine EIGENE Lage, keine Wiederholung von `/forge`: auf
+    // dem mobilen Viewport ist die Bühne einspaltig und der Startwert des Tabs
+    // „Aktivität", die Werkbank stand also in KEINEM der vier Kriterien je im
+    // Bild. Gemessen wird hier ihr LEERZUSTAND — dieser Prüfstand bringt kein
+    // Relay mit (`NOSTR_WORKSPACE_URL` zeigt bewusst auf einen toten Port), also
+    // ist `overview.repos` leer.
+    //
+    // **Was diese Zeile NICHT abdeckt, und das gehört dazugesagt:** das
+    // Suchfeld der Forge (P5) steht zwar im Dokument, ist aber unsichtbar —
+    // `x-show="overview.repos.length > 0"`, und ohne Relay gibt es keine.
+    // Gemessen (2026-08-23): `{imDom:true, sichtbar:false, repos:0}`. Seine
+    // Barrierefreiheit wird deshalb dort geprüft, wo echte Daten liegen:
+    // `einundzwanzig-group/tests/e2e/forge-patches.spec.ts` (zugänglicher Name,
+    // Zielgröße, sichtbarer Fokus) gegen den worker-eigenen zooid.
+    '/forge?tab=repos',
 ])->group('a11y');

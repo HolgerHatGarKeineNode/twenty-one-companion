@@ -170,4 +170,9 @@ test('jedes Ziel ist gross genug oder hat Platz um sich', function (string $pfad
     ['/profile', 1280],
     ['/forge', 320],
     ['/forge', 1280],
+    // Siehe die Begründung in `ContrastTest`: ohne `?tab=repos` stand die
+    // Werkbank auf dem mobilen Viewport in keinem Kriterium im Bild. Gemessen
+    // wird ihr Leerzustand; das Suchfeld selbst ist hier mangels Relay
+    // unsichtbar und wird im Web-Host geprüft.
+    ['/forge?tab=repos', 320],
 ])->group('a11y');
