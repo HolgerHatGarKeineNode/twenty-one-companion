@@ -328,7 +328,18 @@ return [
             'obfuscate' => env('NATIVEPHP_ANDROID_OBFUSCATE', false),
 
             // Debug Symbol Configuration - currently enabled
-            'debug_symbols' => env('NATIVEPHP_ANDROID_DEBUG_SYMBOLS', 'FULL'),
+            /*
+             * NONE statt FULL: das erzeugt die native Symboldatei fuer die
+             * Play-Console-Symbolikation (debugSymbolLevel im AAB) — wir liefern
+             * ueber zapstore und GitHub aus, es gibt keine Konsole, die sie je
+             * entgegennimmt. Der Schalter kostet also Buildzeit ohne Empfaenger.
+             *
+             * ACHTUNG, haeufige Verwechslung: er hat NICHTS mit dem Strippen der
+             * .so-Dateien zu tun. Das steuert `keepDebugSymbols` in
+             * app/build.gradle.kts, gesetzt von scripts/apply-vendor-patches.sh
+             * (dort `patch_gradle_strip`). NONE hier macht das APK NICHT kleiner.
+             */
+            'debug_symbols' => env('NATIVEPHP_ANDROID_DEBUG_SYMBOLS', 'NONE'),
             'generate_mapping_files' => env('NATIVEPHP_ANDROID_MAPPING_FILES', false),
             'mapping_file_path' => env('NATIVEPHP_ANDROID_MAPPING_PATH', 'build/outputs/mapping/release/'),
 
@@ -408,6 +419,10 @@ return [
             'routes',
             'config',
             'public',
+            // Steht im NativePHP-Doku-Default und fehlte hier: Migrationen laufen
+            // bei jedem App-Start, eine Migrationsaenderung loeste aber keinen
+            // Reload aus.
+            'database',
         ],
 
         'exclude_patterns' => [

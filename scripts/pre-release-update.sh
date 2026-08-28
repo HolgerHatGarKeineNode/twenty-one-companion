@@ -29,6 +29,13 @@ echo "═══ 2/5  npm aktualisieren ═══"
 # yarn.lock existiert nicht. `yarn install` würde den Lock ignorieren und die
 # Versionen neu auflösen — also andere Pakete installieren als gelockt, auch in
 # den Assets, die ins APK wandern. yarn.lock steht deshalb in .gitignore.
+#
+# Die Registry dieser Umgebung liefert nur Pakete, die einige Tage alt sind — bewusster
+# Schutz gegen Supply-Chain-Angriffe: ein kompromittiertes Release soll nicht sofort in
+# einen Build wandern. Bleibt unten in `npm outdated` etwas stehen, ist das KEIN
+# unerledigter Rest — die Version ist nur noch nicht freigegeben. Meldet npm
+# `notarget ... with a date before <datum>`, gilt dasselbe: warten, nicht ausweichen.
+# Nicht umgehen — der Cutoff sitzt im Registry-Proxy, nicht in `npm config`.
 npm update
 
 echo
