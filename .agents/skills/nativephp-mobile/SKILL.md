@@ -21,7 +21,7 @@ Ergebnisse kommen **asynchron als Events** zurück.
 ## Befehls-Schnellreferenz
 
 ```bash
-yarn build --mode=android                  # PFLICHT vor jedem Kompilieren (sonst alte Assets im Bundle)
+npm run build -- --mode=android                  # PFLICHT vor jedem Kompilieren (sonst alte Assets im Bundle)
 php artisan native:run android             # bauen + im Emulator/Gerät starten (--watch = Hot Reload)
 php artisan native:jump                    # Live-Preview auf Echtgerät via QR (auch iPhone von Linux!)
 php artisan native:tail                    # Laravel-Logs der laufenden App
