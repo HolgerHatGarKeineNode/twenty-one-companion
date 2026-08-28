@@ -320,14 +320,25 @@ patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
   echo "    [+] Deeplink-Pfade auf config('nativephp.deeplink_path_prefixes') eingeschraenkt"
 }
 
+# ── Messschalter ───────────────────────────────────────────────────────────────
+# OPTIMIZE_SKIP="opcache queue" laesst einzelne Patches AUS, damit ihr Nutzen
+# gegen eine Baseline messbar wird. Ohne das laesst sich nicht pruefen, ob ein
+# Bootzeit-Patch ueberhaupt noch etwas bringt — und ein Patch, der nichts bringt,
+# kostet trotzdem Pflege und verteuert jeden spaeteren NativePHP-Umstieg.
+# NUR fuer Messlaeufe. Ein Release-Build laeuft ohne diese Variable.
+uebersprungen() {  # $1 = Schluessel
+  case " ${OPTIMIZE_SKIP:-} " in *" $1 "*) return 0 ;; *) return 1 ;; esac
+}
+[ -n "${OPTIMIZE_SKIP:-}" ] && echo "  ⚠️  MESSLAUF — uebersprungen: $OPTIMIZE_SKIP"
+
 any=0
 for entry in "${TARGETS[@]}"; do
   base="${entry%%|*}"; label="${entry##*|}"
   env_f="$base/$REL_ENV"; main_f="$base/$REL_MAIN"
   if [ -f "$env_f" ] && [ -f "$main_f" ]; then
     echo "  $label:"
-    patch_env "$env_f"
-    patch_main "$main_f"
+    uebersprungen opcache || patch_env "$env_f"
+    uebersprungen queue || patch_main "$main_f"
     patch_filechooser_main "$main_f"
     [ -f "$base/$REL_WEBVIEW" ] && patch_filechooser_webview "$base/$REL_WEBVIEW"
     [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
