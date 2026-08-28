@@ -73,8 +73,8 @@ Please report vulnerabilities confidentially — see [SECURITY.md](SECURITY.md).
 ## Development
 
 ```bash
-composer install && yarn install
-yarn build --mode=android
+composer install && npm ci
+npm run build -- --mode=android
 php artisan native:run android        # Build + run on emulator/device
 php artisan test --compact            # Tests
 ```
@@ -85,9 +85,23 @@ and [`PLAN.md`](PLAN.md).
 ## Publishing a release
 
 ```bash
+./scripts/pre-release-update.sh       # Update dependencies, re-apply patches, run the test gates
 php artisan native:release patch      # Bump the version
 ./scripts/release.sh                  # Build the APK, generate the manifest, GPG-sign
 ```
+
+The update step is deliberately separate from the build: a release ships the *tested* state.
+Commit the two lock files before bumping the version, so a red build points at your own code
+rather than at one of ~40 changed packages. Major upgrades stay out of that routine — the
+script lists them at the end instead of applying them.
+
+**This project uses npm, not yarn.** `package-lock.json` is tracked, no `yarn.lock` exists,
+and `yarn install` would ignore the lock and resolve versions afresh — including the assets
+that end up inside the APK. `yarn.lock` is therefore in `.gitignore`.
+
+Signing needs a terminal: `release.sh` calls `gpg`, which asks for the passphrase. Run it in
+an interactive shell, otherwise it fails with `no terminal at all requested` — and the build
+leaves an unsigned APK behind.
 
 The script writes all GitHub release artifacts to `dist/v<version>/`
 (APK, `manifest-v<version>.txt`, `manifest-v<version>.txt.sig`). It is then published through two

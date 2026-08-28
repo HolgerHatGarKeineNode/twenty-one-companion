@@ -20,6 +20,11 @@ REL_MAIN="app/src/main/java/com/nativephp/mobile/ui/MainActivity.kt"
 REL_WEBVIEW="app/src/main/java/com/nativephp/mobile/network/WebViewManager.kt"
 REL_ICONBG="app/src/main/res/drawable/ic_launcher_background.xml"
 
+# Drittes Ziel, PHP statt Kotlin und OHNE generiertes Pendant: der Deeplink-Patch
+# sitzt im Vendor-Quelltext selbst, weil dieser das AndroidManifest bei jedem
+# native:run/native:package neu erzeugt.
+DEEPLINK_PHP="vendor/nativephp/mobile/src/Traits/RunsAndroid.php"
+
 # (Basisverzeichnis, Label) — nur existierende werden gepatcht.
 TARGETS=(
   "vendor/nativephp/mobile/resources/androidstudio|Template (vendor)"
@@ -201,6 +206,44 @@ patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
   fi
 }
 
+patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
+  local f="$1"
+  # NativePHP beansprucht bei gesetztem NATIVEPHP_DEEPLINK_HOST IMMER den ganzen
+  # Host (pathPrefix="/"). Das faengt die eigenen Browser::inApp/open-Aufrufe der
+  # App ins Portal wieder ab — die mobile Login-Seite liesse sich nie im Browser
+  # oeffnen —, und der Signer-Callback /auth/mobile/signed/… traegt das komplette
+  # URL-kodierte Event: ihn in den eingebetteten WebView zu laden, crasht ihn
+  # (SIGILL). Deshalb nur die Pfade aus config('nativephp.deeplink_path_prefixes').
+  #
+  # Dieser Patch existierte seit 6e93763 nur von Hand und stand in KEINEM Skript.
+  # Am 2026-08-28 hat `composer update` (nativephp/mobile 3.3.6 -> 3.3.7) ihn
+  # ueberschrieben, und das frisch gebaute v1.9.4-APK trug wieder pathPrefix="/",
+  # waehrend das ausgelieferte v1.9.3 noch "/app/" hatte. Nachweis am Artefakt:
+  #   aapt2 dump xmltree <apk> --file AndroidManifest.xml | grep pathPrefix
+  if grep -q 'deeplink_path_prefixes' "$f"; then
+    echo "    [=] Deeplink-Pfade bereits eingeschraenkt"
+    return 0
+  fi
+  if ! grep -qF 'android:pathPrefix="/" />' "$f"; then
+    echo "    [!] Deeplink-Anker nicht gefunden in $f" >&2
+    echo "        NativePHP hat generateDeepLinkFilters() geaendert. Der Patch MUSS" >&2
+    echo "        von Hand nachgezogen werden, sonst beansprucht die App den ganzen" >&2
+    echo "        Portal-Host als App-Link (WebView-Crash beim Signer-Callback)." >&2
+    exit 1
+  fi
+  perl -0777 -i -pe '
+    # 1. Die eine <data>-Zeile durch die interpolierte Liste ersetzen.
+    s{^[ \t]*<data android:scheme="https" android:host="\{\$host\}" android:pathPrefix="/" />[ \t]*$}
+     {\{\$dataTags\}}m;
+    # 2. Die Berechnung direkt vor den XML-Heredoc des $host-Zweigs setzen.
+    s{(if \(\$host\) \{\n)(\s*)(\$filters\[\] = <<<XML)}
+     {$1$2// PATCH (twenty-one-companion, scripts/apply-vendor-patches.sh):\n$2// nur die konfigurierten Pfade beanspruchen statt des ganzen Hosts.\n$2\$prefixes = config('"'"'nativephp.deeplink_path_prefixes'"'"') ?: ['"'"'/'"'"'];\n$2\$dataTags = implode("\\n", array_map(\n$2    fn (\$prefix) => '"'"'                <data android:scheme="https" android:host="'"'"'\n$2        .\$host.'"'"'" android:pathPrefix="'"'"'.\$prefix.'"'"'" />'"'"',\n$2    \$prefixes\n$2));\n$2$3}s;
+  ' "$f"
+  php -l "$f" >/dev/null || { echo "    [!] Patch erzeugt ungueltiges PHP" >&2; exit 1; }
+  grep -q 'deeplink_path_prefixes' "$f" || { echo "    [!] Patch griff nicht" >&2; exit 1; }
+  echo "    [+] Deeplink-Pfade auf config('nativephp.deeplink_path_prefixes') eingeschraenkt"
+}
+
 any=0
 for entry in "${TARGETS[@]}"; do
   base="${entry%%|*}"; label="${entry##*|}"
@@ -218,4 +261,11 @@ for entry in "${TARGETS[@]}"; do
   fi
 done
 [ $any -eq 1 ] || { echo "Kein Ziel gefunden — composer install / native:run gelaufen?"; exit 1; }
+
+if [ -f "$DEEPLINK_PHP" ]; then
+  echo "  Deeplinks (vendor PHP):"
+  patch_deeplinks "$DEEPLINK_PHP"
+else
+  echo "  Deeplinks (vendor PHP): übersprungen (nicht vorhanden)"
+fi
 echo "Fertig."
