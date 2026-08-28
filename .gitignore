@@ -58,3 +58,7 @@ event.json
 /database/database.sqlite-shm
 /database/database.sqlite-wal
 .omo/
+
+# Dieses Projekt nutzt npm (package-lock.json). Ein zweiter Lock aus einem
+# versehentlichen "yarn install" wuerde andere Versionen aufloesen als gelockt.
+yarn.lock

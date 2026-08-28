@@ -6,7 +6,7 @@
 # Playwright-Browser nicht brechen.
 #
 # Voraussetzungen:
-#   - Node + die Dev-Dependency `playwright` (yarn install)
+#   - Node + die Dev-Dependency `playwright` (npm ci)
 #   - Der Chromium-Build (wird bei Bedarf unten installiert)
 #
 # Nutzung:

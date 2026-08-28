@@ -37,5 +37,10 @@
     "devDependencies": {
         "concurrently": "^10.0.4",
         "playwright": "^1.60.0"
+    },
+    "packageManager": "npm@12.0.2",
+    "engines": {
+        "node": ">=22",
+        "npm": ">=10"
     }
 }
