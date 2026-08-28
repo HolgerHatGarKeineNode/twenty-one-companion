@@ -19,6 +19,7 @@ REL_ENV="app/src/main/java/com/nativephp/mobile/bridge/LaravelEnvironment.kt"
 REL_MAIN="app/src/main/java/com/nativephp/mobile/ui/MainActivity.kt"
 REL_WEBVIEW="app/src/main/java/com/nativephp/mobile/network/WebViewManager.kt"
 REL_ICONBG="app/src/main/res/drawable/ic_launcher_background.xml"
+REL_GRADLE="app/build.gradle.kts"
 
 # Drittes Ziel, PHP statt Kotlin und OHNE generiertes Pendant: der Deeplink-Patch
 # sitzt im Vendor-Quelltext selbst, weil dieser das AndroidManifest bei jedem
@@ -206,6 +207,81 @@ patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
   fi
 }
 
+patch_gradle_profileable() {  # $1 = Pfad zu app/build.gradle.kts
+  local f="$1"
+  # Eine release-optimierte, aber PROFILIERBARE Variante — aus NativePHP 4.3.0
+  # zurueckportiert (dort resources/androidstudio/app/build.gradle.kts:98-115).
+  # Wir bleiben auf 3.3.7 (siehe docs/plans/…-nativephp-ernte…), aber dieser Block
+  # haengt an nichts Versionsspezifischem: er ist reines AGP.
+  #
+  # Wozu: `isProfileable` injiziert <profileable shell="true"> NUR fuer diese Variante,
+  # sodass Macrobenchmark, simpleperf und Perfetto sich an einen Build haengen koennen,
+  # der dem ausgelieferten entspricht. Debug-signiert, damit `adb install` reicht — kein
+  # Release-Keystore, kein manuelles zipalign/apksigner.
+  #
+  # Warum immer R8: ein unminifizierter Profil-Build misst einen Kaltstart, den kein
+  # Nutzer je sieht. Upstream beziffert den Unterschied mit ~58 MB Dex gegen ~9 MB und
+  # ~+90 ms bindApplication auf einem Pixel 9.
+  #
+  # WARUM ALS PATCH und nicht von Hand: `native:install` loescht nativephp/android
+  # vollstaendig. Eine Hand-Aenderung an build.gradle.kts ueberlebt das nicht.
+  if grep -q 'create("profileable")' "$f"; then
+    echo "    [=] profileable-Variante bereits vorhanden"
+    return 0
+  fi
+  # Anker: das Ende des debug-Blocks innerhalb von buildTypes. Wir haengen die neue
+  # Variante direkt davor an das schliessende `}` von buildTypes.
+  if ! grep -qE '^\s*debug \{' "$f"; then
+    echo "    [!] buildTypes/debug-Anker nicht gefunden in $f" >&2
+    echo "        Ohne die profileable-Variante ist die Bootzeit nicht am echten" >&2
+    echo "        Release-Pfad messbar (siehe P2 im Plan)." >&2
+    exit 1
+  fi
+  perl -0777 -i -pe '
+    s{(\n)(\s*)(debug \{.*?\n\2\})(\n\s*\})}
+     {$1$2$3$1$2// OPTIMIZE-PROFILEABLE: aus NativePHP 4.3.0 zurueckportiert.\n$2// Release-optimiert, aber fuer Macrobenchmark/simpleperf/Perfetto\n$2// attachbar. Debug-signiert, damit `adb install` genuegt.\n$2// Bauen mit: ./gradlew assembleProfileable\n$2create("profileable") \{\n$2    initWith(getByName("release"))\n$2    isDebuggable = false\n$2    isProfileable = true\n$2    // Immer R8 — ein unminifizierter Build misst einen Kaltstart,\n$2    // den kein Nutzer je sieht.\n$2    isMinifyEnabled = true\n$2    signingConfig = signingConfigs.getByName("debug")\n$2    matchingFallbacks += listOf("release")\n$2\}$4}s' "$f"
+  grep -q 'create("profileable")' "$f" || { echo "    [!] profileable-Patch griff nicht" >&2; exit 1; }
+  echo "    [+] profileable-Build-Variante ergaenzt"
+}
+
+patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
+  local f="$1"
+  # AGP strippt native Bibliotheken beim Verpacken — der Task `stripReleaseDebugSymbols`
+  # laeuft auch. `keepDebugSymbols.add("**/*.so")` macht ihn wirkungslos: das Ergebnis in
+  # intermediates/stripped_native_libs/ meldet trotzdem "not stripped".
+  #
+  # Gemessen am 2026-08-28 in libphp_wrapper.so (32,17 MB unkomprimiert im APK):
+  #   .symtab 1,83 MB · .strtab 1,10 MB · dazu .debug_info/-str/-line/-loc/-ranges
+  # Auch libc++_shared.so ist ungestrippt. Die uebrigen vier .so kommen bereits
+  # gestrippt aus ihren Quellen — der Patch aendert an ihnen nichts.
+  #
+  # Warum das gefahrlos ist: strip entfernt `.symtab`, `.strtab` und die `.debug_*`-
+  # Sektionen. Die DYNAMISCHE Symboltabelle `.dynsym`, ueber die dlopen/dlsym und der
+  # Linker aufloesen, bleibt unangetastet — PHPs Extension-Laden haengt an ihr.
+  #
+  # Warum wir die Symbole nicht brauchen: es gibt in diesem Projekt KEIN
+  # Crash-Reporting (kein Crashlytics/Sentry/Bugsnag/ACRA — gegengeprueft), und es gibt
+  # keine Play Console, die eine Symboldatei entgegennaehme. Ein nativer Stacktrace
+  # waere ohnehin nur lokal per ndk-stack auswertbar, und dafuer steht die
+  # unstrippierte Binary im Build-Ordner weiterhin bereit.
+  if grep -q 'OPTIMIZE-STRIP' "$f"; then
+    echo "    [=] keepDebugSymbols bereits eingeschraenkt"
+    return 0
+  fi
+  local anchor='keepDebugSymbols.add("**/*.so")'
+  if ! grep -qF "$anchor" "$f"; then
+    echo "    [!] keepDebugSymbols-Anker nicht gefunden in $f" >&2
+    echo "        NativePHP hat das Gradle-Template geaendert. Pruefen, ob die" >&2
+    echo "        Bibliotheken noch ungestrippt ausgeliefert werden:" >&2
+    echo "        file <apk-entpackt>/lib/arm64-v8a/libphp_wrapper.so" >&2
+    exit 1
+  fi
+  perl -0777 -i -pe 's{^([ \t]*)\Qkeep\EDebugSymbols\.add\("\*\*/\*\.so"\)[ \t]*$}
+                     {$1// OPTIMIZE-STRIP: Zeile bewusst entfernt — sie machte den\n$1// stripReleaseDebugSymbols-Task wirkungslos und lieferte 2,9 MB\n$1// Symboltabellen mit aus. Begruendung in scripts/apply-vendor-patches.sh.}mx' "$f"
+  grep -q 'OPTIMIZE-STRIP' "$f" || { echo "    [!] Strip-Patch griff nicht" >&2; exit 1; }
+  echo "    [+] keepDebugSymbols entfernt (native Bibliotheken werden gestrippt)"
+}
+
 patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
   local f="$1"
   # NativePHP beansprucht bei gesetztem NATIVEPHP_DEEPLINK_HOST IMMER den ganzen
@@ -255,6 +331,8 @@ for entry in "${TARGETS[@]}"; do
     patch_filechooser_main "$main_f"
     [ -f "$base/$REL_WEBVIEW" ] && patch_filechooser_webview "$base/$REL_WEBVIEW"
     [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
+    [ -f "$base/$REL_GRADLE" ] && patch_gradle_strip "$base/$REL_GRADLE"
+    [ -f "$base/$REL_GRADLE" ] && patch_gradle_profileable "$base/$REL_GRADLE"
     any=1
   else
     echo "  $label: übersprungen (nicht vorhanden)"

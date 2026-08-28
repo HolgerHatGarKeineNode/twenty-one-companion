@@ -54,6 +54,16 @@ if [ -z "${SKIP_BUILD:-}" ]; then
     echo "→ Frontend-Assets bauen …"
     npm run build -- --mode=android
 
+    echo "→ Plugin-Manifeste pruefen …"
+    # `native:plugin:validate` prueft Manifest-Syntax, Bridge-Function-Deklarationen,
+    # Hook-Registrierungen und Asset-Praesenz. Unsere drei Manifeste sind handgeschrieben
+    # und tragen zusammen 12 Bridge-Functions — bis 2026-08-28 lief nie eine Pruefung
+    # darueber. Ein Tippfehler im Manifest faellt sonst erst auf dem Geraet auf.
+    for PLUGIN in packages/push packages/calendar ../einundzwanzig-group/packages/amber-signer; do
+        [ -f "$PLUGIN/nativephp.json" ] || continue
+        php artisan native:plugin:validate "$PLUGIN" --no-interaction
+    done
+
     echo "→ Boot-Optimierungs-Patches auf die NativePHP-Templates anwenden (opcache etc.) …"
     # Muss VOR native:package laufen: patcht die vendor-Templates, damit ein
     # etwaiges Neu-Scaffolding die Optimierungen enthält. Idempotent + fail-fast.
