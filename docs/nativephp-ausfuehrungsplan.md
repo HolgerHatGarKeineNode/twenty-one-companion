@@ -32,7 +32,7 @@
 - Composer, Laravel installer, Node + Yarn:
 ```bash
 # CachyOS/Arch examples
-sudo pacman -S --needed php php-gd php-sqlite composer nodejs yarn jdk17-openjdk android-tools
+sudo pacman -S --needed php php-gd php-sqlite composer nodejs jdk17-openjdk android-tools
 composer global require laravel/installer
 php -m | grep -E 'gd|sqlite'   # verify
 ```
@@ -99,8 +99,8 @@ php artisan native:install android
 printf "nativephp/\npublic/ios-hot\npublic/android-hot\n" >> .gitignore
 
 # (7) Wire in the Vite plugin (vite.config.js, see §3.4), then build the frontend
-yarn install
-yarn build --mode=android
+npm ci
+npm run build -- --mode=android
 
 # (8) Launch the app in the emulator
 php artisan native:run android        # short form after install: ./native run android
@@ -157,7 +157,7 @@ export default defineConfig({
     ],
 });
 ```
-Always build platform-specifically: `yarn build --mode=android` (on macOS additionally `--mode=ios`).
+Always build platform-specifically: `npm run build -- --mode=android` (on macOS additionally `--mode=ios`).
 
 ### 3.5 Mobile layout (app shell) — `resources/views/components/layouts/app.blade.php`
 - Viewport meta for a native feel + edge-to-edge:
@@ -248,7 +248,7 @@ In v3, all native features are **plugins** (Composer packages; after `composer r
 
 **Variant A — Jump (fastest loop, real device, no build):**
 ```bash
-yarn dev                          # Terminal 1: Vite with HMR (automatically proxied over port 3003)
+npm run dev                          # Terminal 1: Vite with HMR (automatically proxied over port 3003)
 php artisan native:jump           # Terminal 2: QR code → scan with the Jump app
 # Options: --ip=192.168.x.x (with multiple interfaces), --no-mdns, ports --http-port/--ws-port/--bridge-port/--vite-proxy-port
 # Bridge logs: tail -f storage/logs/jump-bridge.log
@@ -257,7 +257,7 @@ Most native APIs (dialogs, camera, scanner …) work in Jump; **not** reliable: 
 
 **Variant B — real build in the emulator/on device:**
 ```bash
-yarn build --mode=android                 # ALWAYS before compiling (otherwise old assets in the bundle!)
+npm run build -- --mode=android                 # ALWAYS before compiling (otherwise old assets in the bundle!)
 php artisan native:run android            # builds + deploys; ./native run android as the short form
 php artisan native:run android --watch    # with hot reloading (or separately: php artisan native:watch android)
 php artisan native:tail                   # Laravel logs of the running Android app
@@ -296,7 +296,7 @@ php artisan native:debug                  # diagnostics of the mobile environmen
 - Pin the constraint: `"nativephp/mobile": "~3.3.6"` (tilde: patches automatically, minors deliberately).
 - **Patch release** (PHP code only): `composer update` is enough — no rebuild, no store submission.
 - **Minor release** (can change Kotlin/Swift): `composer update` → **`php artisan native:install --force`** (complete rebuild) → test `native:run` → a new store submission is required. Follow the migration guides.
-- Update Flux Pro/Livewire normally via Composer; afterward don't forget `yarn build --mode=android`.
+- Update Flux Pro/Livewire normally via Composer; afterward don't forget `npm run build -- --mode=android`.
 
 ### 7.2 App versioning
 - **Never edit manually** `NATIVEPHP_APP_VERSION` (public, SemVer recommended) and `NATIVEPHP_APP_VERSION_CODE` (internal build number, must strictly increase per store upload), but instead:
@@ -314,7 +314,7 @@ php artisan native:credentials android
 php artisan native:run android --build=release
 
 # Signed app bundle for the Play Store
-yarn build --mode=android
+npm run build -- --mode=android
 php artisan native:package android --build-type=bundle
 #   Artifact: nativephp/android/app/build/outputs/bundle/release/app-release.aab
 
@@ -351,7 +351,7 @@ php artisan native:package android --build-type=bundle \
 7. ☐ `public/icon.png` (1024², opaque) + `public/splash(.dark).png` (1080×1920)
 8. ☐ App shell: layout with viewport-fit=cover, `nativephp-safe-area`, `keyboard-visible` variant, EDGE bottom-nav/top-bar; screens Dashboard/Meetups/Profile/Login (Flux)
 9. ☐ Auth: Sanctum token flow against the Portal API, token storage (SecureStorage or Crypt), token expiration + rate limit server-side
-10. ☐ Dev loop: `yarn build --mode=android` → `php artisan native:run android --watch`; Jump in parallel for real-device tests
+10. ☐ Dev loop: `npm run build -- --mode=android` → `php artisan native:run android --watch`; Jump in parallel for real-device tests
 11. ☐ Pest tests for Livewire components; `vendor/bin/pint --dirty`
 12. ☐ Release: `native:release` → `native:credentials android` → `native:package android --build-type=bundle` → Play Store track `internal`
 

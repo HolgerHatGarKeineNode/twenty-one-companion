@@ -25,7 +25,7 @@ cd "$(dirname "$0")/.."
 BROWSERS_JSON=node_modules/playwright-core/browsers.json
 
 if [ ! -f "$BROWSERS_JSON" ]; then
-    echo "link-host-chromium: $BROWSERS_JSON is missing — run yarn install first." >&2
+    echo "link-host-chromium: $BROWSERS_JSON is missing — run npm ci first." >&2
     exit 1
 fi
 
