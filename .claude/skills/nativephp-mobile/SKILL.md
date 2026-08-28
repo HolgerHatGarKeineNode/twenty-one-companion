@@ -1,9 +1,32 @@
 ---
 name: nativephp-mobile
-description: "Use this skill whenever working with NativePHP Mobile v3 in this app: native:* artisan commands, builds/runs (Emulator, Jump, Hot Reload), native APIs (Camera, Biometrics, Scanner, SecureStorage, Push, Dialog, Share, …), EDGE components (<native:*>), config/nativephp.php, .env NATIVEPHP_* keys, plugins (install/register/develop), SQLite/Queues/Deep Links on device, and Play-Store/App-Store releases. Built from a deep scan of all 58 official v3 docs pages (2026-06-11)."
+description: "Use this skill whenever working with NativePHP Mobile v3 in this app: native:* artisan commands, builds/runs (Emulator, Jump, Hot Reload), native APIs (Camera, Biometrics, Scanner, SecureStorage, Push, Dialog, Share, …), EDGE components (<native:*>), config/nativephp.php, .env NATIVEPHP_* keys, plugins (install/register/develop), SQLite/Queues/Deep Links on device, and packaging signed release builds. NOTE for THIS project: Play Store and App Store are permanently out of scope — distribution is zapstore + GitHub releases only. Ignore any store-specific advice below. Built from a deep scan of all 58 official v3 docs pages (2026-06-11)."
 ---
 
 # NativePHP Mobile v3
+
+## ⚠️ Diese Referenz beschreibt v3 — was unter v4 NICHT mehr stimmt
+
+Wir fahren `nativephp/mobile` 3.3.7; alles unten ist dafür gültig. Sollte je auf v4
+umgestellt werden, sind genau diese Stellen falsch (am 4.3.0-Quelltext geprüft, 2026-08-28):
+
+| Stelle | Unter v4 falsch, weil |
+|---|---|
+| `references/plugins-free.md` (Device 131-145, Dialog 178-220, File 238-270, System 417-426) | Diese Pakete sind unter v4 nicht mehr separat zu installieren — `nativephp/mobile` 4.x deklariert `conflict` gegen `mobile-{device,dialog,file,system}`. Wer der Anleitung folgt, macht das Composer-Update **unauflösbar**. Ausbau geht mit `php artisan native:plugin:uninstall --core-v4`. |
+| `references/plugins-system.md` (132, 194, 228, 250, 258) | Plugin-Kotlin landet unter v4 in `app/src/nativephp/kotlin`, nicht in `app/src/main/java/<package>/`. `AndroidPluginCompiler::removeLegacyPackageCopies()` **löscht** Kopien unter `src/main/java`. **Die offizielle v4-Doku sagt hier dasselbe Falsche** — nur der Compiler-Quelltext ist verlässlich. Betrifft direkt `scripts/run-push-kotlin.sh:43`. |
+| `references/edge-components.md` (`<native:horizontal-divider>`, 9×) | Heißt unter v4 `<native:divider>` (`src/Edge/Elements/Divider.php`). Für uns folgenlos — wir nutzen keine EDGE-Komponenten. |
+| `references/the-basics.md:63` (Vite-HMR automatisch über Port 3003) | Unter v4 ist der Vite-Dev-Server **opt-in**: `native:watch --vite` bzw. `native:run --watch --vite`. |
+
+**Was NICHT falsch wird** und bei einem Umstieg trägt: das Kotlin-Bridge-Interface
+(`interface BridgeFunction`, `object BridgeResponse.success()`) ist in 3.3.7 und 4.3.0
+identisch; ebenso `resources/android/` als Plugin-Quellordner, `native:plugin:validate`,
+`native:install --force`, `npm run build -- --mode=android` und die `cleanup_env_keys`-Regel.
+
+**Offen und ausdrücklich ungeprüft:** ob die Regel „native Aufrufe liefern keine
+Rückgabewerte" unter v4 noch gilt — `src/Concerns/HandlesNativeCallbacks.php` und
+`src/Support/NativeCallbacks.php` sind dort neu. Nicht verifiziert, nicht annehmen.
+
+
 
 NativePHP Mobile bettet eine vorkompilierte PHP-Runtime samt Laravel direkt in eine native
 Swift-/Kotlin-Shell ein — kein Webserver, offline-first, eine Codebasis für iOS + Android.
