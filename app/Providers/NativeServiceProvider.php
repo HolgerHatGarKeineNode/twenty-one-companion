@@ -9,8 +9,6 @@ use Einundzwanzig\Push\PushServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Native\Mobile\Providers\BrowserServiceProvider;
 use Native\Mobile\Providers\CameraServiceProvider;
-use Native\Mobile\Providers\DialogServiceProvider;
-use Native\Mobile\Providers\FileServiceProvider;
 use Native\Mobile\Providers\NetworkServiceProvider;
 use Native\Mobile\Providers\SecureStorageServiceProvider;
 use Native\Mobile\Providers\ShareServiceProvider;
@@ -46,12 +44,10 @@ class NativeServiceProvider extends ServiceProvider
     {
         return [
             BrowserServiceProvider::class,
-            DialogServiceProvider::class,
             NetworkServiceProvider::class,
             ShareServiceProvider::class,
             SecureStorageServiceProvider::class,
             NativephpMobileLocalesServiceProvider::class,
-            FileServiceProvider::class,
             CameraServiceProvider::class,
             CalendarServiceProvider::class,
             AmberSignerServiceProvider::class,

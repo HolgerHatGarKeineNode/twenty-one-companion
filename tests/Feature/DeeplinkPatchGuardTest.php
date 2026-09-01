@@ -15,6 +15,11 @@ use Symfony\Component\Process\Process;
  * from `src/Traits/` to `src/Concerns/`, so the silent skip was one upgrade away
  * from repeating it.
  *
+ * That upgrade happened on 2026-09-01 (3.3.7 → 4.3.1), so the two paths have
+ * swapped roles: `src/Concerns/` is now where the file lives, and a script still
+ * pointing at `src/Traits/` is the drift this guard has to catch. The guard is
+ * unchanged; only which path stands for "found" and which for "gone" moved.
+ *
  * Known-bad and known-good in one file, the same shape the accessibility harness
  * uses (`tests/Browser/Accessibility/*`): a guard that has only ever been seen
  * green is indistinguishable from a guard that cannot fire at all.
@@ -50,13 +55,26 @@ function deeplinkSandbox(string $sandbox, ?string $vendorTarget = null): void
     File::ensureDirectoryExists($kotlin.'/ui');
 
     File::copy(base_path('scripts/apply-vendor-patches.sh'), $sandbox.'/scripts/apply-vendor-patches.sh');
+    // Phase 3 is satisfied by its marker alone. Phase 3b is not: it measures WHERE the
+    // wipe sits — inside `fun initialize()`, the cold boot path — so this fixture has
+    // to carry the 4.3.1 boot shape even though the deeplink branch is what is
+    // measured here. Its own controls live in VendorPatchHalfStateTest.
     File::put($kotlin.'/bridge/LaravelEnvironment.kt', <<<'KT'
         // opcache.file_cache
-        // OPTIMIZE-opcache-wipe
-        // EXTRACT-GATE-FIX
+            fun initialize() {
+                extractionLock.withLock {
+                    val didExtract = extractLaravelBundleUnlocked()
+                    if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe
+                    setupEnvironment(didExtract)
+                }
+            }
+
+            fun initializeForBackground() {
+                val didExtract = extractLaravelBundle()
+                if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe
+            }
         KT);
     File::put($kotlin.'/ui/MainActivity.kt', <<<'KT'
-        // postDelayed({ queueWorker
         // FILE_CHOOSER_REQUEST_CODE
         KT);
 
@@ -89,11 +107,11 @@ it('exits non-zero when the deeplink target is not where the script expects it',
         ->and($process->getOutput())->not->toContain('Fertig.');
 })->with([
     'vendor tree missing entirely' => [null],
-    'moved to src/Concerns as NativePHP 4.x does' => ['vendor/nativephp/mobile/src/Concerns/RunsAndroid.php'],
+    'still at the pre-4.x src/Traits location' => ['vendor/nativephp/mobile/src/Traits/RunsAndroid.php'],
 ]);
 
 it('completes when the deeplink target is in place', function (): void {
-    deeplinkSandbox($this->sandbox, 'vendor/nativephp/mobile/src/Traits/RunsAndroid.php');
+    deeplinkSandbox($this->sandbox, 'vendor/nativephp/mobile/src/Concerns/RunsAndroid.php');
 
     $process = runPatchScript($this->sandbox);
 

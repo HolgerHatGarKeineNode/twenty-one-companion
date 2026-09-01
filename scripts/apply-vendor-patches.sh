@@ -24,13 +24,108 @@ REL_GRADLE="app/build.gradle.kts"
 # Drittes Ziel, PHP statt Kotlin und OHNE generiertes Pendant: der Deeplink-Patch
 # sitzt im Vendor-Quelltext selbst, weil dieser das AndroidManifest bei jedem
 # native:run/native:package neu erzeugt.
-DEEPLINK_PHP="vendor/nativephp/mobile/src/Traits/RunsAndroid.php"
+#
+# NativePHP 4.x hat den Trait nach src/Concerns/ verschoben (gemessen an 4.3.1:
+# src/Traits/ existiert dort nicht mehr). Der Anker im Trait selbst ist unveraendert.
+DEEPLINK_PHP="vendor/nativephp/mobile/src/Concerns/RunsAndroid.php"
 
 # (Basisverzeichnis, Label) — nur existierende werden gepatcht.
 TARGETS=(
   "vendor/nativephp/mobile/resources/androidstudio|Template (vendor)"
   "nativephp/android|Build (nativephp)"
 )
+
+# Zustand des opcache-Wipes in einer LaravelEnvironment.kt, als drei Zahlen:
+#   <Extraktionsstellen> <Wipe-Zeilen> <Wipe-Zeilen innerhalb von fun initialize()>
+# Die dritte Zahl ist die eigentliche Aussage: NUR `fun initialize()` ist der
+# Kaltstart-Pfad (MainActivity.kt ruft ihn zweimal). Eine Wipe-Zeile irgendwo
+# sonst in der Datei beweist nichts.
+opcache_wipe_zustand() {  # $1 = Pfad zu LaravelEnvironment.kt
+  awk '
+    /^[ \t]*fun initialize\(\) \{/ { match($0, /^[ \t]*/); ein = substr($0, 1, RLENGTH); in_init = 1 }
+    in_init && $0 == (ein "}") { in_init = 0 }
+    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ { anker++ }
+    /OPTIMIZE-opcache-wipe/ { wipes++; if (in_init) kalt++ }
+    END { printf "%d %d %d\n", anker+0, wipes+0, kalt+0 }
+  ' "$1"
+}
+
+patch_opcache_wipe() {  # $1 = Pfad zu LaravelEnvironment.kt
+  local f="$1"
+  # Phase 3b: opcache-file_cache bei JEDER Bundle-Extraktion wipen. Sonst serviert
+  # opcache (validate_timestamps=0) nach einem App-Update stalen Bytecode der
+  # Vorversion (gleiche Dateipfade, neuer Inhalt) — u.a. kompilierte Blades mit
+  # veralteten @vite-Refs -> ViteException/500. Versions-scoped statt per-Request-stat.
+  # rm -rf statt File.deleteRecursively(): der Codebase misstraut deleteRecursively
+  # (folgt dem storage-Symlink -> löscht persisted_data, siehe Kommentar in extract).
+  # Der opcache-Ordner hat zwar keine Symlinks, aber wir nutzen den vertrauten Weg.
+  #
+  # ANKER NACHGEZOGEN am 2026-09-01 (NativePHP 4.3.1) — und das ist der Grund, warum
+  # diese Funktion so viel mehr prueft als "steht der Marker drin":
+  # Unter 3.3.7 sass `val didExtract = extractLaravelBundle()` bei :172 IM Kaltstart-
+  # Pfad, der Patch griff dort. 4.3.1 hat den Pfad umgebaut auf
+  # `extractionLock.withLock { extractLaravelBundleUnlocked() }` (:207-208); der alte
+  # Anker traf danach nur noch `initializeForBackground()` (:1004) — eine Funktion mit
+  # NULL Aufrufern in 4.3.1 und im generierten Projekt (gegengeprueft mit
+  # `initializeEnvironmentAsync` als Positivkontrolle: Definition UND Aufrufstelle).
+  # Der Wipe deckte also keinen einzigen ausgefuehrten Pfad mehr ab — und meldete
+  # weiter `[+]`. Genau die Klasse "gruenes Licht auf einem Defekt", gegen die der
+  # Rest dieser Datei gebaut ist, eine Ebene hoeher.
+  #
+  # Deshalb wird nicht die ANWESENHEIT des Markers geprueft, sondern seine LAGE:
+  # mindestens eine Wipe-Zeile muss innerhalb von `fun initialize()` stehen, und
+  # jede Extraktionsstelle muss eine tragen (sonst waere es ein Halbstand). Die
+  # Idempotenz-Abfrage prueft dasselbe — ein alter, falsch platzierter Wipe darf
+  # nicht als "bereits vorhanden" durchgehen, sonst zementiert der naechste Lauf
+  # genau den Zustand, der hier behoben wird.
+  local anker wipes kalt alt=0 fehler=""
+  read -r anker wipes kalt <<<"$(opcache_wipe_zustand "$f")"
+  if [ "$kalt" -ge 1 ] && [ "$wipes" -eq "$anker" ]; then
+    echo "    [=] Phase 3b opcache-Wipe bereits vorhanden"
+    return 0
+  fi
+  cp "$f" "$f.vor-patch"
+  # Reste einer frueheren Skriptfassung entfernen, bevor neu eingesetzt wird. Die
+  # Wipe-Zeile ist immer eine GANZE Zeile mit diesem Marker und stammt immer aus
+  # diesem Skript — Vendor-Code traegt ihn nie. Ohne diesen Schritt stuende der
+  # tote Wipe aus 3.3.7 zusaetzlich zum neuen in der Datei.
+  if [ "$wipes" -gt 0 ]; then
+    alt=1
+    { grep -v 'OPTIMIZE-opcache-wipe' "$f" || true; } > "$f.tmp" && mv "$f.tmp" "$f"
+  fi
+  awk '
+    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ {
+      print
+      match($0, /^[ \t]*/)
+      print substr($0, 1, RLENGTH) "if (didExtract) runCatching { Runtime.getRuntime().exec(arrayOf(\"rm\", \"-rf\", File(context.filesDir, \"opcache\").absolutePath)).waitFor() } // OPTIMIZE-opcache-wipe: kein stale Bytecode bei Updates"
+      next }
+    { print }
+  ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  read -r anker wipes kalt <<<"$(opcache_wipe_zustand "$f")"
+  if [ "$anker" -eq 0 ]; then
+    fehler="keine Extraktionsstelle gefunden (val didExtract = extractLaravelBundle[Unlocked]())"
+  elif [ "$kalt" -eq 0 ]; then
+    fehler="der Wipe landet ausserhalb von fun initialize() — der Kaltstart-Pfad bliebe ungedeckt"
+  elif [ "$wipes" -ne "$anker" ]; then
+    fehler="nur $wipes von $anker Extraktionsstellen gedeckt — Halbstand"
+  fi
+  if [ -n "$fehler" ]; then
+    mv "$f.vor-patch" "$f"
+    echo "FEHLER: opcache-Wipe-Patch griff nicht ($f) — $fehler." >&2
+    echo "        NativePHP hat den Extraktionspfad umgebaut. Der Wipe MUSS im" >&2
+    echo "        Kaltstart-Pfad sitzen: ohne ihn ueberlebt nach einem App-Update" >&2
+    echo "        der Bytecode der Vorversion (validate_timestamps=0, file_cache in" >&2
+    echo "        filesDir) und trifft auf ein neues Bundle." >&2
+    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
+  if [ "$alt" -eq 1 ]; then
+    echo "    [+] Phase 3b opcache-Wipe neu gesetzt (alte Lage deckte den Kaltstart-Pfad nicht)"
+  else
+    echo "    [+] Phase 3b opcache-Wipe bei Extraktion"
+  fi
+}
 
 patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   local f="$1"
@@ -39,6 +134,14 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   # (config:cache/view:cache/event:cache bewusst NICHT gepatcht — config:cache friert
   # nativephp-internal.running=false ein und sperrt den Chat; siehe OPTIMIZE.md Phase 5.)
   if ! grep -q 'opcache.file_cache' "$f"; then
+    # EIN awk-Pass, aber ZWEI unabhaengige Anker — und bis zum 2026-09-01 lief das
+    # `mv` VOR der Pruefung. Traf nur einer der beiden, blieb der Halbstand liegen,
+    # und der naechste Lauf las ihn ueber `grep -q opcache.file_cache` als "schon
+    # gepatcht": `[=]`, und die fehlende Haelfte kam nie zurueck. In der anderen
+    # Richtung (nur mkdirs traf) haette jeder Folgelauf eine WEITERE mkdirs-Zeile
+    # eingefuegt. Deshalb dieselbe Bauform wie in patch_deeplinks: Sicherungskopie,
+    # beide Haelften einzeln geprueft, bei jedem Fehlschlag der Vendor-Stand zurueck.
+    cp "$f" "$f.vor-patch"
     awk '
       /val phpIni = """/ && !d1 {
         print "                File(context.filesDir, \"opcache\").mkdirs() // OPTIMIZE"; d1=1 }
@@ -50,61 +153,31 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
         d2=1; next }
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-    grep -q 'opcache.file_cache' "$f" && grep -q 'mkdirs() // OPTIMIZE' "$f" \
-      || { echo "FEHLER: opcache-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    local fehler=""
+    if ! grep -q 'mkdirs() // OPTIMIZE' "$f"; then
+      fehler="Anker 1 (val phpIni) nicht getroffen — das opcache-Verzeichnis wuerde nie angelegt"
+    elif ! grep -q 'opcache.file_cache' "$f"; then
+      fehler="Anker 2 (openssl.cafile) nicht getroffen — keine opcache-Direktiven in der php.ini"
+    fi
+    if [ -n "$fehler" ]; then
+      mv "$f.vor-patch" "$f"
+      echo "FEHLER: opcache-Patch griff nicht ($f) — $fehler." >&2
+      echo "        Anker gedriftet (NativePHP-Update?). Datei auf den Vendor-Stand" >&2
+      echo "        zurueckgesetzt — kein Halbstand." >&2
+      exit 1
+    fi
+    rm -f "$f.vor-patch"
     echo "    [+] Phase 3 opcache.file_cache"
+  else
+    echo "    [=] Phase 3 opcache.file_cache bereits gesetzt"
   fi
-  # Phase 3b: opcache-file_cache bei JEDER Bundle-Extraktion wipen. Sonst serviert
-  # opcache (validate_timestamps=0) nach einem App-Update stalen Bytecode der
-  # Vorversion (gleiche Dateipfade, neuer Inhalt) — u.a. kompilierte Blades mit
-  # veralteten @vite-Refs -> ViteException/500. Versions-scoped statt per-Request-stat.
-  # rm -rf statt File.deleteRecursively(): der Codebase misstraut deleteRecursively
-  # (folgt dem storage-Symlink -> löscht persisted_data, siehe Kommentar in extract).
-  # Der opcache-Ordner hat zwar keine Symlinks, aber wir nutzen den vertrauten Weg.
-  if ! grep -q 'OPTIMIZE-opcache-wipe' "$f"; then
-    awk '
-      /val didExtract = extractLaravelBundle\(\)/ && !d {
-        print
-        print "            if (didExtract) runCatching { Runtime.getRuntime().exec(arrayOf(\"rm\", \"-rf\", File(context.filesDir, \"opcache\").absolutePath)).waitFor() } // OPTIMIZE-opcache-wipe: kein stale Bytecode bei Updates"
-        d=1; next }
-      { print }
-    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-    grep -q 'OPTIMIZE-opcache-wipe' "$f" \
-      || { echo "FEHLER: opcache-Wipe-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
-    echo "    [+] Phase 3b opcache-Wipe bei Extraktion"
-  fi
-  # EXTRACT-GATE-FIX: NativePHP-Bug — das Bundle wird nach der ersten Extraktion
-  # NIE wieder entpackt, d.h. jede Blade-/PHP-Änderung ist auf dem Gerät unsichtbar.
-  #
-  # Ursache: der Gate vergleicht ZWEI QUELLEN, die um genau 1 auseinanderlaufen.
-  #   embeddedId := bundle_meta.json          → N
-  #   currentId  := extrahierte .env          → N+1
-  # `native:package` erhöht NATIVEPHP_APP_VERSION_CODE in .env VOR dem Zippen, also
-  # trägt die gebundelte .env immer meta+1. Nach der Extraktion von Build N steht in
-  # laravel/.env N+1 — und Build N+1 liefert embeddedId N+1. Beide gleich →
-  # isUpToDate=true → shouldExtract=false. Da der Build immer um 1 zählt, greift das
-  # bei JEDEM Folge-Build. (Produktion merkt es nicht: dort ändert sich der
-  # Versions-STRING mit, also unterscheiden sich die Ids trotzdem.)
-  #
-  # Fix: nur noch EINE Quelle. `.version` (wird ohnehin geschrieben, aber nie gelesen)
-  # trägt künftig die embeddedId, und der Gate vergleicht dagegen.
-  if ! grep -q 'EXTRACT-GATE-FIX' "$f"; then
-    # Der äußere if/else-Block endet auf einem `}` mit GENAU 8 Spaces Einrückung —
-    # daran wird verankert. Ein non-greedy `.*?} else {` träfe sonst das innere.
-    perl -0777 -i -pe '
-      s{
-        ^\ {8}val\ currentId\ =\ if\ \(laravelDir\.exists\(\)\)\ \{\n
-        .*?
-        ^\ {8}\}\n
-      }{        val currentId = File(laravelDir, VERSION_FILE).takeIf { it.exists() }?.readText()?.trim()?.ifEmpty { null } // EXTRACT-GATE-FIX: gegen .version (embeddedId) statt gegen die .env (die trägt meta+1)\n}smx;
-      s{
-        val\ installedId\ =\ buildVersionId\(getVersionFromEnvFile\(envFile\),\ getVersionCodeFromEnvFile\(envFile\)\)
-      }{val installedId = embeddedId // EXTRACT-GATE-FIX: dieselbe Quelle wie der Vergleich}x;
-    ' "$f"
-    grep -q 'EXTRACT-GATE-FIX: gegen .version' "$f" && grep -q 'EXTRACT-GATE-FIX: dieselbe Quelle' "$f" \
-      || { echo "FEHLER: Extract-Gate-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
-    echo "    [+] Extract-Gate-Fix (Bundle wird bei jedem version_code-Bump neu entpackt)"
-  fi
+  patch_opcache_wipe "$f"
+  # ENTFERNT am 2026-09-01 (NativePHP 4.3.1): der Extract-Gate-Patch. Upstream
+  # loest denselben Bug jetzt selbst — LaravelEnvironment.kt:281-293 liest
+  # `currentId` primaer aus der `.version`-Datei, die bei der Extraktion mit der
+  # embeddedId beschrieben wird (:346); der Rueckfall auf die .env-Neuberechnung
+  # ist dort ausdruecklich als Legacy markiert. Das ist dieselbe Aufloesung, die
+  # unser Patch erzwungen hat.
 }
 
 patch_iconbg() {  # $1 = Pfad zu ic_launcher_background.xml
@@ -113,23 +186,38 @@ patch_iconbg() {  # $1 = Pfad zu ic_launcher_background.xml
   # Foreground ist eine schwarze Rundecken-Form mit transparenten Ecken — auf
   # weißem BG scheinen dort weiße Ecken durch (Bug-Report). Schwarz macht es nahtlos.
   if grep -q '#ffffff' "$f"; then
+    # `sed` laeuft hier ohne /g und ersetzt nur das ERSTE Vorkommen. Traegt die
+    # Datei nach einem NativePHP-Update zwei weisse Farbwerte (Verlauf, zweite
+    # Ebene), meldete der alte Test `grep -q '#000000'` trotzdem Erfolg, waehrend
+    # die zweite Zeile weiss blieb. Deshalb zusaetzlich die ABWESENHEIT des alten
+    # Wertes pruefen und im Fehlerfall zurueckrollen.
+    cp "$f" "$f.vor-patch"
     sed -i 's/#ffffff/#000000/' "$f"
-    grep -q '#000000' "$f" \
-      || { echo "FEHLER: Icon-BG-Patch griff nicht ($f) — Datei geändert (NativePHP-Update?)."; exit 1; }
+    if ! grep -q '#000000' "$f" || grep -q '#ffffff' "$f"; then
+      mv "$f.vor-patch" "$f"
+      echo "FEHLER: Icon-BG-Patch griff nicht ($f) — Datei geändert (NativePHP-Update?)." >&2
+      echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+      exit 1
+    fi
+    rm -f "$f.vor-patch"
     echo "    [+] Icon-Hintergrund schwarz (#000000)"
+  else
+    echo "    [=] Icon-Hintergrund bereits schwarz"
   fi
 }
 
-patch_main() {  # $1 = Pfad zu MainActivity.kt
-  local f="$1"
-  # Phase 4: Queue-Worker-Doppelboot verzögern
-  if ! grep -q 'postDelayed({ queueWorker' "$f"; then
-    perl -i -pe 's/queueWorker = PHPQueueWorker\(phpBridge\)\.also \{ it\.start\(\) \}/queueWorker = PHPQueueWorker(phpBridge) \/\/ OPTIMIZE Phase 4\n                    Handler(Looper.getMainLooper()).postDelayed({ queueWorker?.start() }, 6000)/' "$f"
-    grep -q 'postDelayed({ queueWorker' "$f" \
-      || { echo "FEHLER: Queue-Worker-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
-    echo "    [+] Phase 4 Queue-Worker +6s verzögert"
-  fi
-}
+# ENTFERNT am 2026-09-01 (NativePHP 4.3.1): patch_main(), der den Queue-Worker um
+# 6 s verzoegerte. Upstream verzoegert selbst — MainActivity.kt:120
+# `WORKER_START_DELAY_MS = 2500L`, angewandt auf den Kaltstart-Pfad in :240-244;
+# :546-549 haelt fest, dass der Worker bewusst nicht mehr in LaravelInit startet.
+#
+# Der Patch war nicht nur ueberfluessig, sondern in 4.3.1 schaedlich: sein Anker
+# `queueWorker = PHPQueueWorker(phpBridge).also { it.start() }` trifft dort DREI
+# Stellen statt einer (gemessen am gepatchten Ergebnis: :251, :941, :1025). Die
+# erste liegt INNERHALB von Upstreams eigenem 2500-ms-postDelayed, macht daraus
+# also 8,5 s; die beiden anderen sitzen an den Hot-Reload-Neustarts nach
+# shutdownPersistentRuntime()/bootPersistentRuntime(), wo eine Kaltstart-
+# Verzoegerung nie hingehoerte. Deshalb entfernt und nicht angepasst.
 
 patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
   local f="$1"
@@ -138,6 +226,13 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
   # zurück). Das lähmt u.a. den Chat-„Bild anhängen"-Button. Fix: Callback im
   # companion object halten + Override, der den nativen Picker via
   # FileChooserParams.createIntent() über die Activity startet.
+  # ZWEI Bloecke, aber EIN Feature: der Override aus Block 2 referenziert die
+  # Felder aus Block 1. Traf nur Block 1, meldete der Lauf zwar exit 1, liess die
+  # Datei aber halb gepatcht liegen — und `grep -q FILE_CHOOSER_REQUEST_CODE` liest
+  # diesen Rest beim naechsten Lauf als "bereits vorhanden". Deshalb eine
+  # Sicherungskopie fuer die GANZE Funktion: scheitert Block 2, geht auch Block 1
+  # zurueck. Gleiche Bauform wie patch_deeplinks.
+  cp "$f" "$f.vor-patch"
   if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
     awk '
       /var shared: WebViewManager\? = null/ && !d {
@@ -148,8 +243,13 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
     grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
-      || { echo "FEHLER: FileChooser-Companion-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+      || { mv "$f.vor-patch" "$f"
+           echo "FEHLER: FileChooser-Companion-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)." >&2
+           echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+           exit 1; }
     echo "    [+] FileChooser Companion-Halter"
+  else
+    echo "    [=] FileChooser Companion-Halter bereits vorhanden"
   fi
   if ! grep -q 'onShowFileChooser' "$f"; then
     awk '
@@ -176,9 +276,16 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
     grep -q 'onShowFileChooser' "$f" \
-      || { echo "FEHLER: onShowFileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+      || { mv "$f.vor-patch" "$f"
+           echo "FEHLER: onShowFileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)." >&2
+           echo "        Datei auf den Vendor-Stand zurueckgesetzt — auch der Companion-" >&2
+           echo "        Halter aus Block 1, denn ohne den Override ist er toter Code." >&2
+           exit 1; }
     echo "    [+] onShowFileChooser-Override"
+  else
+    echo "    [=] onShowFileChooser-Override bereits vorhanden"
   fi
+  rm -f "$f.vor-patch"
 }
 
 patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
@@ -204,45 +311,15 @@ patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
     grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
       || { echo "FEHLER: onActivityResult-FileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
     echo "    [+] onActivityResult FileChooser-Routing"
+  else
+    echo "    [=] onActivityResult FileChooser-Routing bereits vorhanden"
   fi
 }
 
-patch_gradle_profileable() {  # $1 = Pfad zu app/build.gradle.kts
-  local f="$1"
-  # Eine release-optimierte, aber PROFILIERBARE Variante — aus NativePHP 4.3.0
-  # zurueckportiert (dort resources/androidstudio/app/build.gradle.kts:98-115).
-  # Wir bleiben auf 3.3.7 (siehe docs/plans/…-nativephp-ernte…), aber dieser Block
-  # haengt an nichts Versionsspezifischem: er ist reines AGP.
-  #
-  # Wozu: `isProfileable` injiziert <profileable shell="true"> NUR fuer diese Variante,
-  # sodass Macrobenchmark, simpleperf und Perfetto sich an einen Build haengen koennen,
-  # der dem ausgelieferten entspricht. Debug-signiert, damit `adb install` reicht — kein
-  # Release-Keystore, kein manuelles zipalign/apksigner.
-  #
-  # Warum immer R8: ein unminifizierter Profil-Build misst einen Kaltstart, den kein
-  # Nutzer je sieht. Upstream beziffert den Unterschied mit ~58 MB Dex gegen ~9 MB und
-  # ~+90 ms bindApplication auf einem Pixel 9.
-  #
-  # WARUM ALS PATCH und nicht von Hand: `native:install` loescht nativephp/android
-  # vollstaendig. Eine Hand-Aenderung an build.gradle.kts ueberlebt das nicht.
-  if grep -q 'create("profileable")' "$f"; then
-    echo "    [=] profileable-Variante bereits vorhanden"
-    return 0
-  fi
-  # Anker: das Ende des debug-Blocks innerhalb von buildTypes. Wir haengen die neue
-  # Variante direkt davor an das schliessende `}` von buildTypes.
-  if ! grep -qE '^\s*debug \{' "$f"; then
-    echo "    [!] buildTypes/debug-Anker nicht gefunden in $f" >&2
-    echo "        Ohne die profileable-Variante ist die Bootzeit nicht am echten" >&2
-    echo "        Release-Pfad messbar (siehe P2 im Plan)." >&2
-    exit 1
-  fi
-  perl -0777 -i -pe '
-    s{(\n)(\s*)(debug \{.*?\n\2\})(\n\s*\})}
-     {$1$2$3$1$2// OPTIMIZE-PROFILEABLE: aus NativePHP 4.3.0 zurueckportiert.\n$2// Release-optimiert, aber fuer Macrobenchmark/simpleperf/Perfetto\n$2// attachbar. Debug-signiert, damit `adb install` genuegt.\n$2// Bauen mit: ./gradlew assembleProfileable\n$2create("profileable") \{\n$2    initWith(getByName("release"))\n$2    isDebuggable = false\n$2    isProfileable = true\n$2    // Immer R8 — ein unminifizierter Build misst einen Kaltstart,\n$2    // den kein Nutzer je sieht.\n$2    isMinifyEnabled = true\n$2    signingConfig = signingConfigs.getByName("debug")\n$2    matchingFallbacks += listOf("release")\n$2\}$4}s' "$f"
-  grep -q 'create("profileable")' "$f" || { echo "    [!] profileable-Patch griff nicht" >&2; exit 1; }
-  echo "    [+] profileable-Build-Variante ergaenzt"
-}
+# ENTFERNT am 2026-09-01 (NativePHP 4.3.1): patch_gradle_profileable(). Der Block
+# war aus 4.3.0 zurueckportiert und steht jetzt im Original — app/build.gradle.kts:98
+# `create("profileable")` inklusive isMinifyEnabled, Debug-Signing und
+# matchingFallbacks. Der Patch meldete dementsprechend schon `[=]`.
 
 patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
   local f="$1"
@@ -276,9 +353,21 @@ patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
     echo "        file <apk-entpackt>/lib/arm64-v8a/libphp_wrapper.so" >&2
     exit 1
   fi
+  cp "$f" "$f.vor-patch"
   perl -0777 -i -pe 's{^([ \t]*)\Qkeep\EDebugSymbols\.add\("\*\*/\*\.so"\)[ \t]*$}
                      {$1// OPTIMIZE-STRIP: Zeile bewusst entfernt — sie machte den\n$1// stripReleaseDebugSymbols-Task wirkungslos und lieferte 2,9 MB\n$1// Symboltabellen mit aus. Begruendung in scripts/apply-vendor-patches.sh.}mx' "$f"
-  grep -q 'OPTIMIZE-STRIP' "$f" || { echo "    [!] Strip-Patch griff nicht" >&2; exit 1; }
+  # Zwei Pruefungen statt einer: `s///` laeuft ohne /g und ersetzt nur das ERSTE
+  # Vorkommen. Stuenden zwei keepDebugSymbols-Zeilen im Gradle-Block, waere der
+  # Marker gesetzt (ab dem naechsten Lauf also `[=]`) und die zweite Zeile machte
+  # den Patch trotzdem wirkungslos — ein Halbstand, den nie wieder jemand sieht.
+  # Deshalb auch die ABWESENHEIT des Ankers pruefen, sonst der Vendor-Stand zurueck.
+  if ! grep -q 'OPTIMIZE-STRIP' "$f" || grep -qF "$anchor" "$f"; then
+    mv "$f.vor-patch" "$f"
+    echo "    [!] Strip-Patch griff nicht oder nur teilweise — keepDebugSymbols steht" >&2
+    echo "        weiterhin in $f. Datei auf den Vendor-Stand zurueckgesetzt." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
   echo "    [+] keepDebugSymbols entfernt (native Bibliotheken werden gestrippt)"
 }
 
@@ -307,6 +396,21 @@ patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
     echo "        Portal-Host als App-Link (WebView-Crash beim Signer-Callback)." >&2
     exit 1
   fi
+  # Der Patch besteht aus ZWEI Ersetzungen, und bis zum 2026-09-01 wurde nur EINE
+  # von beiden geprueft. Das ist dieselbe Bauform, an der der Extract-Gate-Patch
+  # gescheitert ist: seine erste Ersetzung griff, die zweite nicht, und die Datei
+  # blieb HALB gepatcht liegen (P1-Befund, 2026-09-01). Hier waere es teurer
+  # gewesen, denn die beiden Halbstaende sind nicht symmetrisch:
+  #   - nur (1): `{$dataTags}` steht im Heredoc, aber nichts definiert es. `php -l`
+  #     ist zufrieden (Syntax ist gueltig), die Variable interpoliert zur Laufzeit
+  #     zu Leerstring -> das App-Link-Intent-Filter hat GAR keine <data>-Zeile mehr.
+  #   - nur (2): die Berechnung steht da, die <data>-Zeile aber unveraendert auf
+  #     pathPrefix="/" — und `grep -q deeplink_path_prefixes` meldet trotzdem
+  #     Erfolg. Das waere ein STILLES Falsch-Gruen genau an der Stelle, die den
+  #     v1.9.4-Fehler ausgeloest hat.
+  # Deshalb: Sicherungskopie vor dem Eingriff, beide Haelften einzeln geprueft,
+  # und bei jedem Fehlschlag der Originalzustand zurueck statt eines Halbstands.
+  cp "$f" "$f.vor-patch"
   perl -0777 -i -pe '
     # 1. Die eine <data>-Zeile durch die interpolierte Liste ersetzen.
     s{^[ \t]*<data android:scheme="https" android:host="\{\$host\}" android:pathPrefix="/" />[ \t]*$}
@@ -315,17 +419,37 @@ patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
     s{(if \(\$host\) \{\n)(\s*)(\$filters\[\] = <<<XML)}
      {$1$2// PATCH (twenty-one-companion, scripts/apply-vendor-patches.sh):\n$2// nur die konfigurierten Pfade beanspruchen statt des ganzen Hosts.\n$2\$prefixes = config('"'"'nativephp.deeplink_path_prefixes'"'"') ?: ['"'"'/'"'"'];\n$2\$dataTags = implode("\\n", array_map(\n$2    fn (\$prefix) => '"'"'                <data android:scheme="https" android:host="'"'"'\n$2        .\$host.'"'"'" android:pathPrefix="'"'"'.\$prefix.'"'"'" />'"'"',\n$2    \$prefixes\n$2));\n$2$3}s;
   ' "$f"
-  php -l "$f" >/dev/null || { echo "    [!] Patch erzeugt ungueltiges PHP" >&2; exit 1; }
-  grep -q 'deeplink_path_prefixes' "$f" || { echo "    [!] Patch griff nicht" >&2; exit 1; }
+  local fehler=""
+  if ! php -l "$f" >/dev/null 2>&1; then
+    fehler="Patch erzeugt ungueltiges PHP"
+  elif ! grep -qF '{$dataTags}' "$f"; then
+    fehler="Ersetzung 1 griff nicht — die <data>-Zeile steht unveraendert"
+  elif ! grep -q 'deeplink_path_prefixes' "$f"; then
+    fehler="Ersetzung 2 griff nicht — \$dataTags waere undefiniert"
+  elif grep -qF 'android:pathPrefix="/" />' "$f"; then
+    fehler="pathPrefix=\"/\" steht immer noch in der Datei"
+  fi
+  if [ -n "$fehler" ]; then
+    mv "$f.vor-patch" "$f"
+    echo "    [!] $fehler" >&2
+    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+    echo "        NativePHP hat generateDeepLinkFilters() geaendert; der Patch MUSS" >&2
+    echo "        von Hand nachgezogen werden, sonst beansprucht die App den ganzen" >&2
+    echo "        Portal-Host als App-Link (WebView-Crash beim Signer-Callback)." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
   echo "    [+] Deeplink-Pfade auf config('nativephp.deeplink_path_prefixes') eingeschraenkt"
 }
 
 # ── Messschalter ───────────────────────────────────────────────────────────────
-# OPTIMIZE_SKIP="opcache queue" laesst einzelne Patches AUS, damit ihr Nutzen
+# OPTIMIZE_SKIP="opcache" laesst einzelne Patches AUS, damit ihr Nutzen
 # gegen eine Baseline messbar wird. Ohne das laesst sich nicht pruefen, ob ein
 # Bootzeit-Patch ueberhaupt noch etwas bringt — und ein Patch, der nichts bringt,
 # kostet trotzdem Pflege und verteuert jeden spaeteren NativePHP-Umstieg.
 # NUR fuer Messlaeufe. Ein Release-Build laeuft ohne diese Variable.
+# Seit dem Wegfall des Queue-Delay-Patches (4.3.1) ist `opcache` der einzige
+# Schluessel; die Mechanik bleibt, weil der naechste Bootzeit-Patch sie braucht.
 uebersprungen() {  # $1 = Schluessel
   case " ${OPTIMIZE_SKIP:-} " in *" $1 "*) return 0 ;; *) return 1 ;; esac
 }
@@ -338,12 +462,10 @@ for entry in "${TARGETS[@]}"; do
   if [ -f "$env_f" ] && [ -f "$main_f" ]; then
     echo "  $label:"
     uebersprungen opcache || patch_env "$env_f"
-    uebersprungen queue || patch_main "$main_f"
     patch_filechooser_main "$main_f"
     [ -f "$base/$REL_WEBVIEW" ] && patch_filechooser_webview "$base/$REL_WEBVIEW"
     [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
     [ -f "$base/$REL_GRADLE" ] && patch_gradle_strip "$base/$REL_GRADLE"
-    [ -f "$base/$REL_GRADLE" ] && patch_gradle_profileable "$base/$REL_GRADLE"
     any=1
   else
     echo "  $label: übersprungen (nicht vorhanden)"
