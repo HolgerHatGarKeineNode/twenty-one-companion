@@ -351,10 +351,30 @@ for entry in "${TARGETS[@]}"; do
 done
 [ $any -eq 1 ] || { echo "Kein Ziel gefunden — composer install / native:run gelaufen?"; exit 1; }
 
-if [ -f "$DEEPLINK_PHP" ]; then
-  echo "  Deeplinks (vendor PHP):"
-  patch_deeplinks "$DEEPLINK_PHP"
-else
-  echo "  Deeplinks (vendor PHP): übersprungen (nicht vorhanden)"
+echo "  Deeplinks (vendor PHP):"
+# KEIN OPTIMIZE_SKIP-Schluessel fuer diesen Patch — bewusst. OPTIMIZE_SKIP dient
+# dazu, einen BOOTZEIT-Patch gegen eine Baseline zu messen; der Deeplink-Patch
+# misst nichts, er entscheidet, ob die App den ganzen Portal-Host beansprucht.
+# Ein Schalter dafuer waere genau der Schalter, der in einem Release-Lauf gesetzt
+# bliebe und den v1.9.4-Fehler wiederholte.
+#
+# Bis 2026-09-01 stand hier ein stilles "uebersprungen (nicht vorhanden)": ein
+# fehlendes Ziel druckte eine Zeile und der Lauf endete mit exit 0. Jeder andere
+# Patch in dieser Datei faellt bei Anker-Drift laut aus, dieser eine nicht — und
+# genau er haelt den Host-Anspruch klein. NativePHP 4.x verschiebt die Datei nach
+# src/Concerns/RunsAndroid.php; unter der alten Fassung waere der Patch beim
+# Upgrade lautlos weggefallen.
+if [ ! -f "$DEEPLINK_PHP" ]; then
+  echo "    [!] Deeplink-Ziel nicht vorhanden: $DEEPLINK_PHP" >&2
+  echo "        Ohne diesen Patch beansprucht die App den GANZEN Portal-Host als" >&2
+  echo "        App-Link (pathPrefix=\"/\") — das faengt Browser::inApp/open ab und" >&2
+  echo "        crasht den WebView beim Signer-Callback (SIGILL, v1.9.4)." >&2
+  echo "        Wahrscheinliche Ursache: ein NativePHP-Update hat die Datei" >&2
+  echo "        verschoben oder umbenannt (4.x: src/Concerns/RunsAndroid.php)." >&2
+  echo "        Wo sie jetzt liegt, zeigt:" >&2
+  echo "          ls vendor/nativephp/mobile/src/*/RunsAndroid.php" >&2
+  echo "        Danach DEEPLINK_PHP in diesem Skript nachziehen." >&2
+  exit 1
 fi
+patch_deeplinks "$DEEPLINK_PHP"
 echo "Fertig."
