@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "09f65e0d1230c99fc9209c6c921c5156",
+    "content-hash": "cb28a04fcbb5d450dadb8c7c2c6e1b2f",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -833,14 +833,14 @@
         },
         {
             "name": "einundzwanzig/amber-signer",
-            "version": "dev-master",
+            "version": "dev-chore/nativephp-4x-compat",
             "dist": {
                 "type": "path",
                 "url": "../einundzwanzig-group/packages/amber-signer",
-                "reference": "5aa28a779fc70b7866587d067e63a74dc82e10b9"
+                "reference": "f71d351ae5c0020700f4a3802d91175054ebe5b8"
             },
             "require": {
-                "nativephp/mobile": "^3.0",
+                "nativephp/mobile": "^3.0 || ^4.0",
                 "php": "^8.2"
             },
             "type": "nativephp-plugin",
@@ -870,14 +870,14 @@
         },
         {
             "name": "einundzwanzig/calendar",
-            "version": "dev-master",
+            "version": "dev-feat/nativephp-4x",
             "dist": {
                 "type": "path",
                 "url": "packages/calendar",
-                "reference": "8685175808f4b50ed9f0cb16b43585fdb423d20a"
+                "reference": "5c7b91fa16068c024ccdd52c413e72454c0dac30"
             },
             "require": {
-                "nativephp/mobile": "^3.0",
+                "nativephp/mobile": "^3.0 || ^4.0",
                 "php": "^8.2"
             },
             "type": "nativephp-plugin",
@@ -946,14 +946,14 @@
         },
         {
             "name": "einundzwanzig/push",
-            "version": "dev-master",
+            "version": "dev-feat/nativephp-4x",
             "dist": {
                 "type": "path",
                 "url": "packages/push",
-                "reference": "723b69df1d369c36f6915cfcd17303c084292edd"
+                "reference": "dbf2b35856809339d91559ed23ccd3dd29187d71"
             },
             "require": {
-                "nativephp/mobile": "^3.0",
+                "nativephp/mobile": "^3.0 || ^4.0",
                 "php": "^8.2"
             },
             "type": "nativephp-plugin",
@@ -3134,16 +3134,16 @@
         },
         {
             "name": "nativephp/mobile",
-            "version": "3.3.7",
+            "version": "4.3.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/NativePHP/mobile-air.git",
-                "reference": "e8ea89813206002ea6acab6d6dca3c38b473bf0b"
+                "reference": "dd9accb88f2af83178331e8ed18d16192fe4a270"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/e8ea89813206002ea6acab6d6dca3c38b473bf0b",
-                "reference": "e8ea89813206002ea6acab6d6dca3c38b473bf0b",
+                "url": "https://api.github.com/repos/NativePHP/mobile-air/zipball/dd9accb88f2af83178331e8ed18d16192fe4a270",
+                "reference": "dd9accb88f2af83178331e8ed18d16192fe4a270",
                 "shasum": ""
             },
             "require": {
@@ -3154,10 +3154,16 @@
                 "illuminate/contracts": "^10.0|^11.0|^12.0|^13.0",
                 "illuminate/support": "^10.0|^11.0|^12.0|^13.0",
                 "laravel/prompts": "^0.1.1|^0.2|^0.3",
-                "php": "^8.3",
+                "php": "^8.4",
                 "react/datagram": "^1.10",
                 "spatie/laravel-package-tools": "^1.14.0",
                 "workerman/workerman": "^4.1"
+            },
+            "conflict": {
+                "nativephp/mobile-device": "*",
+                "nativephp/mobile-dialog": "*",
+                "nativephp/mobile-file": "*",
+                "nativephp/mobile-system": "*"
             },
             "require-dev": {
                 "larastan/larastan": "^2.0",
@@ -3172,6 +3178,9 @@
                 "phpstan/phpstan-phpunit": "^1.0",
                 "spatie/laravel-ray": "^1.26"
             },
+            "suggest": {
+                "ext-zip": "Required by native:install to validate and extract the downloaded Android PHP binary archives"
+            },
             "type": "library",
             "extra": {
                 "laravel": {
@@ -3181,6 +3190,9 @@
                 }
             },
             "autoload": {
+                "files": [
+                    "src/helpers.php"
+                ],
                 "psr-4": {
                     "Native\\Mobile\\": "src/"
                 }
@@ -3211,9 +3223,9 @@
             ],
             "support": {
                 "issues": "https://github.com/NativePHP/mobile-air/issues",
-                "source": "https://github.com/NativePHP/mobile-air/tree/3.3.7"
+                "source": "https://github.com/NativePHP/mobile-air/tree/4.3.1"
             },
-            "time": "2026-08-04T05:56:50+00:00"
+            "time": "2026-09-01T15:19:23+00:00"
         },
         {
             "name": "nativephp/mobile-browser",
@@ -3324,116 +3336,6 @@
                 "source": "https://github.com/NativePHP/mobile-camera/tree/1.0.4"
             },
             "time": "2026-07-17T01:38:16+00:00"
-        },
-        {
-            "name": "nativephp/mobile-dialog",
-            "version": "1.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/NativePHP/mobile-dialog.git",
-                "reference": "cb314efc72ec42fa9ddbc100b81787e7d42820ab"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-dialog/zipball/cb314efc72ec42fa9ddbc100b81787e7d42820ab",
-                "reference": "cb314efc72ec42fa9ddbc100b81787e7d42820ab",
-                "shasum": ""
-            },
-            "require": {
-                "nativephp/mobile": "^3.0 || ^4.0",
-                "php": "^8.2"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^10.0",
-                "pestphp/pest": "^2.7|^3.0|^4.0"
-            },
-            "type": "nativephp-plugin",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Native\\Mobile\\Providers\\DialogServiceProvider"
-                    ]
-                },
-                "nativephp": {
-                    "manifest": "nativephp.json"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Native\\Mobile\\Providers\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "NativePHP",
-                    "email": "support@nativephp.com"
-                }
-            ],
-            "description": "Native alert dialogs and toast notifications for NativePHP Mobile",
-            "support": {
-                "issues": "https://github.com/NativePHP/mobile-dialog/issues",
-                "source": "https://github.com/NativePHP/mobile-dialog/tree/1.0.2"
-            },
-            "time": "2026-07-15T18:46:26+00:00"
-        },
-        {
-            "name": "nativephp/mobile-file",
-            "version": "1.0.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/NativePHP/mobile-file.git",
-                "reference": "6a5263a66e0b2f1af410d627256bf62f31e9e77a"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/NativePHP/mobile-file/zipball/6a5263a66e0b2f1af410d627256bf62f31e9e77a",
-                "reference": "6a5263a66e0b2f1af410d627256bf62f31e9e77a",
-                "shasum": ""
-            },
-            "require": {
-                "nativephp/mobile": "^3.0 || ^4.0",
-                "php": "^8.2"
-            },
-            "require-dev": {
-                "orchestra/testbench": "^10.0",
-                "pestphp/pest": "^2.7|^3.0|^4.0"
-            },
-            "type": "nativephp-plugin",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "Native\\Mobile\\Providers\\FileServiceProvider"
-                    ]
-                },
-                "nativephp": {
-                    "manifest": "nativephp.json"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Native\\Mobile\\Providers\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "NativePHP",
-                    "email": "support@nativephp.com"
-                }
-            ],
-            "description": "File operations plugin for NativePHP Mobile",
-            "support": {
-                "issues": "https://github.com/NativePHP/mobile-file/issues",
-                "source": "https://github.com/NativePHP/mobile-file/tree/1.0.2"
-            },
-            "time": "2026-07-15T18:46:26+00:00"
         },
         {
             "name": "nativephp/mobile-network",
