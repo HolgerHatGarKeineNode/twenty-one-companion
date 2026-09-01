@@ -42,6 +42,14 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   # (config:cache/view:cache/event:cache bewusst NICHT gepatcht — config:cache friert
   # nativephp-internal.running=false ein und sperrt den Chat; siehe OPTIMIZE.md Phase 5.)
   if ! grep -q 'opcache.file_cache' "$f"; then
+    # EIN awk-Pass, aber ZWEI unabhaengige Anker — und bis zum 2026-09-01 lief das
+    # `mv` VOR der Pruefung. Traf nur einer der beiden, blieb der Halbstand liegen,
+    # und der naechste Lauf las ihn ueber `grep -q opcache.file_cache` als "schon
+    # gepatcht": `[=]`, und die fehlende Haelfte kam nie zurueck. In der anderen
+    # Richtung (nur mkdirs traf) haette jeder Folgelauf eine WEITERE mkdirs-Zeile
+    # eingefuegt. Deshalb dieselbe Bauform wie in patch_deeplinks: Sicherungskopie,
+    # beide Haelften einzeln geprueft, bei jedem Fehlschlag der Vendor-Stand zurueck.
+    cp "$f" "$f.vor-patch"
     awk '
       /val phpIni = """/ && !d1 {
         print "                File(context.filesDir, \"opcache\").mkdirs() // OPTIMIZE"; d1=1 }
@@ -53,8 +61,20 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
         d2=1; next }
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-    grep -q 'opcache.file_cache' "$f" && grep -q 'mkdirs() // OPTIMIZE' "$f" \
-      || { echo "FEHLER: opcache-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+    local fehler=""
+    if ! grep -q 'mkdirs() // OPTIMIZE' "$f"; then
+      fehler="Anker 1 (val phpIni) nicht getroffen — das opcache-Verzeichnis wuerde nie angelegt"
+    elif ! grep -q 'opcache.file_cache' "$f"; then
+      fehler="Anker 2 (openssl.cafile) nicht getroffen — keine opcache-Direktiven in der php.ini"
+    fi
+    if [ -n "$fehler" ]; then
+      mv "$f.vor-patch" "$f"
+      echo "FEHLER: opcache-Patch griff nicht ($f) — $fehler." >&2
+      echo "        Anker gedriftet (NativePHP-Update?). Datei auf den Vendor-Stand" >&2
+      echo "        zurueckgesetzt — kein Halbstand." >&2
+      exit 1
+    fi
+    rm -f "$f.vor-patch"
     echo "    [+] Phase 3 opcache.file_cache"
   else
     echo "    [=] Phase 3 opcache.file_cache bereits gesetzt"
@@ -94,9 +114,20 @@ patch_iconbg() {  # $1 = Pfad zu ic_launcher_background.xml
   # Foreground ist eine schwarze Rundecken-Form mit transparenten Ecken — auf
   # weißem BG scheinen dort weiße Ecken durch (Bug-Report). Schwarz macht es nahtlos.
   if grep -q '#ffffff' "$f"; then
+    # `sed` laeuft hier ohne /g und ersetzt nur das ERSTE Vorkommen. Traegt die
+    # Datei nach einem NativePHP-Update zwei weisse Farbwerte (Verlauf, zweite
+    # Ebene), meldete der alte Test `grep -q '#000000'` trotzdem Erfolg, waehrend
+    # die zweite Zeile weiss blieb. Deshalb zusaetzlich die ABWESENHEIT des alten
+    # Wertes pruefen und im Fehlerfall zurueckrollen.
+    cp "$f" "$f.vor-patch"
     sed -i 's/#ffffff/#000000/' "$f"
-    grep -q '#000000' "$f" \
-      || { echo "FEHLER: Icon-BG-Patch griff nicht ($f) — Datei geändert (NativePHP-Update?)."; exit 1; }
+    if ! grep -q '#000000' "$f" || grep -q '#ffffff' "$f"; then
+      mv "$f.vor-patch" "$f"
+      echo "FEHLER: Icon-BG-Patch griff nicht ($f) — Datei geändert (NativePHP-Update?)." >&2
+      echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+      exit 1
+    fi
+    rm -f "$f.vor-patch"
     echo "    [+] Icon-Hintergrund schwarz (#000000)"
   else
     echo "    [=] Icon-Hintergrund bereits schwarz"
@@ -123,6 +154,13 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
   # zurück). Das lähmt u.a. den Chat-„Bild anhängen"-Button. Fix: Callback im
   # companion object halten + Override, der den nativen Picker via
   # FileChooserParams.createIntent() über die Activity startet.
+  # ZWEI Bloecke, aber EIN Feature: der Override aus Block 2 referenziert die
+  # Felder aus Block 1. Traf nur Block 1, meldete der Lauf zwar exit 1, liess die
+  # Datei aber halb gepatcht liegen — und `grep -q FILE_CHOOSER_REQUEST_CODE` liest
+  # diesen Rest beim naechsten Lauf als "bereits vorhanden". Deshalb eine
+  # Sicherungskopie fuer die GANZE Funktion: scheitert Block 2, geht auch Block 1
+  # zurueck. Gleiche Bauform wie patch_deeplinks.
+  cp "$f" "$f.vor-patch"
   if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
     awk '
       /var shared: WebViewManager\? = null/ && !d {
@@ -133,7 +171,10 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
     grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
-      || { echo "FEHLER: FileChooser-Companion-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+      || { mv "$f.vor-patch" "$f"
+           echo "FEHLER: FileChooser-Companion-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)." >&2
+           echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+           exit 1; }
     echo "    [+] FileChooser Companion-Halter"
   else
     echo "    [=] FileChooser Companion-Halter bereits vorhanden"
@@ -163,11 +204,16 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
       { print }
     ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
     grep -q 'onShowFileChooser' "$f" \
-      || { echo "FEHLER: onShowFileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+      || { mv "$f.vor-patch" "$f"
+           echo "FEHLER: onShowFileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)." >&2
+           echo "        Datei auf den Vendor-Stand zurueckgesetzt — auch der Companion-" >&2
+           echo "        Halter aus Block 1, denn ohne den Override ist er toter Code." >&2
+           exit 1; }
     echo "    [+] onShowFileChooser-Override"
   else
     echo "    [=] onShowFileChooser-Override bereits vorhanden"
   fi
+  rm -f "$f.vor-patch"
 }
 
 patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
@@ -235,9 +281,21 @@ patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
     echo "        file <apk-entpackt>/lib/arm64-v8a/libphp_wrapper.so" >&2
     exit 1
   fi
+  cp "$f" "$f.vor-patch"
   perl -0777 -i -pe 's{^([ \t]*)\Qkeep\EDebugSymbols\.add\("\*\*/\*\.so"\)[ \t]*$}
                      {$1// OPTIMIZE-STRIP: Zeile bewusst entfernt — sie machte den\n$1// stripReleaseDebugSymbols-Task wirkungslos und lieferte 2,9 MB\n$1// Symboltabellen mit aus. Begruendung in scripts/apply-vendor-patches.sh.}mx' "$f"
-  grep -q 'OPTIMIZE-STRIP' "$f" || { echo "    [!] Strip-Patch griff nicht" >&2; exit 1; }
+  # Zwei Pruefungen statt einer: `s///` laeuft ohne /g und ersetzt nur das ERSTE
+  # Vorkommen. Stuenden zwei keepDebugSymbols-Zeilen im Gradle-Block, waere der
+  # Marker gesetzt (ab dem naechsten Lauf also `[=]`) und die zweite Zeile machte
+  # den Patch trotzdem wirkungslos — ein Halbstand, den nie wieder jemand sieht.
+  # Deshalb auch die ABWESENHEIT des Ankers pruefen, sonst der Vendor-Stand zurueck.
+  if ! grep -q 'OPTIMIZE-STRIP' "$f" || grep -qF "$anchor" "$f"; then
+    mv "$f.vor-patch" "$f"
+    echo "    [!] Strip-Patch griff nicht oder nur teilweise — keepDebugSymbols steht" >&2
+    echo "        weiterhin in $f. Datei auf den Vendor-Stand zurueckgesetzt." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
   echo "    [+] keepDebugSymbols entfernt (native Bibliotheken werden gestrippt)"
 }
 
