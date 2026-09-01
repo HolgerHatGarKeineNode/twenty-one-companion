@@ -25,7 +25,20 @@ set -euo pipefail
 
 WURZEL="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJEKT="${WURZEL}/nativephp/android"
-PAKET="app/src/main/java/com/einundzwanzig/push"
+# Quellwurzel des Plugin-Compilers, NICHT src/main/java. Ab NativePHP 4.x
+# registriert app/build.gradle.kts:12-15 zusaetzlich `src/nativephp/kotlin` im
+# main-SourceSet, und AndroidPluginCompiler schreibt die Plugin-Quellen dorthin
+# (:60). Der alte Pfad ist in einem 4.x-Projekt nicht nur leer, er ist eine
+# Falle: removeLegacyPackageCopies() (:700-731, Aufruf :252) raeumt genau dort
+# nach Paket+Dateiname auf. Gemessen am 2026-09-01 (P1) sind es zwei
+# Fehlerbilder, je nach Reihenfolge:
+#   - dieses Skript NACH einem Plugin-Compile: dieselben drei Klassen liegen in
+#     zwei registrierten Quellwurzeln -> Kotlin-`Redeclaration`;
+#   - ein Compile NACH diesem Skript: die Kopien verschwinden still, und der
+#     Lauf misst den Stand des letzten Builds statt den des Repos.
+# Der Testquellordner unten ist davon nicht betroffen — der Aufraeumer fasst
+# ausschliesslich src/main/java an.
+PAKET="app/src/nativephp/kotlin/com/einundzwanzig/push"
 TESTPAKET="app/src/test/java/com/einundzwanzig/push"
 
 if [[ ! -x "${PROJEKT}/gradlew" ]]; then

@@ -15,6 +15,11 @@ use Symfony\Component\Process\Process;
  * from `src/Traits/` to `src/Concerns/`, so the silent skip was one upgrade away
  * from repeating it.
  *
+ * That upgrade happened on 2026-09-01 (3.3.7 → 4.3.1), so the two paths have
+ * swapped roles: `src/Concerns/` is now where the file lives, and a script still
+ * pointing at `src/Traits/` is the drift this guard has to catch. The guard is
+ * unchanged; only which path stands for "found" and which for "gone" moved.
+ *
  * Known-bad and known-good in one file, the same shape the accessibility harness
  * uses (`tests/Browser/Accessibility/*`): a guard that has only ever been seen
  * green is indistinguishable from a guard that cannot fire at all.
@@ -53,10 +58,8 @@ function deeplinkSandbox(string $sandbox, ?string $vendorTarget = null): void
     File::put($kotlin.'/bridge/LaravelEnvironment.kt', <<<'KT'
         // opcache.file_cache
         // OPTIMIZE-opcache-wipe
-        // EXTRACT-GATE-FIX
         KT);
     File::put($kotlin.'/ui/MainActivity.kt', <<<'KT'
-        // postDelayed({ queueWorker
         // FILE_CHOOSER_REQUEST_CODE
         KT);
 
@@ -89,11 +92,11 @@ it('exits non-zero when the deeplink target is not where the script expects it',
         ->and($process->getOutput())->not->toContain('Fertig.');
 })->with([
     'vendor tree missing entirely' => [null],
-    'moved to src/Concerns as NativePHP 4.x does' => ['vendor/nativephp/mobile/src/Concerns/RunsAndroid.php'],
+    'still at the pre-4.x src/Traits location' => ['vendor/nativephp/mobile/src/Traits/RunsAndroid.php'],
 ]);
 
 it('completes when the deeplink target is in place', function (): void {
-    deeplinkSandbox($this->sandbox, 'vendor/nativephp/mobile/src/Traits/RunsAndroid.php');
+    deeplinkSandbox($this->sandbox, 'vendor/nativephp/mobile/src/Concerns/RunsAndroid.php');
 
     $process = runPatchScript($this->sandbox);
 
