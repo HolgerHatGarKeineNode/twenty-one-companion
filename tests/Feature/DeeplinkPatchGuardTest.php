@@ -55,9 +55,24 @@ function deeplinkSandbox(string $sandbox, ?string $vendorTarget = null): void
     File::ensureDirectoryExists($kotlin.'/ui');
 
     File::copy(base_path('scripts/apply-vendor-patches.sh'), $sandbox.'/scripts/apply-vendor-patches.sh');
+    // Phase 3 is satisfied by its marker alone. Phase 3b is not: it measures WHERE the
+    // wipe sits — inside `fun initialize()`, the cold boot path — so this fixture has
+    // to carry the 4.3.1 boot shape even though the deeplink branch is what is
+    // measured here. Its own controls live in VendorPatchHalfStateTest.
     File::put($kotlin.'/bridge/LaravelEnvironment.kt', <<<'KT'
         // opcache.file_cache
-        // OPTIMIZE-opcache-wipe
+            fun initialize() {
+                extractionLock.withLock {
+                    val didExtract = extractLaravelBundleUnlocked()
+                    if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe
+                    setupEnvironment(didExtract)
+                }
+            }
+
+            fun initializeForBackground() {
+                val didExtract = extractLaravelBundle()
+                if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe
+            }
         KT);
     File::put($kotlin.'/ui/MainActivity.kt', <<<'KT'
         // FILE_CHOOSER_REQUEST_CODE

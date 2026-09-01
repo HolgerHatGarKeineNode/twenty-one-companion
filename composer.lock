@@ -833,7 +833,7 @@
         },
         {
             "name": "einundzwanzig/amber-signer",
-            "version": "dev-chore/nativephp-4x-compat",
+            "version": "dev-master",
             "dist": {
                 "type": "path",
                 "url": "../einundzwanzig-group/packages/amber-signer",
@@ -870,7 +870,7 @@
         },
         {
             "name": "einundzwanzig/calendar",
-            "version": "dev-feat/nativephp-4x",
+            "version": "dev-master",
             "dist": {
                 "type": "path",
                 "url": "packages/calendar",
@@ -946,7 +946,7 @@
         },
         {
             "name": "einundzwanzig/push",
-            "version": "dev-feat/nativephp-4x",
+            "version": "dev-master",
             "dist": {
                 "type": "path",
                 "url": "packages/push",

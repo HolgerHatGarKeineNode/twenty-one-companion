@@ -62,7 +62,9 @@ const HP_DEEPLINK = 'vendor/nativephp/mobile/src/Concerns/RunsAndroid.php';
 function hpDefaults(): array
 {
     return [
-        HP_ENV => "// opcache.file_cache\n// OPTIMIZE-opcache-wipe\n",
+        // Phase 3 is satisfied by the marker alone, phase 3b is not: it measures WHERE
+        // the wipe sits, so the default has to carry the real 4.3.1 boot shape.
+        HP_ENV => "// opcache.file_cache\n".hpEnvExtraktion()."\n",
         HP_MAIN => "// FILE_CHOOSER_REQUEST_CODE\n",
         HP_WEBVIEW => "// FILE_CHOOSER_REQUEST_CODE\n// onShowFileChooser\n",
         HP_ICON => '<solid android:color="#000000"/>'."\n",
@@ -104,6 +106,64 @@ function hpRun(string $tree): Process
 */
 
 /**
+ * The two extraction sites of `LaravelEnvironment.kt`, in the 4.3.1 shape, plus
+ * phase 3b in a chosen state. This is the fixture that phase 3b is measured on,
+ * because that patch does not ask WHETHER its marker is in the file but WHERE.
+ *
+ * `initialize()` is the cold boot path — MainActivity calls it twice.
+ * `initializeForBackground()` has zero callers in 4.3.1 and in the generated
+ * project; it is in here because it carries the second extraction site, and
+ * because it is exactly where the 3.3.7 anchor ended up after the 4.x rewrite.
+ *
+ * @param  bool  $kaltstartAnker  false models the next upstream rename of the
+ *                                cold boot extractor — the case in which the
+ *                                patch must fail instead of quietly settling for
+ *                                the background path again
+ * @param  string  $wipe  'beide' | 'keiner' | 'hintergrund' | 'kaltstart'
+ */
+function hpEnvExtraktion(bool $kaltstartAnker = true, string $wipe = 'beide'): string
+{
+    $wipeZeile = 'if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe';
+    $kalt = $kaltstartAnker
+        ? 'val didExtract = extractLaravelBundleUnlocked()'
+        : 'val didExtract = extractBundleFromAssets()';
+
+    $zeilen = [
+        '    fun initialize() {',
+        '        extractionLock.withLock {',
+        '            '.$kalt,
+    ];
+    if (in_array($wipe, ['beide', 'kaltstart'], true)) {
+        $zeilen[] = '            '.$wipeZeile;
+    }
+    $zeilen[] = '            setupEnvironment(didExtract)';
+    $zeilen[] = '        }';
+    $zeilen[] = '    }';
+    $zeilen[] = '';
+    $zeilen[] = '    fun initializeForBackground() {';
+    $zeilen[] = '        val didExtract = extractLaravelBundle()';
+    if (in_array($wipe, ['beide', 'hintergrund'], true)) {
+        $zeilen[] = '        '.$wipeZeile;
+    }
+    $zeilen[] = '        setupEnvironment(didExtract)';
+    $zeilen[] = '    }';
+
+    return implode("\n", $zeilen);
+}
+
+/** Line number (1-based) of the first line carrying $needle, 0 when absent. */
+function hpZeileMit(string $inhalt, string $needle): int
+{
+    foreach (explode("\n", $inhalt) as $i => $zeile) {
+        if (str_contains($zeile, $needle)) {
+            return $i + 1;
+        }
+    }
+
+    return 0;
+}
+
+/**
  * `patch_env` phase 3 inserts at TWO independent anchors: the `mkdirs()` call before
  * `val phpIni = """`, and the opcache directives after the `openssl.cafile=` line.
  */
@@ -115,13 +175,15 @@ function hpEnvKotlin(bool $phpIniAnchor = true, bool $cafileAnchor = true): stri
     $cafile = $cafileAnchor
         ? 'openssl.cafile="${context.filesDir.absolutePath}/$CACERT_FILE"'
         : 'curl.capath="${context.filesDir.absolutePath}"';
+    // Phase 3b is already applied here, so the measurement is about phase 3 alone.
+    $extraktion = hpEnvExtraktion();
 
     return <<<KT
         package com.nativephp.mobile.bridge
 
         class LaravelEnvironment {
-            // OPTIMIZE-opcache-wipe: phase 3b is already applied in this fixture, so the
-            // measurement is about phase 3 alone.
+        {$extraktion}
+
             private fun writePhpIni() {
         {$phpIni}
         curl.cainfo="\${context.filesDir.absolutePath}/\$CACERT_FILE"
@@ -293,6 +355,98 @@ it('applies both halves of the opcache patch when both anchors are there', funct
         ->and($process->getOutput())->toContain('[+] Phase 3 opcache.file_cache')
         ->and($patched)->toContain('mkdirs() // OPTIMIZE')
         ->and($patched)->toContain('opcache.file_cache=');
+});
+
+/*
+|--------------------------------------------------------------------------
+| patch_env phase 3b — the wipe has to sit ON the executed boot path
+|--------------------------------------------------------------------------
+|
+| A different failure from the ones above, and a worse one: nothing is half
+| applied here, the patch lands completely — on a line that is never executed.
+|
+| Under 3.3.7 the anchor `val didExtract = extractLaravelBundle()` sat inside
+| `initialize()`, the cold boot path. 4.3.1 rewrote that path to
+| `extractionLock.withLock { extractLaravelBundleUnlocked() }`, so the old anchor
+| only matched inside `initializeForBackground()` — a function with zero callers.
+| The wipe went from covering the only live extraction path to covering none, and
+| kept printing `[+]`. With `validate_timestamps=0` and the file cache in filesDir
+| (survives app updates), that is bytecode of the previous version meeting the new
+| bundle — the one case the patch exists for.
+|
+| The measurement is therefore positional, and so are these tests: presence of the
+| marker proves nothing.
+*/
+
+it('puts the wipe on the cold boot path, not merely somewhere in the file', function (): void {
+    hpSandbox($this->tree, [HP_ENV => "// opcache.file_cache\n".hpEnvExtraktion(wipe: 'keiner')."\n"]);
+
+    $process = hpRun($this->tree);
+    $patched = File::get($this->tree.'/'.HP_ENV);
+
+    $kaltstart = hpZeileMit($patched, 'val didExtract = extractLaravelBundleUnlocked()');
+    $wipeDanach = hpZeileMit($patched, 'OPTIMIZE-opcache-wipe');
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->toContain('[+] Phase 3b opcache-Wipe bei Extraktion')
+        // The wipe directly follows the extraction of the cold boot path — before
+        // setupEnvironment() recreates the opcache directory and before artisan runs.
+        ->and($kaltstart)->toBeGreaterThan(0)
+        ->and($wipeDanach)->toBe($kaltstart + 1)
+        // and the second extraction site is covered as well, so a future upstream
+        // that wires initializeForBackground() up again does not open a hole.
+        ->and(substr_count($patched, 'OPTIMIZE-opcache-wipe'))->toBe(2);
+});
+
+it('re-patches a wipe that only covers the dead background path instead of calling it done', function (): void {
+    // The state every checkout patched before 2026-09-01 is in: marker present,
+    // cold boot path uncovered. `grep -q` would report `[=]` here and cement it.
+    hpSandbox($this->tree, [HP_ENV => "// opcache.file_cache\n".hpEnvExtraktion(wipe: 'hintergrund')."\n"]);
+
+    $process = hpRun($this->tree);
+    $patched = File::get($this->tree.'/'.HP_ENV);
+
+    $kaltstart = hpZeileMit($patched, 'val didExtract = extractLaravelBundleUnlocked()');
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->toContain('[+] Phase 3b opcache-Wipe neu gesetzt')
+        ->and($process->getOutput())->not->toContain('[=] Phase 3b opcache-Wipe bereits vorhanden')
+        ->and(hpZeileMit($patched, 'OPTIMIZE-opcache-wipe'))->toBe($kaltstart + 1)
+        // No leftover from the old position: stripped and re-inserted, not appended.
+        ->and(substr_count($patched, 'OPTIMIZE-opcache-wipe'))->toBe(2);
+});
+
+it('re-patches when only one of the two extraction sites carries the wipe', function (): void {
+    hpSandbox($this->tree, [HP_ENV => "// opcache.file_cache\n".hpEnvExtraktion(wipe: 'kaltstart')."\n"]);
+
+    $process = hpRun($this->tree);
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->not->toContain('[=] Phase 3b opcache-Wipe bereits vorhanden')
+        ->and(substr_count(File::get($this->tree.'/'.HP_ENV), 'OPTIMIZE-opcache-wipe'))->toBe(2);
+});
+
+it('fails loudly when the cold boot path no longer holds an extraction call', function (): void {
+    // Models the next upstream rename. Reaching only the background path is exactly
+    // the no-op that was reported as success for a whole framework major.
+    $file = "// opcache.file_cache\n".hpEnvExtraktion(kaltstartAnker: false, wipe: 'keiner')."\n";
+    hpSandbox($this->tree, [HP_ENV => $file]);
+
+    $first = hpRun($this->tree);
+
+    expect($first->getExitCode())->toBe(1)
+        ->and($first->getErrorOutput())->toContain('ausserhalb von fun initialize()')
+        ->and($first->getErrorOutput())->toContain('kein Halbstand')
+        ->and($first->getOutput())->not->toContain('Fertig.')
+        ->and(File::get($this->tree.'/'.HP_ENV))->toBe($file);
+
+    // And it stays loud: no residue of the failed attempt may satisfy the
+    // idempotency check on the next run.
+    $second = hpRun($this->tree);
+
+    expect($second->getExitCode())->toBe(1)
+        ->and($second->getOutput())->not->toContain('[=] Phase 3b opcache-Wipe bereits vorhanden')
+        ->and(File::get($this->tree.'/'.HP_ENV))->toBe($file);
 });
 
 /*

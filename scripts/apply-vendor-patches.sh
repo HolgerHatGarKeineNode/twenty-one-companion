@@ -35,6 +35,98 @@ TARGETS=(
   "nativephp/android|Build (nativephp)"
 )
 
+# Zustand des opcache-Wipes in einer LaravelEnvironment.kt, als drei Zahlen:
+#   <Extraktionsstellen> <Wipe-Zeilen> <Wipe-Zeilen innerhalb von fun initialize()>
+# Die dritte Zahl ist die eigentliche Aussage: NUR `fun initialize()` ist der
+# Kaltstart-Pfad (MainActivity.kt ruft ihn zweimal). Eine Wipe-Zeile irgendwo
+# sonst in der Datei beweist nichts.
+opcache_wipe_zustand() {  # $1 = Pfad zu LaravelEnvironment.kt
+  awk '
+    /^[ \t]*fun initialize\(\) \{/ { match($0, /^[ \t]*/); ein = substr($0, 1, RLENGTH); in_init = 1 }
+    in_init && $0 == (ein "}") { in_init = 0 }
+    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ { anker++ }
+    /OPTIMIZE-opcache-wipe/ { wipes++; if (in_init) kalt++ }
+    END { printf "%d %d %d\n", anker+0, wipes+0, kalt+0 }
+  ' "$1"
+}
+
+patch_opcache_wipe() {  # $1 = Pfad zu LaravelEnvironment.kt
+  local f="$1"
+  # Phase 3b: opcache-file_cache bei JEDER Bundle-Extraktion wipen. Sonst serviert
+  # opcache (validate_timestamps=0) nach einem App-Update stalen Bytecode der
+  # Vorversion (gleiche Dateipfade, neuer Inhalt) — u.a. kompilierte Blades mit
+  # veralteten @vite-Refs -> ViteException/500. Versions-scoped statt per-Request-stat.
+  # rm -rf statt File.deleteRecursively(): der Codebase misstraut deleteRecursively
+  # (folgt dem storage-Symlink -> löscht persisted_data, siehe Kommentar in extract).
+  # Der opcache-Ordner hat zwar keine Symlinks, aber wir nutzen den vertrauten Weg.
+  #
+  # ANKER NACHGEZOGEN am 2026-09-01 (NativePHP 4.3.1) — und das ist der Grund, warum
+  # diese Funktion so viel mehr prueft als "steht der Marker drin":
+  # Unter 3.3.7 sass `val didExtract = extractLaravelBundle()` bei :172 IM Kaltstart-
+  # Pfad, der Patch griff dort. 4.3.1 hat den Pfad umgebaut auf
+  # `extractionLock.withLock { extractLaravelBundleUnlocked() }` (:207-208); der alte
+  # Anker traf danach nur noch `initializeForBackground()` (:1004) — eine Funktion mit
+  # NULL Aufrufern in 4.3.1 und im generierten Projekt (gegengeprueft mit
+  # `initializeEnvironmentAsync` als Positivkontrolle: Definition UND Aufrufstelle).
+  # Der Wipe deckte also keinen einzigen ausgefuehrten Pfad mehr ab — und meldete
+  # weiter `[+]`. Genau die Klasse "gruenes Licht auf einem Defekt", gegen die der
+  # Rest dieser Datei gebaut ist, eine Ebene hoeher.
+  #
+  # Deshalb wird nicht die ANWESENHEIT des Markers geprueft, sondern seine LAGE:
+  # mindestens eine Wipe-Zeile muss innerhalb von `fun initialize()` stehen, und
+  # jede Extraktionsstelle muss eine tragen (sonst waere es ein Halbstand). Die
+  # Idempotenz-Abfrage prueft dasselbe — ein alter, falsch platzierter Wipe darf
+  # nicht als "bereits vorhanden" durchgehen, sonst zementiert der naechste Lauf
+  # genau den Zustand, der hier behoben wird.
+  local anker wipes kalt alt=0 fehler=""
+  read -r anker wipes kalt <<<"$(opcache_wipe_zustand "$f")"
+  if [ "$kalt" -ge 1 ] && [ "$wipes" -eq "$anker" ]; then
+    echo "    [=] Phase 3b opcache-Wipe bereits vorhanden"
+    return 0
+  fi
+  cp "$f" "$f.vor-patch"
+  # Reste einer frueheren Skriptfassung entfernen, bevor neu eingesetzt wird. Die
+  # Wipe-Zeile ist immer eine GANZE Zeile mit diesem Marker und stammt immer aus
+  # diesem Skript — Vendor-Code traegt ihn nie. Ohne diesen Schritt stuende der
+  # tote Wipe aus 3.3.7 zusaetzlich zum neuen in der Datei.
+  if [ "$wipes" -gt 0 ]; then
+    alt=1
+    { grep -v 'OPTIMIZE-opcache-wipe' "$f" || true; } > "$f.tmp" && mv "$f.tmp" "$f"
+  fi
+  awk '
+    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ {
+      print
+      match($0, /^[ \t]*/)
+      print substr($0, 1, RLENGTH) "if (didExtract) runCatching { Runtime.getRuntime().exec(arrayOf(\"rm\", \"-rf\", File(context.filesDir, \"opcache\").absolutePath)).waitFor() } // OPTIMIZE-opcache-wipe: kein stale Bytecode bei Updates"
+      next }
+    { print }
+  ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  read -r anker wipes kalt <<<"$(opcache_wipe_zustand "$f")"
+  if [ "$anker" -eq 0 ]; then
+    fehler="keine Extraktionsstelle gefunden (val didExtract = extractLaravelBundle[Unlocked]())"
+  elif [ "$kalt" -eq 0 ]; then
+    fehler="der Wipe landet ausserhalb von fun initialize() — der Kaltstart-Pfad bliebe ungedeckt"
+  elif [ "$wipes" -ne "$anker" ]; then
+    fehler="nur $wipes von $anker Extraktionsstellen gedeckt — Halbstand"
+  fi
+  if [ -n "$fehler" ]; then
+    mv "$f.vor-patch" "$f"
+    echo "FEHLER: opcache-Wipe-Patch griff nicht ($f) — $fehler." >&2
+    echo "        NativePHP hat den Extraktionspfad umgebaut. Der Wipe MUSS im" >&2
+    echo "        Kaltstart-Pfad sitzen: ohne ihn ueberlebt nach einem App-Update" >&2
+    echo "        der Bytecode der Vorversion (validate_timestamps=0, file_cache in" >&2
+    echo "        filesDir) und trifft auf ein neues Bundle." >&2
+    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
+  if [ "$alt" -eq 1 ]; then
+    echo "    [+] Phase 3b opcache-Wipe neu gesetzt (alte Lage deckte den Kaltstart-Pfad nicht)"
+  else
+    echo "    [+] Phase 3b opcache-Wipe bei Extraktion"
+  fi
+}
+
 patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   local f="$1"
   # Phase 3: opcache.file_cache in die on-device php.ini. Ein awk-Pass, zwei Anker:
@@ -79,27 +171,7 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
   else
     echo "    [=] Phase 3 opcache.file_cache bereits gesetzt"
   fi
-  # Phase 3b: opcache-file_cache bei JEDER Bundle-Extraktion wipen. Sonst serviert
-  # opcache (validate_timestamps=0) nach einem App-Update stalen Bytecode der
-  # Vorversion (gleiche Dateipfade, neuer Inhalt) — u.a. kompilierte Blades mit
-  # veralteten @vite-Refs -> ViteException/500. Versions-scoped statt per-Request-stat.
-  # rm -rf statt File.deleteRecursively(): der Codebase misstraut deleteRecursively
-  # (folgt dem storage-Symlink -> löscht persisted_data, siehe Kommentar in extract).
-  # Der opcache-Ordner hat zwar keine Symlinks, aber wir nutzen den vertrauten Weg.
-  if ! grep -q 'OPTIMIZE-opcache-wipe' "$f"; then
-    awk '
-      /val didExtract = extractLaravelBundle\(\)/ && !d {
-        print
-        print "            if (didExtract) runCatching { Runtime.getRuntime().exec(arrayOf(\"rm\", \"-rf\", File(context.filesDir, \"opcache\").absolutePath)).waitFor() } // OPTIMIZE-opcache-wipe: kein stale Bytecode bei Updates"
-        d=1; next }
-      { print }
-    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
-    grep -q 'OPTIMIZE-opcache-wipe' "$f" \
-      || { echo "FEHLER: opcache-Wipe-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
-    echo "    [+] Phase 3b opcache-Wipe bei Extraktion"
-  else
-    echo "    [=] Phase 3b opcache-Wipe bereits vorhanden"
-  fi
+  patch_opcache_wipe "$f"
   # ENTFERNT am 2026-09-01 (NativePHP 4.3.1): der Extract-Gate-Patch. Upstream
   # loest denselben Bug jetzt selbst — LaravelEnvironment.kt:281-293 liest
   # `currentId` primaer aus der `.version`-Datei, die bei der Extraktion mit der

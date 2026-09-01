@@ -38,11 +38,16 @@ it('sends an alert carrying the id and event that the confirm flow correlates on
     $bridge = FakeBridge::enable();
 
     // Same shape as HandlesNativeConfirm::confirmAction(): cancel first, confirm
-    // last, tagged with a key so handleConfirmButton() can ignore foreign alerts.
+    // last, tagged with a key so handleConfirmButton() can ignore foreign alerts —
+    // and, like all five call sites, WITHOUT a trailing `->show()`. The alert goes
+    // out through `PendingAlert::__destruct()` when the discarded temporary is
+    // freed at the end of this statement. That auto-show is labelled a BC shim
+    // upstream (vendor/nativephp/mobile/src/PendingAlert.php:139-145); an explicit
+    // `->show()` here would keep the test green on the day the shim is dropped,
+    // while every real call site went silent.
     DialogFacade::alert('Leiter entfernen', 'Wirklich entfernen?', ['Abbrechen', 'Entfernen'])
         ->id('remove-leader')
-        ->event(ButtonPressed::class)
-        ->show();
+        ->event(ButtonPressed::class);
 
     $bridge->assertCalled('Dialog.Alert', fn (array $params): bool => $params['title'] === 'Leiter entfernen'
         && $params['message'] === 'Wirklich entfernen?'

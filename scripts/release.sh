@@ -9,7 +9,8 @@
 #
 # Voraussetzungen:
 #   - ANDROID_KEYSTORE_* in .env (siehe credentials/)
-#   - JAVA_HOME/keytool verfügbar (JetBrains JBR reicht)
+#   - ein JDK zwischen 17 und 24 auffindbar (der Android-Studio-JBR reicht NICHT
+#     mehr, er ist 25 — siehe den Block „JDK-Wahl" unten)
 #   - GPG-Key des Maintainers im lokalen Schlüsselbund
 #
 # Verwendung:
@@ -158,6 +159,96 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
     return 1
 }
 
+# ── JDK-Wahl: Gradle braucht hier eine Java-Version zwischen 17 und 24 ────────
+#
+# Bis zum 2026-09-01 stand hier fest der JetBrains-Runtime aus der Android-Studio-
+# Installation. Gemessen an diesem Tag ist er UNBRAUCHBAR: mit
+# JAVA_HOME=<JBR 25.0.2> stirbt `./gradlew help` nach 0,6 s an
+#   java.lang.IllegalArgumentException: 25.0.2
+#   in org.jetbrains.kotlin.com.intellij.util.lang.JavaVersion.parse
+# Das ist die in kotlin 2.0.0 mitgelieferte IntelliJ-Hilfsklasse; sie kennt kein
+# zweistelliges Feature-Release ab 25. Reproduziert auf dem 4.3.1-Projekt
+# (Gradle 8.14.5) UND auf einem frischen 3.3.7-Projekt (Gradle 8.13) — die
+# Ursache sind die in beiden identischen Pins agp = 8.13.2 / kotlin = 2.0.0,
+# nicht der NativePHP-Umstieg.
+#
+# Dass bisher trotzdem gebaut wurde, lag daran, dass Gradle sich fuer die
+# COMPILE-Tasks sein eigenes Toolchain-JDK zieht
+# (~/.gradle/jdks/eclipse_adoptium-21-amd64-linux.2, javaVersion 21). Das
+# rettet den Launcher aber nicht: die Exception faellt bereits in der
+# Konfigurationsphase, also in der JVM, die aus JAVA_HOME kommt. Eine
+# Toolchain-Loesung scheidet damit aus — sie kaeme zu spaet und muesste
+# ausserdem im generierten Projekt stehen, das native:install jederzeit neu
+# schreibt. Deshalb wird hier ein passendes JDK GESUCHT und gepinnt.
+#
+# Reihenfolge der Kandidaten: ein vom Aufrufer gesetztes JAVA_HOME zuerst (es
+# wird trotzdem geprueft, ein falsches gewinnt nichts), dann Gradles eigenes
+# Toolchain-Verzeichnis — ueber das jeder bisherige Build real lief —, dann die
+# systemweiten JDKs, und der JBR ganz zuletzt und nur, wenn er die Grenze haelt.
+#
+# Findet sich keines, bricht der Lauf LAUT ab. Ein stiller Rueckfall auf ein JDK,
+# das nicht bauen kann, ist genau der Fehlermodus, der hier behoben wird.
+#
+# JDK_SUCHPFADE (durch ':' getrennt) ersetzt die Suchorte — nur fuer die
+# Kontrolle in tests/Feature/ReleaseJdkGuardTest.php, damit der Negativfall
+# messbar ist, ohne die JDKs dieser Maschine anzufassen.
+JDK_MIN=17
+JDK_MAX=24
+
+jdk_hauptversion() {  # $1 = JDK-Wurzel; Hauptversion nach stdout, leer = unbrauchbar
+    local d="$1" v=""
+    # javac, nicht java: ein reines JRE bringt Gradle nicht durch die Konfiguration.
+    [ -x "$d/bin/javac" ] || return 0
+    if [ -r "$d/release" ]; then
+        v=$(grep -oP '^JAVA_VERSION="\K[0-9]+' "$d/release" 2>/dev/null || true)
+    fi
+    if [ -z "$v" ]; then
+        v=$("$d/bin/java" -version 2>&1 | grep -oP 'version "\K[0-9]+' | head -n1 || true)
+    fi
+    printf '%s' "$v"
+}
+
+finde_jdk() {  # schreibt "<pfad>\t<version>" nach stdout, 1 = keines passend
+    local kandidaten=() d v
+    if [ -n "${JDK_SUCHPFADE:-}" ]; then
+        IFS=':' read -r -a kandidaten <<<"$JDK_SUCHPFADE"
+    else
+        [ -n "${JAVA_HOME:-}" ] && kandidaten+=("$JAVA_HOME")
+        for d in "$HOME"/.gradle/jdks/*/; do kandidaten+=("${d%/}"); done
+        for d in /usr/lib/jvm/*/; do kandidaten+=("${d%/}"); done
+        kandidaten+=("$HOME/.local/share/JetBrains/Toolbox/apps/android-studio/jbr")
+    fi
+    for d in "${kandidaten[@]}"; do
+        [ -n "$d" ] && [ -d "$d" ] || continue
+        v=$(jdk_hauptversion "$d")
+        [ -n "$v" ] || continue
+        if [ "$v" -ge "$JDK_MIN" ] && [ "$v" -le "$JDK_MAX" ]; then
+            printf '%s\t%s' "$d" "$v"
+            return 0
+        fi
+    done
+    return 1
+}
+
+waehle_jdk() {  # setzt JAVA_HOME/PATH oder bricht laut ab
+    local treffer
+    if ! treffer=$(finde_jdk); then
+        echo "❌ Kein JDK zwischen $JDK_MIN und $JDK_MAX gefunden — Gradle kann nicht bauen." >&2
+        echo "   Ab Java 25 stirbt die Konfigurationsphase an" >&2
+        echo "   'IllegalArgumentException: <version>' in JavaVersion.parse (kotlin 2.0.0)." >&2
+        echo "   Gesucht in: \$JAVA_HOME, \$HOME/.gradle/jdks/*, /usr/lib/jvm/*," >&2
+        echo "   Android-Studio-JBR." >&2
+        echo "   Der Lauf bricht ab, statt auf ein zu neues JDK zurueckzufallen: ein" >&2
+        echo "   Build, der erst nach 20 Minuten an der Java-Version stirbt, kostet" >&2
+        echo "   mehr als dieser Abbruch." >&2
+        echo "   Abhilfe: ein Temurin 21 installieren, z. B. nach \$HOME/.gradle/jdks/." >&2
+        return 1
+    fi
+    export JAVA_HOME="${treffer%%$'\t'*}"
+    export PATH="$JAVA_HOME/bin:$PATH"
+    echo "→ JDK ${treffer##*$'\t'}: $JAVA_HOME"
+}
+
 # Nur den Riegel fahren (fuer die Kontrolle im Testlauf) — bewusst VOR dem
 # composer-Trap, damit dieser Einstieg keine Nebenwirkung auf vendor/ hat.
 if [ "${1:-}" = "--pruefe-manifest" ]; then
@@ -166,6 +257,11 @@ if [ "${1:-}" = "--pruefe-manifest" ]; then
         exit 2
     fi
     if pruefe_pfad_prefixe "$2"; then exit 0; else exit 1; fi
+fi
+
+# Ebenso einzeln aufrufbar: nur die JDK-Wahl fahren und melden.
+if [ "${1:-}" = "--pruefe-jdk" ]; then
+    if waehle_jdk; then exit 0; else exit 1; fi
 fi
 
 # Der --no-dev-Vorlauf unten raeumt pest/phpstan/phpunit aus dem Arbeitsplatz.
@@ -180,8 +276,7 @@ restore_dev_dependencies() {
 }
 trap restore_dev_dependencies EXIT
 
-JBR="$HOME/.local/share/JetBrains/Toolbox/apps/android-studio/jbr"
-[ -d "$JBR" ] && export JAVA_HOME="$JBR" PATH="$JBR/bin:$PATH"
+waehle_jdk
 
 VERSION=$(grep -oP '^NATIVEPHP_APP_VERSION=\K.*' .env)
 if [ -z "$VERSION" ] || [ "$VERSION" = "DEBUG" ]; then
