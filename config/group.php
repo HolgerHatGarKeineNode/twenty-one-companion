@@ -60,6 +60,23 @@ $config = [
      * Exit-Link mehr (§3.3), darum `null` = Brand-Mark statt Ausgang.
      */
     'exit' => $unifiedShell ? null : ['route' => 'meetups', 'label' => 'Meetups'],
+
+    /*
+     * „Einstellungen" heißt in dieser App `pages/profile`, nicht `group.settings`.
+     *
+     * P6 hat Portal-Prefs und Nostr-Sektionen auf EINEN Screen verschmolzen: `/profile`
+     * bindet dieselben `group::partials.settings.*` inline ein, dazu Sprache, Land,
+     * Zeitzone, Dichte und Push (belegt in `tests/Feature/ProfilePageTest.php`). Die
+     * package-eigene Route `/settings` existiert weiterhin und rendert eine ZWEITE,
+     * dünnere Fassung derselben Sektionen — die Befehlspalette und der Profil-Chip auf
+     * `/spaces` führten ohne diese Zeile genau dorthin, während der „Mehr"-Hub auf
+     * `/profile` zeigt. Zwei Orte für eine Sache, je nachdem, welchen Weg man nimmt.
+     *
+     * Der Chat-Tab leuchtet auf `/profile` NICHT — er leuchtet nicht falsch, sondern
+     * gar nicht: `profile` steht im `match` des „Mehr"-Tabs (siehe unten), und dort
+     * gehört der Screen auch hin.
+     */
+    'settings_route' => 'profile',
 ];
 
 /*
@@ -75,7 +92,14 @@ $config = [
  */
 if ($unifiedShell) {
     $config['nav'] = [
-        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.join', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
+        // `match` trägt jeden Screen, der HINTER dem Chat-Tab liegt — sonst leuchtet
+        // dort kein Tab, und der Nutzer verliert die Ortsangabe, obwohl er den Bereich
+        // nie verlassen hat. `group.room.thread` fehlte und ist der teuerste Fall: ein
+        // Thread-Deep-Link aus einer Push-Notification landet als Kaltstart genau dort.
+        // `Str::is('group.room', 'group.room.thread')` ist false — der Punkt trennt.
+        // Die Wildcards decken `articles`/`articles.author` bzw. `forge.repo|issue|pull`
+        // mit ab; alle sind ausschliesslich vom Chat aus erreichbar.
+        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.room.thread,group.join,group.updates,group.bookmarks,group.settings,group.articles*,group.article,group.forge*', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
         ['key' => 'wallet', 'route' => 'group.wallet', 'match' => 'group.wallet', 'icon' => 'bolt', 'label' => 'Wallet', 'gate' => 'nostr'],
         ['key' => 'meetups', 'route' => 'meetups', 'match' => 'meetups,meetups.show', 'icon' => 'calendar', 'label' => 'Meetups', 'gate' => 'guest'],
         ['key' => 'more', 'route' => 'more', 'match' => 'more,events,map,courses,courses.show,lecturers.show,mine,mine.places,mine.teaching,profile', 'icon' => 'squares-2x2', 'label' => 'Mehr', 'gate' => 'guest'],
