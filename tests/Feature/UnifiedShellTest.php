@@ -2,6 +2,7 @@
 
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use Illuminate\Support\Str;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 
@@ -153,4 +154,54 @@ it('shows the login CTA in the More hub for guests', function () {
         ->assertOk()
         ->assertSee(__('Anmelden'))
         ->assertSee(route('group.nostr-login'));
+});
+
+/*
+ * Wächter gegen den Defekt, der P2–P7 begleitet hat: das Paket legt Screens an
+ * (`/updates`, `/bookmarks`, `/articles`, `/forge`, `/rooms/{h}/thread/{nevent}`),
+ * der Host führt sie aber in keinem Tab-`match` — dort leuchtet dann KEIN Tab
+ * (`nav-tab.blade.php`: `routeIs(...explode(','))`, alle vier false, kein Fehler).
+ * Am teuersten beim Thread-Deep-Link aus einer Push-Notification: Kaltstart auf
+ * `group.room.thread`, und die Bar sagt nicht, wo man ist.
+ *
+ * Der Test liest die ECHTE `config/group.php` statt der Registry aus
+ * `enableUnifiedShell()` — die ist eine Kopie und driftet (sie trägt noch
+ * `group.space.settings`, das es als Screen nicht mehr gibt).
+ */
+it('marks every chat-side package screen with a tab', function () {
+    putenv('UNIFIED_SHELL=true');
+    $_ENV['UNIFIED_SHELL'] = 'true';
+    $_SERVER['UNIFIED_SHELL'] = 'true';
+
+    $nav = (require config_path('group.php'))['nav'] ?? [];
+    expect($nav)->not->toBeEmpty();
+
+    $patterns = collect($nav)->flatMap(fn (array $tab) => explode(',', $tab['match'] ?? $tab['route']))->all();
+    $matched = fn (string $name) => collect($patterns)->contains(fn (string $p) => Str::is($p, $name));
+
+    /*
+     * Jeder GET-Screen des Pakets, der hinter einem Tab liegt. Bewusst NICHT
+     * dabei — mit Grund, damit ein künftiger Screen hier auffällt statt still
+     * durchzufallen:
+     *   group.nostr-login, group.verein.join   Interstitials ohne Bottom-Nav
+     *   group.space.settings, group.verein.return  Redirects, keine Fläche
+     *   group.nostr.*, group.locale            keine Screens (XHR/POST)
+     */
+    $chatSide = [
+        'group.spaces', 'group.room', 'group.room.thread', 'group.directory',
+        'group.updates', 'group.bookmarks', 'group.settings', 'group.join',
+        'group.articles', 'group.article', 'group.articles.author',
+        'group.forge', 'group.forge.repo', 'group.forge.issue', 'group.forge.pull',
+    ];
+
+    foreach ($chatSide as $name) {
+        expect($matched($name))->toBeTrue("Screen [$name] wird von keinem Tab-`match` getroffen");
+    }
+
+    // Anwesenheits-Zusicherung neben der Abwesenheits-Zusicherung: das Muster
+    // trifft nicht einfach alles. Der Wallet-Tab ist ein eigener Eintrag, und
+    // eine Host-Route darf nicht am Chat-Tab hängen.
+    expect($matched('group.wallet'))->toBeTrue()
+        ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'group.wallet')))->toBeFalse()
+        ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'meetups')))->toBeFalse();
 });
