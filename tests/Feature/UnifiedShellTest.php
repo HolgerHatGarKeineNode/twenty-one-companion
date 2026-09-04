@@ -205,3 +205,52 @@ it('marks every chat-side package screen with a tab', function () {
         ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'group.wallet')))->toBeFalse()
         ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'meetups')))->toBeFalse();
 });
+
+/*
+ * ── „Einstellungen" heißt in dieser App /profile, nicht /settings ────────────────
+ *
+ * P6 hat Portal-Prefs und Nostr-Sektionen auf EINEN Screen verschmolzen (`/profile`,
+ * belegt in `ProfilePageTest`). Die package-eigene Route `group.settings` existiert
+ * weiter und rendert eine ZWEITE, dünnere Fassung derselben Sektionen — die
+ * Befehlspalette und der Profil-Chip auf `/spaces` führten genau dorthin, während der
+ * „Mehr"-Hub auf `/profile` zeigt. Zwei Orte für eine Sache, je nach Weg.
+ *
+ * `group.settings_route` ist die Config-Zeile, die das entscheidet (gleiche Bauform wie
+ * `group.exit`). Sie wird von zwei Lesern im Paket ausgewertet.
+ */
+it('names /profile as the settings destination, in both modes', function () {
+    foreach (['true', 'false'] as $flag) {
+        putenv("UNIFIED_SHELL=$flag");
+        $_ENV['UNIFIED_SHELL'] = $_SERVER['UNIFIED_SHELL'] = $flag;
+
+        $config = require config_path('group.php');
+
+        // Nicht vom Flag abhängig: die verschmolzenen Einstellungen gibt es in beiden
+        // Modi, und der Chat-Client rendert den Chip in beiden.
+        expect($config['settings_route'] ?? null)->toBe('profile', "UNIFIED_SHELL=$flag");
+    }
+
+    unset($_ENV['UNIFIED_SHELL'], $_SERVER['UNIFIED_SHELL']);
+    putenv('UNIFIED_SHELL');
+
+    // Und die Route existiert wirklich. `route()` wirft sonst erst zur Render-Zeit,
+    // also auf der Seite des Nutzers statt hier.
+    expect(route(config('group.settings_route')))->toBe(route('profile'));
+});
+
+it('keeps /profile on the "Mehr" tab — the settings screen is not a chat screen', function () {
+    putenv('UNIFIED_SHELL=true');
+    $_ENV['UNIFIED_SHELL'] = $_SERVER['UNIFIED_SHELL'] = 'true';
+
+    $nav = (require config_path('group.php'))['nav'] ?? [];
+    $matchOf = fn (string $key) => collect($nav)->firstWhere('key', $key)['match'] ?? '';
+
+    // Der Profil-Chip im Chat verlinkt jetzt auf `/profile`. Der Tab, der dort
+    // leuchtet, muss „Mehr" bleiben und nicht „Chat" werden — sonst behauptete die
+    // Nav, man sei noch im Chat, obwohl man den Bereich verlassen hat.
+    expect(collect(explode(',', $matchOf('more')))->contains('profile'))->toBeTrue();
+    expect(collect(explode(',', $matchOf('chat')))->contains('profile'))->toBeFalse();
+
+    unset($_ENV['UNIFIED_SHELL'], $_SERVER['UNIFIED_SHELL']);
+    putenv('UNIFIED_SHELL');
+});

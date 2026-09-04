@@ -60,6 +60,23 @@ $config = [
      * Exit-Link mehr (§3.3), darum `null` = Brand-Mark statt Ausgang.
      */
     'exit' => $unifiedShell ? null : ['route' => 'meetups', 'label' => 'Meetups'],
+
+    /*
+     * „Einstellungen" heißt in dieser App `pages/profile`, nicht `group.settings`.
+     *
+     * P6 hat Portal-Prefs und Nostr-Sektionen auf EINEN Screen verschmolzen: `/profile`
+     * bindet dieselben `group::partials.settings.*` inline ein, dazu Sprache, Land,
+     * Zeitzone, Dichte und Push (belegt in `tests/Feature/ProfilePageTest.php`). Die
+     * package-eigene Route `/settings` existiert weiterhin und rendert eine ZWEITE,
+     * dünnere Fassung derselben Sektionen — die Befehlspalette und der Profil-Chip auf
+     * `/spaces` führten ohne diese Zeile genau dorthin, während der „Mehr"-Hub auf
+     * `/profile` zeigt. Zwei Orte für eine Sache, je nachdem, welchen Weg man nimmt.
+     *
+     * Der Chat-Tab leuchtet auf `/profile` NICHT — er leuchtet nicht falsch, sondern
+     * gar nicht: `profile` steht im `match` des „Mehr"-Tabs (siehe unten), und dort
+     * gehört der Screen auch hin.
+     */
+    'settings_route' => 'profile',
 ];
 
 /*
