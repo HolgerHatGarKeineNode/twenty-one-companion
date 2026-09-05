@@ -99,7 +99,12 @@ if ($unifiedShell) {
         // `Str::is('group.room', 'group.room.thread')` ist false — der Punkt trennt.
         // Die Wildcards decken `articles`/`articles.author` bzw. `forge.repo|issue|pull`
         // mit ab; alle sind ausschliesslich vom Chat aus erreichbar.
-        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.room.thread,group.join,group.updates,group.bookmarks,group.settings,group.articles*,group.article,group.forge*', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
+        // `group.messages` (NIP-17) was missing up to v1.12.0 and it showed on the
+        // device: on `/messages` NO tab lit up, the whole bar stayed dark. This list
+        // is no longer kept by hand against a copy — `UnifiedShellTest` derives the
+        // chat-side screens from the registered package routes, so a screen the
+        // package adds tomorrow fails the suite tomorrow.
+        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.room.thread,group.join,group.updates,group.bookmarks,group.messages,group.settings,group.articles*,group.article,group.forge*', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
         ['key' => 'wallet', 'route' => 'group.wallet', 'match' => 'group.wallet', 'icon' => 'bolt', 'label' => 'Wallet', 'gate' => 'nostr'],
         ['key' => 'meetups', 'route' => 'meetups', 'match' => 'meetups,meetups.show', 'icon' => 'calendar', 'label' => 'Meetups', 'gate' => 'guest'],
         ['key' => 'more', 'route' => 'more', 'match' => 'more,events,map,courses,courses.show,lecturers.show,mine,mine.places,mine.teaching,profile', 'icon' => 'squares-2x2', 'label' => 'Mehr', 'gate' => 'guest'],

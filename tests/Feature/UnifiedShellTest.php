@@ -180,19 +180,50 @@ it('marks every chat-side package screen with a tab', function () {
     $matched = fn (string $name) => collect($patterns)->contains(fn (string $p) => Str::is($p, $name));
 
     /*
-     * Jeder GET-Screen des Pakets, der hinter einem Tab liegt. Bewusst NICHT
-     * dabei — mit Grund, damit ein künftiger Screen hier auffällt statt still
-     * durchzufallen:
-     *   group.nostr-login, group.verein.join   Interstitials ohne Bottom-Nav
-     *   group.space.settings, group.verein.return  Redirects, keine Fläche
-     *   group.nostr.*, group.locale            keine Screens (XHR/POST)
+     * The screens that legitimately carry NO tab of their own. Every entry is named
+     * with its reason: an exclusion has to be a decision someone wrote down, not a
+     * gap that nobody noticed — the gap is precisely the defect this guard is for.
      */
-    $chatSide = [
-        'group.spaces', 'group.room', 'group.room.thread', 'group.directory',
-        'group.updates', 'group.bookmarks', 'group.settings', 'group.join',
-        'group.articles', 'group.article', 'group.articles.author',
-        'group.forge', 'group.forge.repo', 'group.forge.issue', 'group.forge.pull',
+    $noTab = [
+        // Interstitials: the user is on a track, a tab switch in between would lie.
+        'group.nostr-login' => 'interstitial, rendered without the bottom nav',
+        'group.verein.join' => 'interstitial, the membership track carries no nav',
+        // Redirects: no surface of their own, the destination decides the tab.
+        'group.space.settings' => 'redirect to /settings, no surface of its own',
+        'group.verein.return' => 'redirect back from the BTCPay checkout',
+        // Not a screen: read by JS, never rendered as a page.
+        'group.nostr.challenge' => 'JSON endpoint of the NIP-98 handoff',
     ];
+
+    /*
+     * The list of chat-side screens is DERIVED from the router, not copied here.
+     * A hardcoded copy is what let `/messages` reach a release: the package added
+     * the screen, the copy did not know it, and the guard stayed green while the
+     * whole bar went dark (measured on v1.12.0). Everything the package registers
+     * under `group.` and answers with GET is a screen and must light a tab, unless
+     * it stands in `$noTab` above. POST-only routes (`group.locale`,
+     * `group.nostr.login|logout`) are not screens and drop out with the method
+     * filter — structurally, so a new one cannot slip in unnamed either.
+     */
+    $registered = collect(app('router')->getRoutes()->getRoutes())
+        ->map(fn ($route) => [(string) $route->getName(), $route->methods()])
+        ->filter(fn (array $r) => Str::startsWith($r[0], 'group.'))
+        ->filter(fn (array $r) => in_array('GET', $r[1], true))
+        ->map(fn (array $r) => $r[0])
+        ->unique()
+        ->values();
+
+    // Floor in the same assertion as the check itself: a derivation that silently
+    // returns nothing would otherwise pass the loop below without measuring a thing.
+    expect($registered->count())->toBeGreaterThanOrEqual(10);
+
+    // The exclusion list must not rot either. A name that no longer exists is a
+    // stale copy of the same kind — it has to be removed, not carried along.
+    foreach (array_keys($noTab) as $name) {
+        expect($registered->contains($name))->toBeTrue("Excluded route [$name] is no longer registered — drop it from the list");
+    }
+
+    $chatSide = $registered->reject(fn (string $name) => array_key_exists($name, $noTab));
 
     foreach ($chatSide as $name) {
         expect($matched($name))->toBeTrue("Screen [$name] wird von keinem Tab-`match` getroffen");
@@ -204,6 +235,50 @@ it('marks every chat-side package screen with a tab', function () {
     expect($matched('group.wallet'))->toBeTrue()
         ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'group.wallet')))->toBeFalse()
         ->and(collect(explode(',', $nav[0]['match']))->contains(fn ($p) => Str::is($p, 'meetups')))->toBeFalse();
+});
+
+/*
+ * The guard above compares patterns against route names. This one renders the page
+ * and reads the attribute the user actually sees, on the screen the defect was
+ * reported for (`/messages`, v1.12.0, whole bar dark). Both directions measured:
+ * with `group.messages` taken out of the `match`, none of the four `/spaces`
+ * anchors carries `aria-current` any more.
+ *
+ * Careful with the assertion: the rail footer has its OWN `aria-current` link to
+ * `/messages` (`data-rail-fuss`), and it was set even while the bar was dark — a
+ * bare `assertSee('aria-current')` would have passed on the broken build.
+ */
+it('lights the Chat tab — and only it — on the /messages screen', function () {
+    putenv('UNIFIED_SHELL=true');
+    $_ENV['UNIFIED_SHELL'] = $_SERVER['UNIFIED_SHELL'] = 'true';
+
+    $config = require config_path('group.php');
+    config()->set('group.unified_shell', true);
+    config()->set('group.nav', $config['nav']);
+
+    $html = $this->withSession(['nostr_pubkey' => str_repeat('a', 64)])
+        ->get(route('group.messages'))
+        ->assertOk()
+        ->getContent();
+
+    /** @return list<string> the opening <a> tags pointing at $url */
+    $anchorsTo = function (string $url) use ($html): array {
+        preg_match_all('/<a\b[^>]*href="'.preg_quote($url, '/').'"[^>]*>/s', $html, $m);
+
+        return $m[0];
+    };
+    $anyActive = fn (array $anchors) => collect($anchors)->contains(fn (string $a) => str_contains($a, 'aria-current="page"'));
+
+    // The Chat tab points at its own route (`group.spaces`) and is the active one.
+    expect($anchorsTo(route('group.spaces')))->not->toBeEmpty()
+        ->and($anyActive($anchorsTo(route('group.spaces'))))->toBeTrue();
+
+    // No other tab claims the spot — a wrong tab lies as badly as no tab.
+    expect($anyActive($anchorsTo(route('more'))))->toBeFalse()
+        ->and($anyActive($anchorsTo(route('meetups'))))->toBeFalse();
+
+    unset($_ENV['UNIFIED_SHELL'], $_SERVER['UNIFIED_SHELL']);
+    putenv('UNIFIED_SHELL');
 });
 
 /*
