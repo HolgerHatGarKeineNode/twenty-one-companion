@@ -9,9 +9,14 @@ use Symfony\Component\Process\Process;
  * Control for the App-Link guard in `scripts/release.sh --pruefe-manifest`.
  *
  * The release script verified the bundle but never the manifest, so nothing at all
- * measured what the deeplink patch is supposed to shape: which portal paths the APK
- * claims. In v1.9.4 the patch had been overwritten and the build still ended with
- * exit 0 while the APK claimed the whole host.
+ * measured what the deeplink scoping is supposed to shape: which portal paths the APK
+ * claims. In v1.9.4 the local vendor patch that did that scoping had been overwritten
+ * and the build still ended with exit 0 while the APK claimed the whole host.
+ *
+ * Since nativephp/mobile 4.4.0 the package scopes the paths itself from
+ * `config('nativephp.deeplink_paths')`, so the patch is gone — this guard is not. It
+ * measures the ARTEFACT, which is the only place where a downgrade, an upstream
+ * rewrite and a config typo all look the same.
  *
  * The known-bad case is the whole-host claim (`pathPrefix="/"`), the known-good case
  * the configured prefix. Two fail-closed cases sit next to them: an unreadable dump
@@ -98,9 +103,11 @@ it('rejects a manifest that claims the whole portal host', function (): void {
         ->and($process->getErrorOutput())->toContain('erwartet:  /app/');
 });
 
-// '/app/' is the value in config/nativephp.php. It is written out here rather than
-// read from config, so that a change to the claimed paths turns this red and gets
-// looked at instead of being followed silently.
+// '/app/' is the value of `nativephp.deeplink_paths` in config/nativephp.php. It is
+// written out here rather than read from config, so that a change to the claimed paths
+// turns this red and gets looked at instead of being followed silently. The trailing
+// slash is what makes NativePHP 4.4.0 emit an android:pathPrefix — an entry without one
+// becomes an exact android:path, which the guard does not collect and would flag.
 it('accepts a manifest that claims only the configured path prefix', function (): void {
     $file = $this->fixtures.'/korrekt.txt';
     File::put($file, appLinkDump(['/app/']));

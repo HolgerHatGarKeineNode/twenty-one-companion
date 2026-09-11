@@ -21,13 +21,11 @@ REL_WEBVIEW="app/src/main/java/com/nativephp/mobile/network/WebViewManager.kt"
 REL_ICONBG="app/src/main/res/drawable/ic_launcher_background.xml"
 REL_GRADLE="app/build.gradle.kts"
 
-# Drittes Ziel, PHP statt Kotlin und OHNE generiertes Pendant: der Deeplink-Patch
-# sitzt im Vendor-Quelltext selbst, weil dieser das AndroidManifest bei jedem
-# native:run/native:package neu erzeugt.
-#
-# NativePHP 4.x hat den Trait nach src/Concerns/ verschoben (gemessen an 4.3.1:
-# src/Traits/ existiert dort nicht mehr). Der Anker im Trait selbst ist unveraendert.
-DEEPLINK_PHP="vendor/nativephp/mobile/src/Concerns/RunsAndroid.php"
+# Drittes Ziel, PHP statt Kotlin und OHNE generiertes Pendant: die Datei, aus der
+# NativePHP das AndroidManifest bei jedem native:run/native:package neu erzeugt.
+# Sie wird seit NativePHP 4.4.0 nicht mehr GEPATCHT, sondern nur noch GEPRUEFT —
+# siehe pruefe_deeplink_scoping() am Dateiende.
+RUNS_ANDROID_PHP="vendor/nativephp/mobile/src/Concerns/RunsAndroid.php"
 
 # (Basisverzeichnis, Label) — nur existierende werden gepatcht.
 TARGETS=(
@@ -139,8 +137,8 @@ patch_env() {  # $1 = Pfad zu LaravelEnvironment.kt
     # und der naechste Lauf las ihn ueber `grep -q opcache.file_cache` als "schon
     # gepatcht": `[=]`, und die fehlende Haelfte kam nie zurueck. In der anderen
     # Richtung (nur mkdirs traf) haette jeder Folgelauf eine WEITERE mkdirs-Zeile
-    # eingefuegt. Deshalb dieselbe Bauform wie in patch_deeplinks: Sicherungskopie,
-    # beide Haelften einzeln geprueft, bei jedem Fehlschlag der Vendor-Stand zurueck.
+    # eingefuegt. Deshalb: Sicherungskopie, beide Haelften einzeln geprueft, bei
+    # jedem Fehlschlag der Vendor-Stand zurueck.
     cp "$f" "$f.vor-patch"
     awk '
       /val phpIni = """/ && !d1 {
@@ -231,7 +229,7 @@ patch_filechooser_webview() {  # $1 = Pfad zu WebViewManager.kt
   # Datei aber halb gepatcht liegen — und `grep -q FILE_CHOOSER_REQUEST_CODE` liest
   # diesen Rest beim naechsten Lauf als "bereits vorhanden". Deshalb eine
   # Sicherungskopie fuer die GANZE Funktion: scheitert Block 2, geht auch Block 1
-  # zurueck. Gleiche Bauform wie patch_deeplinks.
+  # zurueck.
   cp "$f" "$f.vor-patch"
   if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
     awk '
@@ -293,23 +291,59 @@ patch_filechooser_main() {  # $1 = Pfad zu MainActivity.kt
   # Ergebnis des FileChooser-Intents zurück an den WebView-Callback routen.
   # MainActivity hat (Stand 3.x) kein onActivityResult — die Kamera nutzt eigene
   # Launcher. Darum hier eines ergänzen, das nur unseren Request-Code behandelt.
+  #
+  # ANKER GEWEITET am 2026-09-11 (NativePHP 4.4.0). Bis 4.3.2 lautete die
+  # Klassendeklaration woertlich
+  #     class MainActivity : FragmentActivity(), WebViewProvider {
+  # 4.4.0 haengt ein weiteres Interface an (PR #379, „Deliver native events to
+  # webview screens on Android"):
+  #     class MainActivity : FragmentActivity(), WebViewProvider, NativeElementBridge.WebEventSink {
+  # Der woertliche Anker traf damit nicht mehr — und weil das Vendor-Template das
+  # ERSTE Ziel ist, brach der ganze Lauf dort ab, bevor das generierte Projekt
+  # (das gradlew wirklich baut) auch nur erreicht war. Verankert bleibt deshalb
+  # nur der stabile Teil der Zeile; welche Interfaces hinter WebViewProvider noch
+  # folgen, ist egal.
+  #
+  # Der geweitete Anker muss aber GENAU EINMAL treffen. awk setzt ueber die
+  # Zaehlung nur an der ERSTEN Fundstelle ein; traefe er zwei Deklarationen
+  # (Upstream fuehrt eine zweite Activity ein, ein Refactoring spaltet die
+  # Klasse), landete das Routing still in der falschen — und
+  # `grep -q FILE_CHOOSER_REQUEST_CODE` meldete ab dem naechsten Lauf `[=]`.
+  # Deshalb zaehlt derselbe awk-Pass die Treffer und faellt bei allem ausser
+  # genau 1 aus, ohne die Datei anzufassen.
   if ! grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f"; then
+    local rc=0
     awk '
-      /class MainActivity : FragmentActivity\(\), WebViewProvider \{/ && !d {
-        print
-        print "    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {"
-        print "        super.onActivityResult(requestCode, resultCode, data)"
-        print "        if (requestCode == WebViewManager.FILE_CHOOSER_REQUEST_CODE) {"
-        print "            val results = WebChromeClient.FileChooserParams.parseResult(resultCode, data)"
-        print "            WebViewManager.fileChooserCallback?.onReceiveValue(results)"
-        print "            WebViewManager.fileChooserCallback = null"
-        print "        }"
-        print "    }"
-        d=1; next }
+      /^class MainActivity : FragmentActivity\(\), WebViewProvider[,[:space:]].*\{[[:space:]]*$/ {
+        treffer++
+        if (treffer == 1) {
+          print
+          print "    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {"
+          print "        super.onActivityResult(requestCode, resultCode, data)"
+          print "        if (requestCode == WebViewManager.FILE_CHOOSER_REQUEST_CODE) {"
+          print "            val results = WebChromeClient.FileChooserParams.parseResult(resultCode, data)"
+          print "            WebViewManager.fileChooserCallback?.onReceiveValue(results)"
+          print "            WebViewManager.fileChooserCallback = null"
+          print "        }"
+          print "    }"
+          next
+        }
+      }
       { print }
-    ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+      END { exit (treffer == 1 ? 0 : 3) }
+    ' "$f" > "$f.tmp" || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      rm -f "$f.tmp"
+      echo "FEHLER: onActivityResult-FileChooser-Patch griff nicht ($f) — die" >&2
+      echo "        MainActivity-Klassendeklaration matcht nicht genau einmal" >&2
+      echo "        (Anker gedriftet, NativePHP-Update?). Datei unveraendert." >&2
+      echo "        Ohne dieses Routing liefert ein <input type=file> im WebView nie" >&2
+      echo "        ein Ergebnis zurueck — der \"Bild anhaengen\"-Knopf im Chat bleibt tot." >&2
+      exit 1
+    fi
+    mv "$f.tmp" "$f"
     grep -q 'FILE_CHOOSER_REQUEST_CODE' "$f" \
-      || { echo "FEHLER: onActivityResult-FileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)."; exit 1; }
+      || { echo "FEHLER: onActivityResult-FileChooser-Patch griff nicht ($f) — Anker gedriftet (NativePHP-Update?)." >&2; exit 1; }
     echo "    [+] onActivityResult FileChooser-Routing"
   else
     echo "    [=] onActivityResult FileChooser-Routing bereits vorhanden"
@@ -371,75 +405,110 @@ patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
   echo "    [+] keepDebugSymbols entfernt (native Bibliotheken werden gestrippt)"
 }
 
-patch_deeplinks() {  # $1 = Pfad zu RunsAndroid.php
-  local f="$1"
-  # NativePHP beansprucht bei gesetztem NATIVEPHP_DEEPLINK_HOST IMMER den ganzen
-  # Host (pathPrefix="/"). Das faengt die eigenen Browser::inApp/open-Aufrufe der
-  # App ins Portal wieder ab — die mobile Login-Seite liesse sich nie im Browser
-  # oeffnen —, und der Signer-Callback /auth/mobile/signed/… traegt das komplette
-  # URL-kodierte Event: ihn in den eingebetteten WebView zu laden, crasht ihn
-  # (SIGILL). Deshalb nur die Pfade aus config('nativephp.deeplink_path_prefixes').
+pruefe_deeplink_scoping() {  # $1 = Pfad zu RunsAndroid.php
+  local f="$1" fehler="" ausgabe rc=0 nonce quittung
+  # KEIN Patch mehr, sondern eine PRUEFUNG — und genau deshalb steht sie hier.
   #
-  # Dieser Patch existierte seit 6e93763 nur von Hand und stand in KEINEM Skript.
-  # Am 2026-08-28 hat `composer update` (nativephp/mobile 3.3.6 -> 3.3.7) ihn
-  # ueberschrieben, und das frisch gebaute v1.9.4-APK trug wieder pathPrefix="/",
-  # waehrend das ausgelieferte v1.9.3 noch "/app/" hatte. Nachweis am Artefakt:
-  #   aapt2 dump xmltree <apk> --file AndroidManifest.xml | grep pathPrefix
-  if grep -q 'deeplink_path_prefixes' "$f"; then
-    echo "    [=] Deeplink-Pfade bereits eingeschraenkt"
-    return 0
-  fi
-  if ! grep -qF 'android:pathPrefix="/" />' "$f"; then
-    echo "    [!] Deeplink-Anker nicht gefunden in $f" >&2
-    echo "        NativePHP hat generateDeepLinkFilters() geaendert. Der Patch MUSS" >&2
-    echo "        von Hand nachgezogen werden, sonst beansprucht die App den ganzen" >&2
-    echo "        Portal-Host als App-Link (WebView-Crash beim Signer-Callback)." >&2
-    exit 1
-  fi
-  # Der Patch besteht aus ZWEI Ersetzungen, und bis zum 2026-09-01 wurde nur EINE
-  # von beiden geprueft. Das ist dieselbe Bauform, an der der Extract-Gate-Patch
-  # gescheitert ist: seine erste Ersetzung griff, die zweite nicht, und die Datei
-  # blieb HALB gepatcht liegen (P1-Befund, 2026-09-01). Hier waere es teurer
-  # gewesen, denn die beiden Halbstaende sind nicht symmetrisch:
-  #   - nur (1): `{$dataTags}` steht im Heredoc, aber nichts definiert es. `php -l`
-  #     ist zufrieden (Syntax ist gueltig), die Variable interpoliert zur Laufzeit
-  #     zu Leerstring -> das App-Link-Intent-Filter hat GAR keine <data>-Zeile mehr.
-  #   - nur (2): die Berechnung steht da, die <data>-Zeile aber unveraendert auf
-  #     pathPrefix="/" — und `grep -q deeplink_path_prefixes` meldet trotzdem
-  #     Erfolg. Das waere ein STILLES Falsch-Gruen genau an der Stelle, die den
-  #     v1.9.4-Fehler ausgeloest hat.
-  # Deshalb: Sicherungskopie vor dem Eingriff, beide Haelften einzeln geprueft,
-  # und bei jedem Fehlschlag der Originalzustand zurueck statt eines Halbstands.
-  cp "$f" "$f.vor-patch"
-  perl -0777 -i -pe '
-    # 1. Die eine <data>-Zeile durch die interpolierte Liste ersetzen.
-    s{^[ \t]*<data android:scheme="https" android:host="\{\$host\}" android:pathPrefix="/" />[ \t]*$}
-     {\{\$dataTags\}}m;
-    # 2. Die Berechnung direkt vor den XML-Heredoc des $host-Zweigs setzen.
-    s{(if \(\$host\) \{\n)(\s*)(\$filters\[\] = <<<XML)}
-     {$1$2// PATCH (twenty-one-companion, scripts/apply-vendor-patches.sh):\n$2// nur die konfigurierten Pfade beanspruchen statt des ganzen Hosts.\n$2\$prefixes = config('"'"'nativephp.deeplink_path_prefixes'"'"') ?: ['"'"'/'"'"'];\n$2\$dataTags = implode("\\n", array_map(\n$2    fn (\$prefix) => '"'"'                <data android:scheme="https" android:host="'"'"'\n$2        .\$host.'"'"'" android:pathPrefix="'"'"'.\$prefix.'"'"'" />'"'"',\n$2    \$prefixes\n$2));\n$2$3}s;
-  ' "$f"
-  local fehler=""
-  if ! php -l "$f" >/dev/null 2>&1; then
-    fehler="Patch erzeugt ungueltiges PHP"
-  elif ! grep -qF '{$dataTags}' "$f"; then
-    fehler="Ersetzung 1 griff nicht — die <data>-Zeile steht unveraendert"
-  elif ! grep -q 'deeplink_path_prefixes' "$f"; then
-    fehler="Ersetzung 2 griff nicht — \$dataTags waere undefiniert"
-  elif grep -qF 'android:pathPrefix="/" />' "$f"; then
-    fehler="pathPrefix=\"/\" steht immer noch in der Datei"
+  # Bis NativePHP 4.3.2 beanspruchte der generierte App-Link-Filter bei gesetztem
+  # NATIVEPHP_DEEPLINK_HOST IMMER den ganzen Host (pathPrefix="/"). Das faengt die
+  # eigenen Browser::inApp/open-Aufrufe der App ins Portal wieder ab — die mobile
+  # Login-Seite liesse sich nie im Browser oeffnen —, und der Signer-Callback
+  # /auth/mobile/signed/… traegt das komplette URL-kodierte Event: ihn in den
+  # eingebetteten WebView zu laden, crasht ihn (SIGILL). Dagegen lief hier bis
+  # 2026-09-11 ein lokaler Vendor-Patch.
+  #
+  # NativePHP 4.4.0 kann es selbst (PR #403): RunsAndroid liest
+  # config('nativephp.deeplink_paths') und baut die <data>-Zeilen in
+  # deepLinkPathData(), aufgerufen aus generateDeepLinkFilters() — Eintrag mit '/'
+  # am Ende wird pathPrefix, sonst exakter path; sind Pfade konfiguriert, aber
+  # alle ungueltig, faellt GAR kein App-Link-Filter an (fail-closed) statt auf den
+  # ganzen Host zurueck. Das ist dieselbe Aufloesung, die unser Patch erzwungen
+  # hat, also faellt der Patch weg.
+  #
+  # Die Pruefung faellt aber NICHT mit ihm weg: ein NativePHP-Downgrade oder ein
+  # Umbau von generateDeepLinkFilters()/deepLinkPathData() naehme das Scoping
+  # lautlos zurueck, und genau dieses lautlose Zuruecknehmen WAR der
+  # v1.9.4-Fehler (composer update ueberschrieb den handangelegten Patch, das APK
+  # trug wieder pathPrefix="/", und der Lauf meldete exit 0).
+  #
+  # VERHALTENSPROBE statt Textsuche — seit 2026-09-11, ersetzt die vorherige
+  # grep-Pruefung der beiden Marker-Strings. Die grep-Fassung war durch eine
+  # Fixture widerlegt, in der beide Marker nur in einem Kommentar standen,
+  # waehrend generateDeepLinkFilters() unveraendert pathPrefix="/" lieferte — sie
+  # haette ein solches Upstream-Downgrade als `[=]` durchgewunken. Die Probe in
+  # scripts/deeplink-scoping-probe.php ruft die private Methode
+  # generateDeepLinkFilters() aus GENAU DIESER Datei per Reflection mit einem
+  # bekannten Sonden-Host/-Pfad auf und liest das Ergebnis: der Sondenpfad muss
+  # im <data>-Element stehen, pathPrefix="/" darf nicht auftauchen. Kein
+  # Laravel-Bootstrap noetig (~60ms) — Details im Kopfkommentar der Probe.
+  #
+  # DER EXIT-CODE DER PROBE IST FUER SICH KEIN URTEIL, deshalb das Nonce und das
+  # timeout. Die Probe `require`t die Zieldatei; erreicht die ein `exit;`/`exit(0);`,
+  # endet der PHP-Prozess mit Status 0 — nicht abfangbar, ohne Ausgabe, und von
+  # Erfolg nicht zu unterscheiden, wenn nur $? gelesen wird. Am 2026-09-11 gemessen:
+  # eine Fixture `<?php exit(0);` lieferte RC=0 und diese Funktion meldete
+  # `Verhaltensprobe bestanden` — genau das lautlose Gruen, gegen das der ganze
+  # Riegel steht. Die Probe druckt deshalb als LETZTE Zeile `ok <nonce>`.
+  #
+  # DAS NONCE GEHT UEBER STDIN UND STEHT IM SONDENPFAD — nicht als Argument. Hier
+  # stand bis zur zweiten Pruefrunde am 2026-09-11 die falsche Behauptung, es „koenne
+  # in keiner Zieldatei stehen". Ein Argument liest JEDE per `require` geladene Datei:
+  # ueber `$argv`, ueber `$_SERVER`, und an jedem PHP-seitigen Scrubbing vorbei ueber
+  # /proc/self/cmdline. Drei Zeilen (`echo 'ok '.$argv[2]; exit(0);`) druckten die
+  # erwartete Quittung, ohne dass die Methode je lief. Jetzt kommt das Nonce auf
+  # stdin, wird vor dem Laden gelesen und der Deskriptor geschlossen; ausserdem
+  # gewinnt die Probe es aus dem RUECKGABEWERT von generateDeepLinkFilters() zurueck.
+  #
+  # DIE QUITTUNG IST NICHT FAELSCHUNGSSICHER, und das soll hier auch nicht stehen:
+  # eine Zieldatei, die LUEGEN WILL, las das Nonce nacheinander aus `$argv`, aus
+  # `$_SERVER`, aus /proc/self/cmdline und zuletzt mit vier Zeilen aus `$GLOBALS`,
+  # ohne den Variablennamen zu kennen. Jede Abdichtung schob das Geheimnis nur in
+  # den naechsten Kanal. Allgemein: ein Geheimnis in einem Prozess, in den man
+  # Fremdcode per `require` laedt, ist keines — PHP bietet nichts dagegen. Die
+  # Quittung unterscheidet „die Zusicherungen liefen" von „der Prozess endete
+  # vorher", und genau das ist ihr Zweck. Wer hier weiterliest: NICHT den naechsten
+  # Kanal flicken.
+  #
+  # REICHWEITE, damit sie niemand ueberschaetzt: die Zieldatei ist beliebiges PHP im
+  # selben Prozess und koennte die Methode nachbauen oder das Manifest selbst
+  # schreiben. Gegen einen BOESARTIGEN Vendor haelt keine In-Process-Pruefung, und
+  # diese versucht es nicht. Sie steht gegen das VERSEHEN — Downgrade unter 4.4.0,
+  # Upstream-Umbau, Marker in totem Code —, und das war der v1.9.4-Fall. Der
+  # Rueckhalt fuer alles andere ist pruefe_pfad_prefixe() in scripts/release.sh:
+  # es misst das GEBAUTE APK mit aapt2 und liest diese Datei gar nicht.
+  #
+  # Eine Endlosschleife am Dateianfang haenge sonst composer/release mit — dagegen
+  # das timeout, dessen 124 ebenfalls rot faellt.
+  if [ ! -f "$f" ]; then
+    fehler="Datei nicht vorhanden: $f"
+  else
+    nonce=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+    ausgabe=$(printf '%s' "$nonce" | timeout 60 php "$(dirname "$0")/deeplink-scoping-probe.php" "$f" 2>&1) || rc=$?
+    quittung=$(printf '%s\n' "$ausgabe" | tail -n 1)
+    if [ "$rc" -eq 124 ]; then
+      fehler="Verhaltensprobe lief in den Zeitablauf (60 s) — $f haengt beim Laden"
+    elif [ "$rc" -ne 0 ]; then
+      fehler="Verhaltensprobe schlug fehl — ${ausgabe:-kein Output von deeplink-scoping-probe.php}"
+    elif [ "$quittung" != "ok $nonce" ]; then
+      fehler="Verhaltensprobe meldete Erfolg ohne Quittung (vorzeitiges exit() in $f?) — ${ausgabe:-keine Ausgabe}"
+    fi
   fi
   if [ -n "$fehler" ]; then
-    mv "$f.vor-patch" "$f"
-    echo "    [!] $fehler" >&2
-    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
-    echo "        NativePHP hat generateDeepLinkFilters() geaendert; der Patch MUSS" >&2
-    echo "        von Hand nachgezogen werden, sonst beansprucht die App den ganzen" >&2
-    echo "        Portal-Host als App-Link (WebView-Crash beim Signer-Callback)." >&2
+    echo "    [!] Deeplink-Scoping nicht nachweisbar — $fehler" >&2
+    echo "        Ohne dieses Scoping beansprucht die App den GANZEN Portal-Host als" >&2
+    echo "        App-Link (pathPrefix=\"/\") — das faengt Browser::inApp/open ab und" >&2
+    echo "        crasht den WebView beim Signer-Callback (SIGILL, v1.9.4)." >&2
+    echo "        Erwartet wird nativephp/mobile >= 4.4.0 mit" >&2
+    echo "        config('nativephp.deeplink_paths'), deepLinkPathData() und" >&2
+    echo "        generateDeepLinkFilters() in src/Concerns/RunsAndroid.php." >&2
+    echo "        Pruefen mit:" >&2
+    echo "          composer show nativephp/mobile" >&2
+    echo "          printf '%s' \$(od -An -N16 -tx1 /dev/urandom | tr -d ' ') | php scripts/deeplink-scoping-probe.php $f" >&2
+    echo "        Bei einem Downgrade unter 4.4.0 muss der lokale Patch zurueck —" >&2
+    echo "        er steht in der Git-History dieser Datei (bis 2026-09-11)." >&2
     exit 1
   fi
-  rm -f "$f.vor-patch"
-  echo "    [+] Deeplink-Pfade auf config('nativephp.deeplink_path_prefixes') eingeschraenkt"
+  echo "    [=] Deeplink-Scoping liegt bei NativePHP selbst (Verhaltensprobe bestanden)"
 }
 
 # ── Messschalter ───────────────────────────────────────────────────────────────
@@ -474,29 +543,16 @@ done
 [ $any -eq 1 ] || { echo "Kein Ziel gefunden — composer install / native:run gelaufen?"; exit 1; }
 
 echo "  Deeplinks (vendor PHP):"
-# KEIN OPTIMIZE_SKIP-Schluessel fuer diesen Patch — bewusst. OPTIMIZE_SKIP dient
-# dazu, einen BOOTZEIT-Patch gegen eine Baseline zu messen; der Deeplink-Patch
-# misst nichts, er entscheidet, ob die App den ganzen Portal-Host beansprucht.
+# KEIN OPTIMIZE_SKIP-Schluessel fuer diesen Schritt — bewusst. OPTIMIZE_SKIP dient
+# dazu, einen BOOTZEIT-Patch gegen eine Baseline zu messen; das Deeplink-Scoping
+# misst nichts, es entscheidet, ob die App den ganzen Portal-Host beansprucht.
 # Ein Schalter dafuer waere genau der Schalter, der in einem Release-Lauf gesetzt
 # bliebe und den v1.9.4-Fehler wiederholte.
 #
 # Bis 2026-09-01 stand hier ein stilles "uebersprungen (nicht vorhanden)": ein
 # fehlendes Ziel druckte eine Zeile und der Lauf endete mit exit 0. Jeder andere
-# Patch in dieser Datei faellt bei Anker-Drift laut aus, dieser eine nicht — und
-# genau er haelt den Host-Anspruch klein. NativePHP 4.x verschiebt die Datei nach
-# src/Concerns/RunsAndroid.php; unter der alten Fassung waere der Patch beim
-# Upgrade lautlos weggefallen.
-if [ ! -f "$DEEPLINK_PHP" ]; then
-  echo "    [!] Deeplink-Ziel nicht vorhanden: $DEEPLINK_PHP" >&2
-  echo "        Ohne diesen Patch beansprucht die App den GANZEN Portal-Host als" >&2
-  echo "        App-Link (pathPrefix=\"/\") — das faengt Browser::inApp/open ab und" >&2
-  echo "        crasht den WebView beim Signer-Callback (SIGILL, v1.9.4)." >&2
-  echo "        Wahrscheinliche Ursache: ein NativePHP-Update hat die Datei" >&2
-  echo "        verschoben oder umbenannt (4.x: src/Concerns/RunsAndroid.php)." >&2
-  echo "        Wo sie jetzt liegt, zeigt:" >&2
-  echo "          ls vendor/nativephp/mobile/src/*/RunsAndroid.php" >&2
-  echo "        Danach DEEPLINK_PHP in diesem Skript nachziehen." >&2
-  exit 1
-fi
-patch_deeplinks "$DEEPLINK_PHP"
+# Schritt in dieser Datei faellt bei Drift laut aus, dieser eine nicht — und genau
+# er haelt den Host-Anspruch klein. Deshalb ist auch der Nachfolger des Patches
+# fail-closed und nicht bloss ein Hinweis.
+pruefe_deeplink_scoping "$RUNS_ANDROID_PHP"
 echo "Fertig."

@@ -26,12 +26,13 @@ cd "$(dirname "$0")/.."
 
 # ── Manifest-Riegel: welche Pfade beansprucht das APK als App-Link? ───────────
 #
-# Gemessen wird am ARTEFAKT, nicht am exit code. `scripts/apply-vendor-patches.sh`
-# schraenkt den NativePHP-Deeplink-Filter auf config('nativephp.deeplink_path_prefixes')
-# ein; faellt dieser Patch aus (composer update ueberschreibt vendor/), erzeugt
-# NativePHP wieder android:pathPrefix="/" und die App beansprucht den GANZEN
-# Portal-Host. Genau das trug das v1.9.4-APK, und dieser Lauf hier meldete exit 0.
-# Ein Blick ins Manifest haette es in einer Sekunde gezeigt.
+# Gemessen wird am ARTEFAKT, nicht am exit code. NativePHP schraenkt den
+# App-Link-Filter seit 4.4.0 selbst auf config('nativephp.deeplink_paths') ein
+# (davor tat das ein lokaler Vendor-Patch); faellt dieses Scoping aus — Downgrade,
+# Upstream-Umbau, ein leerer Konfigurationswert —, erzeugt NativePHP wieder
+# android:pathPrefix="/" und die App beansprucht den GANZEN Portal-Host. Genau das
+# trug das v1.9.4-APK, und dieser Lauf hier meldete exit 0. Ein Blick ins Manifest
+# haette es in einer Sekunde gezeigt.
 #
 # Einzeln aufrufbar, damit die Kontrolle in tests/Feature/ReleaseManifestGuardTest.php
 # den Riegel ohne APK-Build fahren kann:
@@ -98,7 +99,7 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
         $app = require "bootstrap/app.php";
         $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
         echo (string) config("nativephp.deeplink_host"), "\n";
-        foreach ((array) config("nativephp.deeplink_path_prefixes") as $prefix) { echo $prefix, "\n"; }
+        foreach ((array) config("nativephp.deeplink_paths") as $prefix) { echo $prefix, "\n"; }
     '); then
         echo "❌ config/nativephp.php nicht lesbar — Manifest nicht verifizierbar." >&2
         return 1
@@ -112,8 +113,9 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
         return 1
     fi
     if [ -z "$erwartet" ] || printf '%s\n' "$erwartet" | grep -qx '/'; then
-        echo "❌ nativephp.deeplink_path_prefixes beansprucht den ganzen Host ('/')" >&2
-        echo "   oder ist leer — dann faellt der Patch selbst auf pathPrefix=\"/\" zurueck." >&2
+        echo "❌ nativephp.deeplink_paths beansprucht den ganzen Host ('/')" >&2
+        echo "   oder ist leer — bei leerer Liste faellt NativePHP selbst auf" >&2
+        echo "   pathPrefix=\"/\" zurueck (dokumentiert in deepLinkPathData())." >&2
         return 1
     fi
 
@@ -126,6 +128,12 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
     # aapt2 gibt jedes <data> als Element mit seinen Attributen darunter aus. Gesammelt
     # wird deshalb pro data-Element, nicht ueber die ganze Datei: sonst wuerde ein host
     # aus einem Filter mit einem pathPrefix aus dem naechsten zusammenfallen.
+    #
+    # Gesammelt wird NUR pathPrefix. Ein Konfigurationseintrag ohne Schraegstrich am
+    # Ende wird von NativePHP 4.4.0 zu android:path (exakt) statt pathPrefix — ein
+    # solcher Eintrag laesst diesen Riegel also rot werden. Das ist gewollt: lieber
+    # laut, als dass hier still ein Pfad ungemessen durchginge. Wer exakte Pfade
+    # beansprucht, zieht den awk-Zweig hier nach.
     gefunden=$(printf '%s\n' "$dump" | awk -v h="$host" '
         function wert(zeile,   pos) {
             pos = match(zeile, /="[^"]*"/)
@@ -152,9 +160,9 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
     echo "   im APK:    $(printf '%s\n' "${gefunden:-–}" | tr '\n' ' ')" >&2
     if printf '%s\n' "$gefunden" | grep -qx '/'; then
         echo "   pathPrefix=\"/\" beansprucht den GANZEN Portal-Host — das ist der" >&2
-        echo "   v1.9.4-Fehler: der Deeplink-Patch in scripts/apply-vendor-patches.sh" >&2
-        echo "   hat nicht gegriffen (vendor/ nach composer update ungepatcht?)." >&2
-        echo "   Nachziehen mit: bash scripts/apply-vendor-patches.sh, dann neu bauen." >&2
+        echo "   v1.9.4-Fehler: das Deeplink-Scoping hat nicht gegriffen (NativePHP" >&2
+        echo "   unter 4.4.0 heruntergestuft, oder deeplink_paths leer/ungelesen)." >&2
+        echo "   Pruefen mit: bash scripts/apply-vendor-patches.sh, dann neu bauen." >&2
     fi
     return 1
 }

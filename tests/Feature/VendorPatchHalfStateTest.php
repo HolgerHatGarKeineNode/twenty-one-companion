@@ -11,10 +11,13 @@ use Symfony\Component\Process\Process;
  * A patch function that runs SEVERAL substitutions and verifies only some of them can
  * leave a vendor file half patched and still look fine. Three instances surfaced on
  * 2026-09-01 alone: the extract gate (first perl substitution landed, second missed,
- * file left half patched), `patch_deeplinks` (two substitutions, one verified — the
+ * file left half patched), the deeplink patch (two substitutions, one verified — the
  * script printed "eingeschraenkt" and exited 0 while `pathPrefix="/"` was still in the
  * file, which is the v1.9.4 defect wearing a green light), and `patch_env` phase 3 plus
- * `patch_filechooser_webview`, which are the subject here.
+ * `patch_filechooser_webview`, which are the subject here. The deeplink patch is gone
+ * since nativephp/mobile 4.4.0 scopes the paths itself; what replaced it is a verify
+ * step with no substitutions at all, and its control lives in
+ * `tests/Feature/DeeplinkScopingGuardTest.php`.
  *
  * What makes it expensive is the SECOND run: the idempotency guard (`grep -q
  * 'opcache.file_cache'`, `grep -q 'FILE_CHOOSER_REQUEST_CODE'`) is satisfied by
@@ -24,7 +27,7 @@ use Symfony\Component\Process\Process;
  * a missing rollback cannot satisfy.
  *
  * Known-bad and known-good in one file, the shape this repo already uses for guards
- * (`tests/Browser/Accessibility/*`, `tests/Feature/DeeplinkPatchGuardTest.php`): a
+ * (`tests/Browser/Accessibility/*`, `tests/Feature/DeeplinkScopingGuardTest.php`): a
  * guard that has only ever been seen green is indistinguishable from one that cannot
  * fire at all.
  *
@@ -69,7 +72,13 @@ function hpDefaults(): array
         HP_WEBVIEW => "// FILE_CHOOSER_REQUEST_CODE\n// onShowFileChooser\n",
         HP_ICON => '<solid android:color="#000000"/>'."\n",
         HP_GRADLE => "// OPTIMIZE-STRIP\n",
-        HP_DEEPLINK => "<?php\n\$prefixes = config('nativephp.deeplink_path_prefixes') ?: ['/'];\n",
+        // Not patched any more, only verified: since 4.4.0 the package scopes the
+        // App-Link paths itself, and since 2026-09-11 the verify step calls
+        // generateDeepLinkFilters() via reflection rather than grepping for markers
+        // (see DeeplinkScopingGuardTest.php). The fixture has to be a real, working
+        // trait for that call to succeed, so the deeplink branch stays green and the
+        // measurement here is about the Kotlin patches alone.
+        HP_DEEPLINK => hpDeeplinkVierVier(),
     ];
 }
 
@@ -80,11 +89,81 @@ function hpSandbox(string $tree, array $overrides = []): void
 {
     File::ensureDirectoryExists($tree.'/scripts');
     File::copy(base_path('scripts/apply-vendor-patches.sh'), $tree.'/scripts/apply-vendor-patches.sh');
+    // pruefe_deeplink_scoping() shells out to this, relative to its own directory.
+    File::copy(base_path('scripts/deeplink-scoping-probe.php'), $tree.'/scripts/deeplink-scoping-probe.php');
 
     foreach (array_merge(hpDefaults(), $overrides) as $relative => $content) {
         File::ensureDirectoryExists(dirname($tree.'/'.$relative));
         File::put($tree.'/'.$relative, $content);
     }
+}
+
+/**
+ * A minimal but functionally real 4.4.0-shaped `RunsAndroid.php`: the deeplink verify
+ * step calls `generateDeepLinkFilters()` via reflection (2026-09-11 on), so the
+ * default fixture has to actually work rather than merely carry marker strings. Kept
+ * here rather than shared with `DeeplinkScopingGuardTest.php` — that file measures
+ * the deeplink branch itself and needs to vary this shape, this one only needs it to
+ * stay out of the way.
+ */
+function hpDeeplinkVierVier(): string
+{
+    return <<<'PHP'
+        <?php
+
+        namespace Native\Mobile\Concerns;
+
+        trait RunsAndroid
+        {
+            private function updateDeepLinkConfiguration(): void
+            {
+                $paths = config('nativephp.deeplink_paths', []);
+                $this->generateDeepLinkFilters(null, config('nativephp.deeplink_host'), $paths);
+            }
+
+            private function generateDeepLinkFilters(?string $scheme, ?string $host, array $paths = []): string
+            {
+                if (! $host) {
+                    return '';
+                }
+
+                $data = $this->deepLinkPathData($host, $paths);
+
+                return $data === null ? '' : "<intent-filter android:autoVerify=\"true\">\n{$data}\n</intent-filter>";
+            }
+
+            private function deepLinkPathData(string $host, array $paths): ?string
+            {
+                $prefixes = [];
+
+                foreach ($paths as $path) {
+                    $path = trim((string) $path);
+
+                    if ($path === '') {
+                        continue;
+                    }
+
+                    $path = '/'.ltrim($path, '/');
+                    $prefixes[$path] = true;
+                }
+
+                $prefix = '                <data android:scheme="https" android:host="'.$host.'" ';
+
+                if ($prefixes === []) {
+                    return $paths === [] ? $prefix.'android:pathPrefix="/" />' : null;
+                }
+
+                $lines = [];
+
+                foreach (array_keys($prefixes) as $path) {
+                    $attribute = str_ends_with($path, '/') ? 'pathPrefix' : 'path';
+                    $lines[] = $prefix.'android:'.$attribute.'="'.$path.'" />';
+                }
+
+                return implode("\n", $lines);
+            }
+        }
+        PHP;
 }
 
 function hpRun(string $tree): Process
@@ -225,41 +304,36 @@ function hpWebViewKotlin(bool $chromeClientAnchor = true): string
 }
 
 /**
- * `patch_deeplinks` runs TWO substitutions: the `<data>` line becomes `{$dataTags}`,
- * and the computation of `$dataTags` goes in front of the heredoc. With the attribute
- * order reversed, substitution 1 misses and substitution 2 lands — the asymmetric half
- * state that leaves `pathPrefix="/"` in place while `grep -q deeplink_path_prefixes`
- * reports success.
+ * `patch_filechooser_main` counts hits of the MainActivity class declaration in one
+ * awk pass and must find EXACTLY one — see the comment above `patch_filechooser_main`
+ * in the script. `$deklarationen` is how many lines carry that literal shape: 1 is the
+ * patchable 4.4.0 case, 2 models upstream splitting the class or introducing a second
+ * Activity, 0 models the interface being renamed again (anchor drift).
  */
-function hpRunsAndroidPhp(bool $dataAnchor = true): string
+function hpMainKotlin(int $deklarationen = 1): string
 {
-    $data = $dataAnchor
-        ? '                <data android:scheme="https" android:host="{$host}" android:pathPrefix="/" />'
-        : '                <data android:host="{$host}" android:scheme="https" android:pathPrefix="/" />';
+    $zeile = $deklarationen === 0
+        ? 'class MainActivity : FragmentActivity(), WebViewHost, NativeElementBridge.WebEventSink {'
+        : 'class MainActivity : FragmentActivity(), WebViewProvider, NativeElementBridge.WebEventSink {';
 
-    return <<<PHP
-        <?php
-
-        trait RunsAndroid
-        {
-            protected function generateDeepLinkFilters(\$host, \$scheme): string
-            {
-                \$filters = [];
-
-                if (\$host) {
-                    \$filters[] = <<<XML
-                    <intent-filter android:autoVerify="true">
-                        <action android:name="android.intent.action.VIEW" />
-        {$data}
-                    </intent-filter>
-        XML;
-                }
-
-                return implode("\\n", \$filters);
+    $klasse = <<<KT
+        {$zeile}
+            override fun onCreate(savedInstanceState: Bundle?) {
+                super.onCreate(savedInstanceState)
             }
         }
+        KT;
 
-        PHP;
+    $rumpf = $deklarationen >= 2
+        ? implode("\n\n", array_fill(0, $deklarationen, $klasse))
+        : $klasse;
+
+    return <<<KT
+        package com.nativephp.mobile.ui
+
+        {$rumpf}
+
+        KT;
 }
 
 /** `patch_gradle_strip` replaces the anchor line — `s///` without /g hits only the first. */
@@ -490,43 +564,51 @@ it('applies both file chooser blocks when both anchors are there', function (): 
 
 /*
 |--------------------------------------------------------------------------
-| patch_deeplinks — fixed on 2026-09-01, proven by sandbox probe only until now
+| patch_filechooser_main — the anchor must match EXACTLY once
 |--------------------------------------------------------------------------
+|
+| Widened on 2026-09-11 for NativePHP 4.4.0 (an extra interface after
+| WebViewProvider), and counted in the same awk pass so it cannot match twice
+| either — see the comment above `patch_filechooser_main` in the script. Neither
+| direction had a test before this one: the anchor drift branch AND the count
+| branch were unverified in the repo, only demonstrated once in a reviewer's
+| ad-hoc session.
 */
 
-it('rolls RunsAndroid.php back when the data line is not replaced', function (): void {
-    $file = hpRunsAndroidPhp(dataAnchor: false);
-    hpSandbox($this->tree, [HP_DEEPLINK => $file]);
+it('leaves MainActivity untouched when the class declaration does not match exactly once', function (int $deklarationen): void {
+    $file = hpMainKotlin($deklarationen);
+    hpSandbox($this->tree, [HP_MAIN => $file]);
 
     $first = hpRun($this->tree);
 
     expect($first->getExitCode())->toBe(1)
-        ->and($first->getErrorOutput())->toContain('Ersetzung 1 griff nicht')
-        ->and($first->getOutput())->not->toContain('Fertig.')
-        ->and(File::get($this->tree.'/'.HP_DEEPLINK))->toBe($file);
+        ->and($first->getErrorOutput())->toContain('matcht nicht genau einmal')
+        ->and(File::get($this->tree.'/'.HP_MAIN))->toBe($file);
 
-    // Without the rollback this is where v1.9.4 repeats itself: `$prefixes`/`$dataTags`
-    // from substitution 2 satisfy `grep -q deeplink_path_prefixes`, the second run
-    // reports `[=] Deeplink-Pfade bereits eingeschraenkt` and exits 0 — while the
-    // manifest still claims the whole host through the untouched `pathPrefix="/"`.
+    // The awk pass writes to a .tmp file and only `mv`s it into place on success —
+    // so there is no residue to satisfy `grep -q FILE_CHOOSER_REQUEST_CODE` on a
+    // second run, and it must fail exactly the same way again.
     $second = hpRun($this->tree);
 
     expect($second->getExitCode())->toBe(1)
-        ->and($second->getOutput())->not->toContain('[=] Deeplink-Pfade bereits eingeschraenkt')
-        ->and(File::get($this->tree.'/'.HP_DEEPLINK))->toBe($file);
-});
+        ->and($second->getOutput())->not->toContain('[=] onActivityResult FileChooser-Routing bereits vorhanden')
+        ->and(File::get($this->tree.'/'.HP_MAIN))->toBe($file);
+})->with([
+    'two matching class declarations' => 2,
+    'anchor drifted, interface renamed' => 0,
+]);
 
-it('restricts the deeplink paths when the data line matches', function (): void {
-    hpSandbox($this->tree, [HP_DEEPLINK => hpRunsAndroidPhp()]);
+it('routes the file chooser result when the class declaration matches exactly once', function (): void {
+    hpSandbox($this->tree, [HP_MAIN => hpMainKotlin()]);
 
     $process = hpRun($this->tree);
-    $patched = File::get($this->tree.'/'.HP_DEEPLINK);
+    $patched = File::get($this->tree.'/'.HP_MAIN);
 
     expect($process->getExitCode())->toBe(0)
-        ->and($process->getOutput())->toContain('[+] Deeplink-Pfade')
-        ->and($patched)->toContain('{$dataTags}')
-        ->and($patched)->toContain("config('nativephp.deeplink_path_prefixes')")
-        ->and($patched)->not->toContain('android:pathPrefix="/" />');
+        ->and($process->getOutput())->toContain('[+] onActivityResult FileChooser-Routing')
+        ->and($patched)->toContain('override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?)')
+        ->and($patched)->toContain('WebViewManager.FILE_CHOOSER_REQUEST_CODE')
+        ->and($patched)->toContain('class MainActivity : FragmentActivity(), WebViewProvider, NativeElementBridge.WebEventSink {');
 });
 
 /*
@@ -608,7 +690,9 @@ it('reports every intervention as already applied when no fixture is overridden'
 
     expect($process->getExitCode())->toBe(0)
         ->and($process->getOutput())->toContain('Fertig.')
-        // Seven interventions per target, and only the build target exists here.
+        // Seven interventions per target, and only the build target exists here,
+        // plus the deeplink verify step — which reports `[=]` as well, so an
+        // idempotent run really is all-`[=]`.
         ->and(substr_count($process->getOutput(), '    [='))->toBe(8)
         ->and($process->getOutput())->not->toContain('[+]');
 });

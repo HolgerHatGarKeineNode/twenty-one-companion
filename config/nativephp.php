@@ -68,16 +68,23 @@ return [
     'deeplink_host' => env('NATIVEPHP_DEEPLINK_HOST'),
 
     /*
-     * Only claim these portal paths as verified App Links (requires the
-     * local vendor patch in RunsAndroid::generateDeepLinkFilters). Claiming
-     * the whole host would intercept the app's own Browser::inApp/open
-     * calls to the portal (e.g. the mobile login page). The signer
-     * callback (/auth/mobile/signed/…) is intentionally NOT claimed: its
-     * URL carries the whole URL-encoded event and loading it into the
-     * embedded WebView crashes it (SIGILL) — the portal handles it in the
-     * browser and redirects to the short /app/auth?token=… handoff.
+     * Only claim these portal paths as verified App Links. Claiming the whole
+     * host would intercept the app's own Browser::inApp/open calls to the
+     * portal (e.g. the mobile login page). The signer callback
+     * (/auth/mobile/signed/…) is intentionally NOT claimed: its URL carries
+     * the whole URL-encoded event and loading it into the embedded WebView
+     * crashes it (SIGILL) — the portal handles it in the browser and
+     * redirects to the short /app/auth?token=… handoff.
+     *
+     * Read by the package itself since nativephp/mobile 4.4.0 (PR #403); until
+     * then a local vendor patch in RunsAndroid::generateDeepLinkFilters did the
+     * same job. A trailing slash makes it an android:pathPrefix, anything else
+     * an exact android:path. Deliberately a literal array and not
+     * env('NATIVEPHP_DEEPLINK_PATHS'): the reason for '/app/' is the comment
+     * above, and it would be lost in a .env line that is missing on the next
+     * machine.
      */
-    'deeplink_path_prefixes' => [
+    'deeplink_paths' => [
         '/app/',
     ],
 
