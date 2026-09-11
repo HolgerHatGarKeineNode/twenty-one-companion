@@ -285,3 +285,41 @@ Playwright versions are not, and an install prunes foreign revisions; after one 
 *entire* suite of a sister project was red. The script reads the revision from
 `node_modules/playwright-core/browsers.json`; never hardcode it. (The older claim in
 `run-browser.sh` that symlinks fail applied to an attempt that *did* hardcode it.)
+
+## Releasing: half the tooling lives in the neighbouring repo
+
+`scripts/` here covers the build and the two publishing steps that belong to the app itself —
+`release.sh` (signed APK + manifest + GPG signature), `announce-release.cjs` (the kind-1 note on
+the maintainer's own profile), and `zsp publish zapstore.yaml` for zapstore.
+
+**The community post is not here.** It goes into a chat room as the Autobot, and that command
+belongs to the chat app:
+
+```bash
+cd ../einundzwanzig-group
+php artisan bot:announce <room-h-id> "<text>" --dry   # then without --dry
+```
+
+Measured 2026-09-11: searching `scripts/` here, finding nothing and concluding "there is no tool
+for this" cost a full round. `php artisan list` in `einundzwanzig-group` shows it immediately.
+The command signs with `NOSTR_BOT_NSEC` (the bot, **not** the maintainer) and authenticates to
+`NOSTR_BOT_RELAY` per NIP-42 via `nak`.
+
+**The room id is derived, never guessed.** `wss://group.einundzwanzig.space` answers nothing
+without NIP-42 auth — no room metadata, no list, just an empty result that looks like "no such
+room". Read the id off the bot's own history instead:
+
+```bash
+SEC=$(sed -n 's/^NOSTR_BOT_NSEC=//p' .env | tr -d '"'"'")
+nak req -k 9 -a <bot-pubkey> -l 20 --auth --sec "$SEC" wss://group.einundzwanzig.space
+```
+
+As of 2026-09-11 client and app announcements go to `08f1a277-7949-42ad-883e-6b8a32936154`
+(last Companion post before this one: v1.9.2). The portal has its own series in
+`322fe599-79c2-4b6c-a9a2-be676fdbff64`, and `eegreyplugough8` is the old room, unused since
+2026-07-31. Check the history rather than trusting these ids — they are a snapshot.
+
+The release texts live in `dist/v<version>/`, which is gitignored: `zapstore-changelog.md`
+(referenced by `zapstore.yaml`, whose pointer has to move every release — it stood still from
+v1.9.3 through v1.11.0), `release-notes.md` for GitHub, `announce.txt` for the Nostr note, and
+`community-news.txt` for the room. The first three are English, the room post is German.
