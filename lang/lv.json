@@ -500,5 +500,9 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Tava portāla sesija ir beigusies. Pievienojies vēlreiz, lai redzētu savu saturu.",
     "Neu verbinden": "Pievienoties atkārtoti",
     "Fenster schließen": "Aizvērt dialoglodziņu",
-    "Eingabe leeren": "Notīrīt ievadi"
+    "Eingabe leeren": "Notīrīt ievadi",
+    "Meetups, Termine, Orte und Kurse": "Tikšanās, datumi, vietas un kursi",
+    "Sitzung": "Sesija",
+    "Abmelden": "Iziet",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Iziet? Tava atslēga paliek parakstītājā (Amber/Bunker) — beidzas tikai vietējā sesija."
 }

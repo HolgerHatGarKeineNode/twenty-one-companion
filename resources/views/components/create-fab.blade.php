@@ -22,7 +22,7 @@
             'icon' => 'calendar-days',
             'event' => 'open-event-editor',
         ],
-        request()->routeIs('meetups', 'meetups.show', 'mine') => [
+        request()->routeIs('meetups', 'meetups.show', 'ich.inhalte') => [
             'label' => __('Meetup aussuchen'),
             'modal' => 'pick-meetup',
             'icon' => 'user-group',

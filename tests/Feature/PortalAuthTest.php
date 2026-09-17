@@ -20,13 +20,13 @@ it('stores the token from the deep link callback and redirects to the profile pa
         ->andReturnTrue();
 
     $this->get('/auth?token='.urlencode('12|secrettoken'))
-        ->assertRedirect(route('profile'));
+        ->assertRedirect(route('group.ich.einstellungen'));
 });
 
 it('redirects to the profile page without storing anything when the token is missing', function () {
     SecureStorage::shouldReceive('set')->never();
 
-    $this->get('/auth')->assertRedirect(route('profile'));
+    $this->get('/auth')->assertRedirect(route('group.ich.einstellungen'));
 });
 
 it('stores the token from the app-link handoff and redirects to the profile page', function () {
@@ -36,7 +36,7 @@ it('stores the token from the app-link handoff and redirects to the profile page
         ->andReturnTrue();
 
     $this->get('/app/auth?token='.urlencode('12|secrettoken'))
-        ->assertRedirect(route('profile'));
+        ->assertRedirect(route('group.ich.einstellungen'));
 });
 
 it('exchanges the signed event for a token when the signer callback opens the app', function () {
@@ -52,7 +52,7 @@ it('exchanges the signed event for a token when the signer callback opens the ap
         ->andReturnTrue();
 
     $this->get('/signed/'.$k1.'/'.rawurlencode(json_encode($event)))
-        ->assertRedirect(route('profile'));
+        ->assertRedirect(route('group.ich.einstellungen'));
 
     Http::assertSent(fn ($request) => $request->url() === 'https://portal.einundzwanzig.space/api/mobile/token'
         && $request['k1'] === $k1
@@ -68,7 +68,7 @@ it('redirects to the profile page with an error flag when the token exchange fai
     SecureStorage::shouldReceive('set')->never();
 
     $this->get('/signed/'.$k1.'/'.rawurlencode(json_encode(['kind' => 22242])))
-        ->assertRedirect(route('profile'))
+        ->assertRedirect(route('group.ich.einstellungen'))
         ->assertSessionHas('portal-connect-failed');
 });
 
@@ -80,7 +80,7 @@ it('shows the single Nostr login CTA and no portal web-login on the profile page
         GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('profile'))
+    $this->get(route('group.ich.einstellungen'))
         ->assertOk()
         ->assertSee(__('Mit Nostr anmelden'))
         ->assertSee(route('group.nostr-login'), escape: false)

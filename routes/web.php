@@ -5,6 +5,7 @@ use App\Http\Controllers\PortalNostrHandoffController;
 use App\Http\Controllers\PortalSignedEventController;
 use App\Http\Middleware\EnsureOnboarded;
 use App\Services\AppPreferences;
+use Einundzwanzig\Group\Http\Controllers\LegacyRedirect;
 use Einundzwanzig\Push\Push;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -129,16 +130,24 @@ Route::post('push/seen', function (Push $push) {
 Route::livewire('onboarding', 'pages::onboarding.index')->name('onboarding');
 
 Route::middleware(EnsureOnboarded::class)->group(function () {
-    // Start-Weiche: in den Chat, wenn dort eingeloggt, sonst Meetups. Der
-    // Chat-Login liegt auf Mobile nur client-seitig (localStorage), daher
-    // entscheidet die Launch-Seite per JS statt eines Server-Redirects.
-    // (Ein server-seitiger 302-Fastpath scheiterte an der NativePHP-Bridge:
-    // sie persistiert keine fetch-Response-Cookies — siehe OPTIMIZE.md Phase 8.)
-    Route::view('/', 'launch')->name('home');
-
-    // „Mehr"-Hub (P3, §3.4): der vierte Tab der verschmolzenen Shell. Gast-lesbar
-    // (Entdecken), geschützte Einträge (Meine Inhalte/Konto) gaten client-seitig.
-    Route::livewire('more', 'pages::more.index')->name('more');
+    /*
+     * The root leads to Start (Concept C, P2).
+     *
+     * `launch.blade.php` stood here: a bare document whose only job was to read
+     * `localStorage['pubkey']` in the <head> and replace the location with either the chat
+     * or the meetups. It existed because the chat login lives client-side only and the
+     * server cannot see it — and because a server-side 302 fastpath failed on the NativePHP
+     * bridge, which does not persist fetch response cookies (OPTIMIZE.md phase 8).
+     *
+     * Start answers the same question WITHOUT the detour: it renders for a guest and for a
+     * member alike and decides the difference in its own island with a skeleton (D4). A
+     * page whose entire content is a redirect is a frame the user pays for and never sees.
+     *
+     * The route NAME stays `home`: the onboarding pager and the deeplink handlers use it.
+     */
+    Route::get('/', LegacyRedirect::class)
+        ->defaults('ziel', '/start')
+        ->name('home');
 
     Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
     Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
@@ -147,8 +156,47 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     Route::livewire('courses', 'pages::courses.index')->name('courses');
     Route::livewire('courses/{id}', 'pages::courses.show')->whereNumber('id')->name('courses.show');
     Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');
-    Route::livewire('profile', 'pages::profile.index')->name('profile');
-    Route::livewire('mine', 'pages::mine.index')->name('mine');
-    Route::livewire('mine/places', 'pages::mine.places')->name('mine.places');
-    Route::livewire('mine/teaching', 'pages::mine.teaching')->name('mine.teaching');
+
+    /*
+     * ── „Meine Inhalte" lives under „Ich" (P2) ───────────────────────────────────
+     *
+     * These three pages were `/mine`, `/mine/places` and `/mine/teaching`, reached through
+     * the hamburger flyout and later through the "Mehr" hub. Both are gone; what is mine
+     * belongs under „Ich", next to bookmarks, wallet and the association — and the entry is
+     * a `view:` row of `config('group.ich')`.
+     *
+     * Host routes and not package routes, because creating and editing Portal content needs
+     * a Portal token and the package knows nothing about one (the plan's app-only surfaces).
+     */
+    Route::livewire('ich/inhalte', 'pages::mine.index')->name('ich.inhalte');
+    Route::livewire('ich/inhalte/orte', 'pages::mine.places')->name('ich.inhalte.orte');
+    Route::livewire('ich/inhalte/lehre', 'pages::mine.teaching')->name('ich.inhalte.lehre');
+
+    /*
+     * ══ The old paths of this app (R7) ══════════════════════════════════════════
+     *
+     * Same controller and same reasoning as the package rows (`routes/group.php` there):
+     * a 302 that keeps the query string, and a controller rather than a closure because the
+     * mobile build caches its routes. 302 until the sweep in P7, then 301.
+     *
+     * The Portal-page rows (`/meetups*`, `/events`, `/map`, `/courses*`, `/lecturers/*`)
+     * are NOT here: those pages still live in this app and only move into the package with
+     * P4 (D9). Redirecting them now would point at routes that do not exist.
+     *
+     * `/profile` is the interesting one. It was this app's settings screen; its sections are
+     * injected into the package hub since P2 (`config/group.php`). It forwards to „Ich" and
+     * not straight to the hub, because that is where a user who typed the old address is
+     * looking for himself — the hub is one row further.
+     */
+    $legacy = static function (string $pfad, string $ziel, string $name): void {
+        Route::get($pfad, LegacyRedirect::class)
+            ->defaults('ziel', $ziel)
+            ->name($name);
+    };
+
+    $legacy('more', '/start', 'legacy.more');
+    $legacy('profile', '/ich', 'legacy.profile');
+    $legacy('mine', '/ich/inhalte', 'legacy.mine');
+    $legacy('mine/places', '/ich/inhalte/orte', 'legacy.mine.places');
+    $legacy('mine/teaching', '/ich/inhalte/lehre', 'legacy.mine.teaching');
 });

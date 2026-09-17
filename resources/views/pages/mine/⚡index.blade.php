@@ -59,13 +59,13 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             [
                 'icon' => 'building-office-2',
                 'label' => __('Meine Orte & Städte'),
-                'href' => route('mine.places'),
+                'href' => route('ich.inhalte.orte'),
                 'subtitle' => __('Veranstaltungsorte und Städte'),
             ],
             [
                 'icon' => 'academic-cap',
                 'label' => __('Meine Kurse & Referenten'),
-                'href' => route('mine.teaching'),
+                'href' => route('ich.inhalte.lehre'),
                 'subtitle' => trans_choice('{0}Noch keine Kurse|{1}:count Kurs|[2,*]:count Kurse', $courses, ['count' => $courses]),
             ],
         ];

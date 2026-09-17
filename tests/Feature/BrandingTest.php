@@ -88,7 +88,7 @@ it('celebrates a real brand change when switching region', function () {
     ]);
     completeOnboarding(country: 'de');
 
-    Livewire::test('pages::profile.index')
+    Livewire::test('settings.region')
         ->set('country', 'hu')
         ->assertDispatched('brand-changed', slug: 'huszonegy', label: 'HUSZONEGY');
 
@@ -103,7 +103,7 @@ it('does not celebrate when the brand stays the same', function () {
     completeOnboarding(country: 'de');
 
     // DACH-Fallback: de/at/ch sind gültig und teilen sich die Marke EINUNDZWANZIG.
-    Livewire::test('pages::profile.index')
+    Livewire::test('settings.region')
         ->set('country', 'at')
         ->assertNotDispatched('brand-changed');
 });

@@ -155,7 +155,7 @@ it('keeps the settings page free of native selects', function () {
 
     // Sprache, Region und Zeitzone sitzen hier nebeneinander — bliebe eine
     // davon nativ, klappte genau dort ein weißes Blatt auf.
-    $html = Livewire::test('pages::profile.index')->html();
+    $html = Livewire::test('settings.region')->html();
 
     expect($html)->not->toContain('<select')
         ->and(substr_count($html, '</ui-select>'))->toBe(3);

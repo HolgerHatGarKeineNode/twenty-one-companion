@@ -18,7 +18,7 @@ use Livewire\Attributes\Url;
  * laufen über die im Layout eingebetteten City-/Venue-Editoren (Sheets), die
  * nach dem Speichern `places-changed` melden → die Listen laden neu.
  */
-new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' => 'Orte & Städte', 'back' => '/mine'])] class extends PortalPage
+new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' => 'Orte & Städte', 'back' => '/ich/inhalte'])] class extends PortalPage
 {
     #[Url]
     public string $tab = 'staedte';

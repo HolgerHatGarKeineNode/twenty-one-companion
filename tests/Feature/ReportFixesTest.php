@@ -5,26 +5,15 @@ declare(strict_types=1);
 use Illuminate\Support\Facades\Blade;
 
 /**
- * Regressionen aus dem E2E-Emulator-Report (plans/REPORT.md), Mobile-Seite.
- * Der authGate-Store (app.js) + die geteilten Package-Fixes prüft das Haupt-Repo
- * bzw. Playwright; hier: die Blade-/i18n-/Branding-testbaren Mobile-Fixes.
+ * Regressions from the E2E emulator report (plans/REPORT.md), mobile side. The authGate
+ * store (app.js) and the shared package fixes are checked by the main repository resp. by
+ * Playwright; here: the mobile fixes a Blade/i18n/branding test can decide.
+ *
+ * P2 moved two of them to a different surface — the "Mehr" hub they were measured on is gone
+ * (Concept C) — but not one of them lost its demand. The comments at those cases say which
+ * surface took over and why the demand still holds.
  */
 afterEach(fn () => app()->setLocale('de'));
-
-// Unified-4-Tab-Registry in die Runtime-Config schreiben (wie config/group.php sie
-// aus env('UNIFIED_SHELL') ableitet) — nötig, damit die Bottom-Nav in den /more-
-// Render-Tests die Tabs zeigt. Inline statt des file-lokalen enableUnifiedShell()
-// aus UnifiedShellTest.
-beforeEach(function () {
-    config()->set('group.unified_shell', true);
-    config()->set('group.exit', null);
-    config()->set('group.nav', [
-        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
-        ['key' => 'wallet', 'route' => 'group.wallet', 'match' => 'group.wallet', 'icon' => 'bolt', 'label' => 'Wallet', 'gate' => 'nostr'],
-        ['key' => 'meetups', 'route' => 'meetups', 'match' => 'meetups,meetups.show', 'icon' => 'calendar', 'label' => 'Meetups', 'gate' => 'guest'],
-        ['key' => 'more', 'route' => 'more', 'match' => 'more,events,map,courses,mine,profile', 'icon' => 'squares-2x2', 'label' => 'Mehr', 'gate' => 'guest'],
-    ]);
-});
 
 test('🔴 list-link-card mit navigate=false rendert einen harten Link (kein wire:navigate)', function () {
     // Cross-Bundle-Links (ins Chat-group.js) müssen hart laden, sonst bootet
@@ -37,39 +26,52 @@ test('🔴 list-link-card mit navigate=false rendert einen harten Link (kein wir
     expect($spa)->toContain('wire:navigate');
 });
 
-test('🔴 Mehr-Hub Sign-in-Karte führt als harter Load auf /nostr-login', function () {
+test('🔴 the sign-in card leads to /nostr-login as a HARD load', function () {
+    // Cross-bundle: the login view lives in the chat bundle, so the anchor must not
+    // SPA-navigate — `group.js` boots on `alpine:init`, and `wire:navigate` carries the old
+    // `<head>` along.
+    //
+    // Until P2 the anchor stood on the "Mehr" hub, which is gone. It stands on „Ich" now,
+    // where the identity lives, and the demand is the same one.
     withoutPortalToken();
 
-    $html = $this->get(route('more'))->assertOk()->getContent();
+    $html = (string) $this->get(route('group.ich'))->assertOk()->getContent();
 
-    // Den Anchor um den Login-Link isolieren und prüfen, dass er NICHT SPA-navigiert.
-    preg_match('/<a\b[^>]*'.preg_quote(route('group.nostr-login'), '/').'[^>]*>/', $html, $m);
-    expect($m)->not->toBeEmpty('Sign-in-Anchor nicht gefunden');
-    expect($m[0])->not->toContain('wire:navigate');
+    // A guest sees the invitation, and signing in runs through the auth-gate store — which
+    // ends in `location.assign('/nostr-login')`, i.e. a hard load by construction.
+    expect($html)->toContain('$store.authGate.requireAuth');
 
-    // Kontrolle: eine normale Entdecken-Karte navigiert weiterhin per SPA.
-    preg_match('/<a\b[^>]*'.preg_quote(route('events'), '/').'[^>]*>/', $html, $ev);
-    expect($ev)->not->toBeEmpty()
-        ->and($ev[0])->toContain('wire:navigate');
+    // CONTROL: the page really rendered the guest branch and not an empty shell.
+    expect($html)->toContain(__('Noch nicht angemeldet'));
 });
 
-test('🟠 Bottom-Nav-Label „Mehr" wird bei en-Locale zu „More" übersetzt', function () {
+test('🟠 the Postfach nav label is translated at render time (en → Inbox)', function () {
+    // The bug this case was written for: nav labels came from `config('group.nav')`, which
+    // loads BEFORE the locale middleware, so a `__()` in the config always resolved to the
+    // default language („Mehr" instead of „More"). The registry is gone; the labels are now
+    // `__()` calls in the bar's own markup. The demand survives the rebuild — only the
+    // measured label changed, because the tabs did.
     withoutPortalToken();
     completeOnboarding(locale: 'en');
 
-    // Vorbedingung: Key existiert (Locale hier explizit — die Middleware setzt sie
-    // erst im HTTP-Request, nicht im Test-Body).
+    // Precondition: the key exists (locale set explicitly here — the middleware sets it in
+    // the HTTP request, not in the test body).
     app()->setLocale('en');
-    expect(__('Mehr'))->toBe('More');
+    expect(__('Postfach'))->toBe('Inbox');
 
-    $html = $this->get(route('more'))->assertOk()->getContent();
+    $html = (string) $this->get(route('meetups'))->assertOk()->getContent();
 
-    // NUR die Bottom-Nav-Region prüfen — ein bare assertSee('More') würde auch den
-    // Seiten-<title> „More - EINUNDZWANZIG" matchen und den nav-tab-Fix maskieren.
-    preg_match('/<nav\s+aria-label="Hauptnavigation".*?<\/nav>/s', $html, $nav);
-    expect($nav)->not->toBeEmpty('Bottom-Nav nicht gefunden');
-    expect($nav[0])->toContain('More')       // nav-tab rendert {{ __($label) }}
-        ->and($nav[0])->not->toContain('Mehr'); // deutscher Roh-Key darf im Nav weg sein
+    // ONLY the bottom-nav region — a bare `assertSee('Inbox')` would also match a page title
+    // and mask the very fix this case is about. Anchored on `data-bottom-nav` and not on the
+    // `aria-label`: the package renders the label through `__()` on a multi-line tag, so a
+    // `<nav\s+aria-label=…>` pattern finds nothing and the case would fail for the wrong
+    // reason (measured 2026-09-18).
+    $nav = mb_strstr($html, 'data-bottom-nav');
+    expect($nav)->not->toBeFalse('bottom nav not found');
+    $nav = (string) mb_strstr((string) $nav, '</nav>', true);
+
+    expect($nav)->toContain('Inbox')
+        ->and($nav)->not->toContain('>Postfach<');
 });
 
 test('🟠 en.json trägt keine „TWENTY ONE"-Marke mehr (EINUNDZWANZIG im UI)', function () {

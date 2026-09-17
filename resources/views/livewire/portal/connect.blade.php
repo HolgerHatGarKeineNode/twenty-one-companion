@@ -153,7 +153,7 @@ new class extends Component {
             </div>
         @endif
 
-        <flux:button :href="route('mine')" wire:navigate size="sm" icon="square-2-stack" class="mt-3 w-full cursor-pointer">
+        <flux:button :href="route('ich.inhalte')" wire:navigate size="sm" icon="square-2-stack" class="mt-3 w-full cursor-pointer">
             {{ __('Meine Inhalte') }}
         </flux:button>
 

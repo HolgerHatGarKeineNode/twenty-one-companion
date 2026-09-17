@@ -500,5 +500,9 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Je portal-sessie is verlopen. Maak opnieuw verbinding om je eigen inhoud te zien.",
     "Neu verbinden": "Opnieuw verbinden",
     "Fenster schließen": "Dialoogvenster sluiten",
-    "Eingabe leeren": "Invoer wissen"
+    "Eingabe leeren": "Invoer wissen",
+    "Meetups, Termine, Orte und Kurse": "Meetups, datums, locaties en cursussen",
+    "Sitzung": "Sessie",
+    "Abmelden": "Afmelden",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Afmelden? Je sleutel blijft in je signer (Amber/Bunker) — alleen de lokale sessie eindigt."
 }

@@ -22,10 +22,6 @@
 
     // Listendichte (Phase C2): „compact“ verdichtet die Browse-Listen.
     $density = app(\App\Services\AppPreferences::class)->density();
-
-    // P3-Feature-Flag: verschmolzene 4-Tab-Shell. An = geteilte
-    // <x-group::bottom-nav> (Mehr-Hub statt Hamburger-Flyout), aus = 5-Tab-Nav.
-    $unifiedShell = config('group.unified_shell');
 @endphp
 
 <!DOCTYPE html>
@@ -61,16 +57,15 @@
                         @endif
                         <flux:spacer/>
                         {{ $actions ?? '' }}
-                        <flux:modal.trigger name="global-search">
-                            <flux:button variant="ghost" icon="magnifying-glass" :aria-label="__('Suche')" class="cursor-pointer"/>
-                        </flux:modal.trigger>
-                        {{-- Legacy: Hamburger öffnet den Flyout. Unified: der „Mehr"-Tab (§3.4)
-                             ist der Hub, der Hamburger entfällt ersatzlos. --}}
-                        @unless ($unifiedShell)
-                            <flux:modal.trigger name="main-menu">
-                                <flux:button variant="ghost" icon="bars-3" :aria-label="__('Menü')" class="-me-2 cursor-pointer"/>
-                            </flux:modal.trigger>
-                        @endunless
+                        {{-- ── Neither a magnifier nor a hamburger up here any more (P2) ──
+                             The magnifier opened `global-search`, the hamburger the flyout.
+                             Both are gone: search is the CENTRE slot of the shared bottom bar
+                             (Concept C, D6), and what the flyout listed lives on Start („Alle
+                             Bereiche") and under „Ich".
+
+                             Two search affordances on one screen were the drift this phase
+                             removes — the magnifier here and the search slot down there would
+                             have been the same question asked twice, twelve pixels apart. --}}
                     </div>
                 </header>
             @endif
@@ -83,11 +78,11 @@
                          Anmeldungs-/Sichtbarkeits-Einstellungen. --}}
                     <livewire:meetup-privacy-hint-banner/>
                 @endif
-                {{-- Unified: die geteilte bottom-nav ist `fixed` (nicht sticky) → der
-                     Inhalt braucht Boden-Freiraum, damit die letzte Zeile nicht hinter
-                     der Bar verschwindet (pb-28, analog app-shell). Legacy-Nav ist
-                     sticky im Flow → pb-8 genügt. Beide Literale bleiben JIT-sichtbar. --}}
-                <div @class(['page-enter', 'p-4 pb-28' => $chrome && $unifiedShell, 'p-4 pb-8' => $chrome && ! $unifiedShell])>
+                {{-- The shared bottom nav is `fixed` (not sticky) → the content needs floor
+                     clearance so the last row does not disappear behind the bar (pb-28, same
+                     as `app-shell`). The `pb-8` literal of the old sticky legacy bar is gone
+                     with that bar. --}}
+                <div @class(['page-enter', 'p-4 pb-28' => $chrome])>
                     {{ $slot }}
                 </div>
             </main>
@@ -96,47 +91,37 @@
                 {{-- Kontextsensitiver Create-FAB (Phase 2.1). --}}
                 <x-create-fab/>
 
-                {{-- Unified (P3): die EINE config-getriebene Shell-Nav (§8.2), identisch
-                     mit der, die der Chat-Tab rendert → beide Shells zeigen sichtbar
-                     dieselben 4 Tabs. Legacy: die bisherige 5-Tab-Nav. --}}
-                @if ($unifiedShell)
-                    <x-group::bottom-nav/>
-                @else
-                    <nav class="pb-safe px-safe sticky bottom-0 z-20 border-t border-zinc-200 bg-zinc-50/90 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/90">
-                        <div class="grid grid-cols-5">
-                            {{-- Chat zuerst: wichtigster Screen. Vollbild-Tab (einundzwanzig/group),
-                                 übernimmt den Screen mit eigenem Layout + Bottom-Nav. --}}
-                            <x-bottom-nav-item route="group.spaces" match="group.spaces,group.directory,group.room" icon="chat-bubble-left-right" :label="__('Chat')"/>
-                            <x-bottom-nav-item route="meetups" match="meetups,meetups.show" icon="user-group" :label="__('Meetups')"/>
-                            <x-bottom-nav-item route="events" icon="calendar-days" :label="__('Termine')"/>
-                            <x-bottom-nav-item route="map" icon="map" :label="__('Karte')"/>
-                            <x-bottom-nav-item route="profile" match="profile,mine" icon="user-circle" :label="__('Profil')"/>
-                        </div>
-                    </nav>
-                @endif
+                {{-- The ONE shell nav (Concept C): the same three slots the package renders
+                     in the chat — Start · Search · Postfach. The `config('group.nav')`
+                     registry this used to iterate is gone from every host with P2, and so is
+                     the legacy 5-tab bar that stood in the other branch of this `@if`. --}}
+                <x-group::bottom-nav/>
 
-                {{-- Globale Suche (Phase 2.3), per Header-Lupe geöffnet. --}}
+                {{-- ── The bridge from the search slot to this app's search ───────────────
+                     `<x-group::bottom-nav>` dispatches `open-command-palette`, and the
+                     command palette listening for it hangs in the group package's layout
+                     (`<x-group::command-palette/>` in `group::einundzwanzig`). That layout
+                     does not run on these Folio pages, so without this listener the slot
+                     would do nothing here.
+
+                     **Why the bridge survives P2 even though the plan lists it for deletion.**
+                     Its deletion in the plan's approach hangs on the Portal pages having moved
+                     onto the package layout — and that move is P4 (D9), not P2. Deleting the
+                     listener now would ship a dead button on the app's most used screens for
+                     one phase. It goes with `global-search` in P4, in the same edit that gives
+                     these pages the real palette.
+
+                     No longer behind a feature flag: there is only one shell. --}}
+                <div
+                    x-data
+                    x-on:open-command-palette.window="$flux.modal('global-search').show()"
+                    hidden
+                ></div>
+
+                {{-- The app's own search (Phase 2.3). Until P4 it is what the search slot
+                     opens; on these pages it is also the fitting one — it finds meetups,
+                     courses and lecturers, which is what these pages are about. --}}
                 <livewire:global-search/>
-
-                @if ($unifiedShell)
-                    {{-- Brücke für die Lupe der geteilten Shell: <x-group::bottom-nav>
-                         schickt `open-command-palette` los, und die Befehlspalette, die
-                         darauf hört, hängt im Layout des group-Pakets
-                         (`<x-group::command-palette/>` in `group::einundzwanzig`). Auf
-                         unseren Folio-Seiten läuft dieses Layout nicht — der Knopf tat
-                         dort schlicht nichts.
-
-                         Statt die Palette hier zusätzlich zu mounten (sie will
-                         welshman-Sessions und Raum-Daten, die auf diesen Seiten gar
-                         nicht geladen sind), fangen wir das Ereignis ab und öffnen die
-                         App-eigene Suche. Die ist auf Meetups/Terminen/Karte ohnehin
-                         die passende: sie findet Meetups, Kurse und Referenten. --}}
-                    <div
-                        x-data
-                        x-on:open-command-palette.window="$flux.modal('global-search').show()"
-                        hidden
-                    ></div>
-                @endif
 
                 {{-- Editor-Sheets (Phase 4/5/6): Meetup-Editor besitzt `create-meetup`,
                      Termin-Editor `create-event`, Venue-Editor `create-venue`,
@@ -169,96 +154,26 @@
                     <x-image-cropper-overlay/>
                 @endif
 
-                {{-- Legacy-Flyout: im Unified-Modus durch den „Mehr"-Hub (pages/⚡more,
-                     §3.4) ersetzt — dieselben Sektionen als eigener Tab-Screen. --}}
-                @unless ($unifiedShell)
-                {{-- closable="false" + eigener Knopf: das aria-label des Pakets
-                     friert beim Kompilieren auf eine Sprache ein (Begründung in
-                     components/sheet.blade.php). --}}
-                <flux:modal name="main-menu" variant="flyout" :closable="false" class="menu-flyout !p-0">
-                    <div class="pt-safe flex h-dvh flex-col">
-                        {{-- Profil-Header mit Avatar + Verbindungsstatus (Phase 2.5). --}}
-                        <a href="{{ route('profile') }}" wire:navigate x-on:click="$haptic('light')" class="pressable flex items-center gap-3 border-b border-zinc-200 p-4 active:bg-zinc-50 dark:border-zinc-800 dark:active:bg-zinc-900">
-                            @if ($connected && ($profile['avatar'] ?? null))
-                                <flux:avatar src="{{ $profile['avatar'] }}" size="lg"/>
-                            @elseif ($connected)
-                                <flux:avatar size="lg" name="{{ $profile['name'] ?? $brand->label() }}"/>
-                            @else
-                                <flux:avatar size="lg" icon="user"/>
-                            @endif
-                            <div class="min-w-0 leading-tight">
-                                <flux:heading size="md" class="truncate">
-                                    {{ $connected ? ($profile['name'] ?? __('Verbunden')) : __('Gast') }}
-                                </flux:heading>
-                                <span class="mt-0.5 flex items-center gap-1.5">
-                                    <span @class(['size-2 rounded-full', 'bg-green-500' => $connected, 'bg-zinc-400' => ! $connected])></span>
-                                    <flux:text class="text-xs">{{ $connected ? __('Mit Portal verbunden') : __('Nicht verbunden') }}</flux:text>
-                                </span>
-                            </div>
-                        </a>
+                {{-- ── The hamburger flyout is gone (P2, D2) ──────────────────────────
+                     A `flux:modal` with a profile header, three grouped navlists (Entdecken ·
+                     Meine Inhalte · Einstellungen) and a version footer stood here, opened by
+                     the hamburger in the header. It was the app's answer to a navigation with
+                     no level above the tabs.
 
-                        <div class="flex-1 overflow-y-auto">
-                            {{-- Entdecken --}}
-                            <flux:navlist class="p-2">
-                                <flux:navlist.group :heading="__('Entdecken')">
-                                    {{-- Kurse & Referenten teilen die /courses-Route (Tab via ?tab).
-                                         Flux erkennt „current" sonst nur am Pfad → beide Items leuchten
-                                         gleichzeitig. Daher explizites :current am Query-Param. --}}
-                                    @php($onCourses = request()->routeIs('courses'))
-                                    <flux:navlist.item href="{{ route('courses') }}" :current="$onCourses && request('tab') !== 'referenten'" wire:navigate icon="academic-cap">
-                                        {{ __('Kurse') }}
-                                    </flux:navlist.item>
-                                    <flux:navlist.item href="{{ route('courses', ['tab' => 'referenten']) }}" :current="$onCourses && request('tab') === 'referenten'" wire:navigate icon="user">
-                                        {{ __('Referenten') }}
-                                    </flux:navlist.item>
-                                    <flux:navlist.item href="{{ route('map', ['tab' => 'staedte']) }}" wire:navigate icon="building-office-2">
-                                        {{ __('Städte & Orte') }}
-                                    </flux:navlist.item>
-                                </flux:navlist.group>
-
-                                <flux:navlist.group :heading="__('Meine Inhalte')" class="mt-2">
-                                    <flux:navlist.item href="{{ route('mine') }}" wire:navigate icon="square-2-stack">
-                                        {{ __('Meine Inhalte') }}
-                                    </flux:navlist.item>
-                                </flux:navlist.group>
-
-                                <flux:navlist.group :heading="__('Einstellungen')" class="mt-2">
-                                    <flux:navlist.item href="{{ route('profile') }}" wire:navigate icon="cog-6-tooth">
-                                        {{ __('Einstellungen') }}
-                                    </flux:navlist.item>
-                                </flux:navlist.group>
-                            </flux:navlist>
-                        </div>
-
-                        <div class="pb-safe border-t border-zinc-200 p-4 dark:border-zinc-800">
-                            <flux:text class="text-xs">
-                                {{ $brand->appName() }} · {{ __('Version :version', ['version' => config('nativephp.version')]) }}
-                            </flux:text>
-                        </div>
-                    </div>
-
-                    <div class="absolute top-0 end-0 mt-4 me-4">
-                        <flux:modal.close>
-                            <flux:button
-                                variant="ghost"
-                                icon="x-mark"
-                                size="sm"
-                                :aria-label="__('Fenster schließen')"
-                                class="text-zinc-500! hover:text-zinc-800! dark:text-zinc-400! dark:hover:text-white!"
-                            />
-                        </flux:modal.close>
-                    </div>
-                </flux:modal>
-                @endunless
+                     That level exists now and it is a PAGE, not a drawer: Start carries „Alle
+                     Bereiche", and „Ich" carries the identity, „Meine Inhalte" and the
+                     settings. A drawer is something you open; a page is something you can
+                     link to, come back to and share. --}}
             @endif
         </div>
 
         @fluxScripts
 
-        {{-- Hintergrund-Worker mit dem Push-Schalter abgleichen (braucht den
-             Pubkey aus localStorage, den nur der Client kennt). Hängt auch im
-             Chat-Layout (group::einundzwanzig) — eingeloggte Nutzer landen per
-             Launch-Weiche dort und sähen dieses Layout sonst nie. --}}
+        {{-- Sync the background worker with the push switch (it needs the pubkey from
+             `localStorage`, which only the client knows). It also hangs in the chat layout
+             (`group::einundzwanzig`) — until P2 signed-in users were sent there by the launch
+             page and would never have seen this layout; since P2 both layouts are reachable
+             from Start, which makes the second mount point necessary rather than defensive. --}}
         @include('partials.push-sync')
     </body>
 </html>

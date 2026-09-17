@@ -500,5 +500,9 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Twoja sesja portalu wygasła. Połącz się ponownie, aby zobaczyć swoje treści.",
     "Neu verbinden": "Połącz ponownie",
     "Fenster schließen": "Zamknij okno dialogowe",
-    "Eingabe leeren": "Wyczyść pole"
+    "Eingabe leeren": "Wyczyść pole",
+    "Meetups, Termine, Orte und Kurse": "Meetupy, terminy, miejsca i kursy",
+    "Sitzung": "Sesja",
+    "Abmelden": "Wyloguj",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Wylogować? Twój klucz zostaje w signerze (Amber/Bunker) — kończy się tylko lokalna sesja."
 }

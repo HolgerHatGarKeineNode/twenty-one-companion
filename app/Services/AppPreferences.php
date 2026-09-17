@@ -103,13 +103,19 @@ final class AppPreferences
     }
 
     /**
-     * Zielroute nach einem Portal-Login-Callback: mitten im Onboarding
-     * zurück in den Pager, sonst aufs Profil (Phase 3.4). Hier zentral,
-     * weil die Onboarding-State-Logik ohnehin diesem Service gehört.
+     * Target route after a Portal login callback: back into the pager while onboarding,
+     * otherwise the settings hub. Centralised here because the onboarding state logic
+     * belongs to this service anyway.
+     *
+     * Since P2 that is the PACKAGE hub and no longer this app's `/profile` screen: the
+     * Portal connection is a section injected into that hub
+     * (`partials/settings/portal-connect`), and the callback has to land where its result is
+     * visible. `/profile` still answers — as a 302 to „Ich" — but landing one row away from
+     * the section that just changed would leave the user looking for it.
      */
     public function targetAfterPortalAuth(): string
     {
-        return $this->isOnboarded() ? 'profile' : 'onboarding';
+        return $this->isOnboarded() ? 'group.ich.einstellungen' : 'onboarding';
     }
 
     /**

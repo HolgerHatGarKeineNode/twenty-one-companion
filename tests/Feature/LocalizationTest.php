@@ -46,7 +46,18 @@ function mobileUiSources(): array
         app_path('Data/Portal/LecturerDetailData.php'),
     ];
 
-    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding', 'mine', 'more'] as $module) {
+    // `profile` and `more` are gone with P2: the app's settings sections are injected into
+    // the package hub (`views/livewire/settings/*`, collected below) and the "Mehr" hub is
+    // replaced by Start and „Ich".
+    foreach (File::files(resource_path('views/livewire/settings')) as $file) {
+        $files[] = $file->getPathname();
+    }
+    foreach (File::files(resource_path('views/partials/settings')) as $file) {
+        $files[] = $file->getPathname();
+    }
+    $files[] = resource_path('views/partials/ich/inhalte.blade.php');
+
+    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'onboarding', 'mine'] as $module) {
         foreach (File::files(resource_path("views/pages/{$module}")) as $file) {
             $files[] = $file->getPathname();
         }
@@ -103,14 +114,25 @@ it('renders the meetups page in german by default', function () {
         ->assertSee('Alle Länder');
 });
 
-it('covers every Mehr-Hub key in ALL locale files (not just en)', function () {
-    // Der Mehr-Hub (config-Nav-Label + Karten-Subtitles) muss in JEDER
-    // ausgelieferten Sprache aufgelöst werden — sonst greift der de-Fallback und
-    // der Screen wird gemischtsprachig (spanische Labels, deutsche Untertitel).
-    // Die en-only-Coverage oben hat genau diese Lücke NICHT erkannt.
-    $code = (string) file_get_contents(resource_path('views/pages/more/⚡index.blade.php'));
-    preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)*)'/u", $code, $m);
-    $keys = array_unique(array_map('stripcslashes', $m[1]));
+it('covers every key of the injected settings sections in ALL locale files (not just en)', function () {
+    // Until P2 this case measured the "Mehr" hub. That hub is gone; what took its place as
+    // the app's OWN screen text are the sections injected into the package settings hub
+    // (`views/livewire/settings/*`). The demand is unchanged and it is the stricter one: every
+    // shipped language has to resolve them, otherwise the German fallback kicks in and the
+    // screen becomes mixed-language (Spanish labels, German descriptions). The en-only
+    // coverage above does NOT catch that gap.
+    $keys = [];
+
+    foreach (File::files(resource_path('views/livewire/settings')) as $file) {
+        $code = (string) file_get_contents($file->getPathname());
+        preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)*)'/u", $code, $m);
+        $keys = [...$keys, ...array_map('stripcslashes', $m[1])];
+    }
+
+    // Fail-closed: a probe that collects nothing would report a clean result.
+    expect($keys)->not->toBeEmpty('no translation key found — the probe measures nothing');
+
+    $keys = array_unique($keys);
 
     $missing = [];
     foreach (['en', 'es', 'pt', 'nl', 'pl', 'hu', 'lv'] as $loc) {
@@ -122,5 +144,5 @@ it('covers every Mehr-Hub key in ALL locale files (not just en)', function () {
         }
     }
 
-    expect($missing)->toBe([], 'Mehr-Hub-Keys ohne Übersetzung: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
+    expect($missing)->toBe([], 'settings keys without a translation: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
 });

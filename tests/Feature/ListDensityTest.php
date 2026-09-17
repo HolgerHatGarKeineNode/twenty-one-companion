@@ -22,7 +22,7 @@ it('rejects an invalid density value', function () {
 it('saves the chosen density from the profile page', function () {
     withoutPortalToken();
 
-    Livewire::test('pages::profile.index')
+    Livewire::test('settings.region')
         ->set('density', 'compact')
         ->assertHasNoErrors();
 
