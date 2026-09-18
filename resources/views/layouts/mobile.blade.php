@@ -97,31 +97,18 @@
                      the legacy 5-tab bar that stood in the other branch of this `@if`. --}}
                 <x-group::bottom-nav/>
 
-                {{-- ── The bridge from the search slot to this app's search ───────────────
-                     `<x-group::bottom-nav>` dispatches `open-command-palette`, and the
-                     command palette listening for it hangs in the group package's layout
-                     (`<x-group::command-palette/>` in `group::einundzwanzig`). That layout
-                     does not run on these Folio pages, so without this listener the slot
-                     would do nothing here.
+                {{-- ── The ONE search, on these pages too (P4, D6) ────────────────────────
+                     `<x-group::bottom-nav>` dispatches `open-command-palette`, and the palette
+                     hangs in the package layout. Up to P3 a BRIDGE stood here that caught the
+                     event and opened `global-search` instead — this app's second search
+                     window. Both are gone: the palette itself stands here now, and it can do
+                     more than the old search (rooms, members, actions AND the Portal objects
+                     out of an index that loads once per session).
 
-                     **Why the bridge survives P2 even though the plan lists it for deletion.**
-                     Its deletion in the plan's approach hangs on the Portal pages having moved
-                     onto the package layout — and that move is P4 (D9), not P2. Deleting the
-                     listener now would ship a dead button on the app's most used screens for
-                     one phase. It goes with `global-search` in P4, in the same edit that gives
-                     these pages the real palette.
-
-                     No longer behind a feature flag: there is only one shell. --}}
-                <div
-                    x-data
-                    x-on:open-command-palette.window="$flux.modal('global-search').show()"
-                    hidden
-                ></div>
-
-                {{-- The app's own search (Phase 2.3). Until P4 it is what the search slot
-                     opens; on these pages it is also the fitting one — it finds meetups,
-                     courses and lecturers, which is what these pages are about. --}}
-                <livewire:global-search/>
+                     That became possible only when the two Vite JS entries became ONE
+                     (`resources/js/app.js`): `nostrPalette` is registered by
+                     `registerNostrComponents`, and that used to run in the chat bundle only. --}}
+                <x-group::command-palette />
 
                 {{-- Editor-Sheets (Phase 4/5/6): Meetup-Editor besitzt `create-meetup`,
                      Termin-Editor `create-event`, Venue-Editor `create-venue`,

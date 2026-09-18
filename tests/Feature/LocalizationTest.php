@@ -21,7 +21,6 @@ function mobileUiSources(): array
         resource_path('views/layouts/mobile.blade.php'),
         resource_path('views/components/create-fab.blade.php'),
         resource_path('views/livewire/portal/connect.blade.php'),
-        resource_path('views/livewire/global-search.blade.php'),
         resource_path('views/livewire/meetup-picker.blade.php'),
         resource_path('views/livewire/meetup-editor.blade.php'),
         resource_path('views/livewire/meetup-privacy-hint-banner.blade.php'),

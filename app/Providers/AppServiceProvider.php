@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Portal\NativePortalAffordances;
+use App\Portal\PortalApiCatalog;
 use App\Services\AndroidManifestPatcher;
 use App\Services\AppPreferences;
 use App\Services\BrandResolver;
@@ -11,6 +13,8 @@ use App\Services\PortalAuth;
 use App\Services\PortalWriter;
 use App\Support\Clock;
 use Carbon\CarbonImmutable;
+use Einundzwanzig\Group\Portal\PortalAffordances;
+use Einundzwanzig\Group\Portal\PortalCatalog;
 use Illuminate\Console\Events\CommandFinished;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Support\Env;
@@ -61,6 +65,28 @@ class AppServiceProvider extends ServiceProvider
         // damit sie dieselbe memoisierte PortalAuth/PortalApi teilt und der
         // Connector pro Request einmal auf tries = 1 gesetzt wird.
         $this->app->scoped(PortalWriter::class);
+
+        /*
+         * ── The package's Portal seam (P4, D6/D9) ───────────────────────────────
+         *
+         * The read-only Portal pages and the palette index live in the package since P4 and
+         * read through `PortalCatalog`. The package ships an HTTP binding (`bindIf`) that is
+         * OVERRIDDEN here: this app has to work offline, and only `PortalApi` with its
+         * permanent stale copy can do that. The same facade also carries the Portal token, so
+         * a second HTTP path would be a second cached copy of the same data.
+         *
+         * `scoped` like `PortalApi` itself: the status (fresh/stale/offline) is a statement
+         * about THIS request, and a singleton would drag a "stale" into the next one.
+         */
+        $this->app->scoped(PortalCatalog::class, PortalApiCatalog::class);
+
+        /*
+         * Sharing, links and "add to calendar" run natively in the app (share sheet, in-app
+         * browser, calendar editor). The package's web binding can only ask the BROWSER — on
+         * a device that would be a link stranding in a WebView tab, and a messenger link that
+         * never reaches its app.
+         */
+        $this->app->scoped(PortalAffordances::class, NativePortalAffordances::class);
     }
 
     /**

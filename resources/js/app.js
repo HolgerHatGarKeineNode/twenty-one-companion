@@ -1,11 +1,60 @@
-import { isAuthed, sanitizeReturnUrl } from '@einundzwanzig/group/auth-gate';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import 'leaflet.markercluster';
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+/**
+ * The ONE Vite JS entry of this app (P4).
+ *
+ * ── Why there is only one left ──────────────────────────────────────────────────
+ * Up to P3 there were two: this `app.js` for the Portal shell and `group.js` for the chat
+ * full-screen tab, each bound to its layout. Since P4 the Portal pages render in the PACKAGE
+ * layout (D9), and the command palette is the one search (D6) — so it has to exist on both
+ * layouts. Two entries meant: on half the pages there is no palette, and the bridge that
+ * covered that up (a listener opening a second search window) was exactly the duplication
+ * this concept removes.
+ *
+ * The registration of the Nostr components therefore stands HERE and FIRST: it brings the
+ * full `authGate` store, and the thin replacement store of this file (which served the Portal
+ * pages up to P3 because the island was missing there) is gone with it — one question, one
+ * answer.
+ *
+ * ── Leaflet is loaded LAZILY ────────────────────────────────────────────────────
+ * Leaflet + MarkerCluster (~150 kB) used to be a top-level import in this file and were
+ * therefore parsed on EVERY page, although exactly one view needs them
+ * (`/bereich/meetups?ansicht=karte`). `window.loadLeaflet()` fetches them on the first render
+ * of that view and remembers the result.
+ */
+import { registerNostrComponents } from '@einundzwanzig/group';
 
-window.L = L;
+/**
+ * Leaflet on demand. Idempotent: the second call gets the same promise, and switching views
+ * back and forth loads nothing again.
+ *
+ * The co-located CSS comes along — without `leaflet.css` a map renders as a salad of
+ * unpositioned tiles, and that looks like a map bug rather than a missing stylesheet.
+ */
+let leafletPromise = null;
+
+window.loadLeaflet = function () {
+    if (leafletPromise) {
+        return leafletPromise;
+    }
+
+    leafletPromise = (async () => {
+        const [{ default: L }] = await Promise.all([
+            import('leaflet'),
+            import('leaflet/dist/leaflet.css'),
+        ]);
+        await Promise.all([
+            import('leaflet.markercluster'),
+            import('leaflet.markercluster/dist/MarkerCluster.css'),
+            import('leaflet.markercluster/dist/MarkerCluster.Default.css'),
+        ]);
+        // `window.L` stays set: `leaflet.markercluster` extends the global `L`, and older
+        // views read it from there.
+        window.L = L;
+
+        return L;
+    })();
+
+    return leafletPromise;
+};
 
 /**
  * Haptisches Feedback (Phase 1.3).
@@ -50,28 +99,6 @@ const registerAlpineExtensions = () => {
     // Nutzung im Markup: x-on:click="$haptic('success')"
     window.Alpine?.magic('haptic', () => window.haptic);
 
-    /**
-     * Kontextueller Auth-Gate für die Portal-Shell (§4.2). Die geteilte
-     * <x-group::bottom-nav> ruft `$store.authGate.gateTap` auf JEDER Shell-Seite
-     * auf, auch auf den Portal-Tabs (Meetups/Mehr), die nur dieses app.js laden —
-     * die welshman-Insel samt vollem authGate-Store lebt allein im Chat-Bundle
-     * (group.js). Ohne diesen Store wäre `$store.authGate` dort undefined →
-     * „Cannot read properties of undefined (reading 'gateTap')".
-     *
-     * Von einer Portal-Seite führt JEDER nostr-gate-Tab (Chat/Wallet) ins
-     * Chat-Bundle (group.js) — über die Layout-Grenze layouts.mobile →
-     * group::einundzwanzig. Ein wire:navigate-SPA-Sprung bootet group.js dort NIE:
-     * es registriert alle Alpine-Komponenten in `alpine:init`, das nach dem
-     * Portal-Load bereits gefeuert hat → tote Chat/Wallet-Insel. Darum erzwingt
-     * gateTap IMMER einen harten Seiten-Load — Gast wie eingeloggt:
-     *   Gast       → /nostr-login (Interstitial, liegt ebenfalls im group-Layout).
-     *   eingeloggt → direkt aufs Tab-Ziel; der Full-Load bootet group.js frisch.
-     *
-     * isAuthed/sanitizeReturnUrl kommen aus dem geteilten (welshman-freien)
-     * @einundzwanzig/group/auth-gate — dieselbe Trust-Grenzen-Logik wie der volle
-     * Store in bridge.ts (welshman speichert den pubkey JSON-serialisiert, darum
-     * KEINE rohe Hex-Regex).
-     */
     /**
      * Bild-Cropper für die Editoren (Meetup/Kurs/Referent). Auf Mobile ist ein
      * HTML-`<input type=file>` im NativePHP-WebView funktionslos (kein
@@ -151,28 +178,44 @@ const registerAlpineExtensions = () => {
         },
     }));
 
-    window.Alpine?.store('authGate', {
-        gateTap(event, intent = {}) {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            if (isAuthed(localStorage.getItem('pubkey'))) {
-                const href = event.currentTarget?.href;
-                if (href) {
-                    location.assign(href);
-                }
-                return;
-            }
-            const ret = sanitizeReturnUrl(intent.returnUrl ?? location.pathname + location.search);
-            location.assign('/nostr-login' + (ret ? '?return=' + encodeURIComponent(ret) : ''));
-        },
-    });
+    /*
+     * ── NO `authGate` store of its own any more (P4) ─────────────────────────────
+     *
+     * A thin version with a single `gateTap` stood here that forced EVERY gated tap into a
+     * hard page load. It existed because the welshman island lived in the chat bundle only: a
+     * `wire:navigate` from a Portal page into the chat would have needed an island that was
+     * not on that page at all.
+     *
+     * Since the two entries are ONE entry (see the head), the island is everywhere — and with
+     * it the full store from `registerNostrComponents` (`js/bridge.ts`), which answers the
+     * same `gateTap` AND opens the login sheet in place instead of leaving the page. Two
+     * registrations of the same store name would be a race whose winner is decided by load
+     * order.
+     */
 };
 
 // Läuft Alpine schon (WebView: das Bundle startet es, bevor dieses Modul lädt),
 // direkt registrieren; sonst regulär über 'alpine:init' — dann greifen $haptic
 // (magic) und der authGate-Store rechtzeitig vor der Element-Initialisierung.
-if (window.Alpine) {
+/**
+ * The Nostr components FIRST, then the app extensions.
+ *
+ * The order is meaning here and not style: `registerNostrComponents` brings the `authGate`
+ * store, the palette and the chat islands; everything this file registers afterwards
+ * (`$haptic`, `imageCropper`) only adds to them. The other way round an addition would stand
+ * before the thing it adds to.
+ */
+const registriere = () => {
+    registerNostrComponents(window.Alpine);
     registerAlpineExtensions();
+};
+
+// If Alpine is already running (WebView: the local bundle starts it before this module is
+// loaded), register straight away; otherwise regularly through `alpine:init`. Without that
+// branch the event would long be over and NOTHING would be registered — measured as
+// "$haptic is not defined" and as a dead chat island.
+if (window.Alpine) {
+    registriere();
 } else {
-    document.addEventListener('alpine:init', () => registerAlpineExtensions());
+    document.addEventListener('alpine:init', registriere);
 }

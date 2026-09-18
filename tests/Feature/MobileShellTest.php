@@ -75,21 +75,30 @@ it('lost the magnifier and the hamburger from the header — one search, one pla
     expect($html)->toContain('href="'.route('group.start').'"');
 });
 
-it('has something listening for the search slot — the slot is not a dead button', function () {
+it('opens the ONE palette from the search slot — no second search any more', function () {
     withoutPortalToken();
     MockClient::global([
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    // `<x-group::bottom-nav>` dispatches `open-command-palette`; the palette that listens for
-    // it hangs in the package layout, which does not run on these Folio pages. The bridge in
-    // `layouts/mobile.blade.php` opens this app's own search instead — and it survives P2 for
-    // exactly that reason (see the note at the bridge). P4 replaces both with the real
-    // palette.
-    $html = (string) $this->get(route('meetups'))->assertOk()->getContent();
+    // Until P3 a BRIDGE stood here: `<x-group::bottom-nav>` dispatches
+    // `open-command-palette`, the palette hangs in the package layout, and that layout did
+    // not run on these pages — so a listener caught the event and opened this app's own
+    // `global-search` instead. Two searches, twelve pixels apart, was the drift Concept C
+    // removes (D6).
+    //
+    // P4 mounts the real palette here and deletes both the bridge and `global-search`. The
+    // condition for that is one Vite JS entry (`resources/js/app.js` now registers
+    // `nostrPalette`), so this case also pins that the entry did not fall apart again.
+    $html = (string) $this->get(route('ich.inhalte'))->assertOk()->getContent();
 
-    expect($html)->toContain('x-on:open-command-palette.window');
-    expect($html)->toContain('global-search');
+    expect($html)->toContain('x-data="nostrPalette(');
+    expect($html)->toContain('data-palette-input');
+    // The second search is gone — and this is the assertion that keeps it gone: a re-added
+    // bridge would be invisible without it. NOT asserted on
+    // `x-on:open-command-palette.window`: the palette's own root carries exactly that
+    // listener, so the string is (correctly) still there.
+    expect($html)->not->toContain('global-search');
 });
 
 it('hides the create FAB for guests', function () {

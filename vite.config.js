@@ -12,9 +12,15 @@ export default defineConfig({
             input: [
                 'resources/css/app.css',
                 'resources/js/app.js',
-                // Chat-Vollbild-Tab (einundzwanzig/group): eigenes Theme + Insel-Entry.
+                /*
+                 * Das Chat-Theme bleibt ein eigenes CSS-Entry: es bringt die Tokens des
+                 * Packages mit (`--color-muted`, die Brand-Rampe, die Utilities), und zwei
+                 * Tailwind-Bündel in einem Dokument wären zwei Preflights und zwei
+                 * Token-Sätze. Das JS ist seit P4 EINES — die Befehlspalette (D6) muss auf
+                 * beiden Layouts existieren, und `resources/js/group.js` war genau die
+                 * Trennung, die sie auf der Hälfte der Seiten unmöglich machte.
+                 */
                 'resources/css/group.css',
-                'resources/js/group.js',
             ],
             refresh: true,
             hotFile: nativephpHotFile(),

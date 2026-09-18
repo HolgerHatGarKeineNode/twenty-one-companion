@@ -1,7 +1,5 @@
 <?php
 
-use Einundzwanzig\Group\Shell\AreaRegistry;
-
 /*
  * ══ The companion's view of the package shell (Concept C, P2) ═══════════════════════
  *
@@ -37,24 +35,16 @@ return [
      * head_partial = group::partials.head). Der Fremdhost zeigt hier auf seinen
      * Insel-Entry + das Chat-Theme-CSS.
      */
-    'vite' => ['resources/css/group.css', 'resources/js/group.js'],
+    'vite' => ['resources/css/group.css', 'resources/js/app.js'],
 
     /*
      * ── The area tiles on Start ───────────────────────────────────────────────────
      *
-     * Two of them are redirected: `/bereich/meetups` and `/bereich/kurse` do not exist in
-     * the package in P2 (their content is D9 and arrives with P4), and this app already has
-     * those pages. `AreaRegistry::defaults([...])` names only the deviation — the list
-     * itself stays in the package, so a tile added there tomorrow appears here tomorrow.
-     * Copying the whole list would be the second truth this class exists to prevent.
-     *
-     * Everything else takes the package default, including the outward Portal links for
-     * areas this app has no page for.
+     * No override any more (P4). Up to P3 this file redirected `meetups` and `kurse` to
+     * this app's own pages, because the package had none — D9 built them in P4, so both
+     * tiles now lead to the package routes in every host. The `AreaRegistry::defaults()`
+     * argument stays available for the next host that has a better page for one area.
      */
-    'areas' => AreaRegistry::defaults([
-        'meetups' => 'meetups',
-        'kurse' => 'courses',
-    ]),
 
     /*
      * ── The „Ich" page ───────────────────────────────────────────────────────────
@@ -100,10 +90,27 @@ return [
 
     /*
      * The views `/bereich/meetups` offers. This app adds `karte`: the map needs Leaflet and
-     * the device's location, so it is the one view only the app can bind (P4 wires it; the
-     * token set is declared here already because the redirect map has to know it).
+     * the device's location, so it is the one view only the app can bind.
      *
      * @var list<string>
      */
     'meetup_views' => ['liste', 'termine', 'karte'],
+
+    /*
+     * …and this is the view that renders it (P4). It lives HERE and not in the package for
+     * one measured reason: Leaflet plus marker clustering is ~150 kB, and the package is
+     * embedded by the association's web app for four chat views. A map in that embed would
+     * be weight nobody there asked for. On the web the package therefore links to the
+     * Portal's own map instead (`meetup_map_view => null` is the default).
+     *
+     * The view is included with `$meetups` (list<PortalMeetup>) in scope.
+     */
+    'meetup_map_view' => 'partials.portal.karte',
+
+    /*
+     * The block at the end of a Portal detail page. On the web this is a link INTO the
+     * Portal („Im Portal bearbeiten"); in this app it is the editor sheet, because only the
+     * app carries a Portal token — the one host-specific exception to D9's read-only rule.
+     */
+    'portal_detail_actions' => 'partials.portal.detail-aktionen',
 ];
