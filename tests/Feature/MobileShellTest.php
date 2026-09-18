@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 
@@ -35,7 +38,7 @@ it('renders the three shared slots of the bottom bar on an app page', function (
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $html = (string) $this->get(route('meetups'))->assertOk()->getContent();
+    $html = (string) $this->get(route('ich.inhalte'))->assertOk()->getContent();
 
     // The bar is the PACKAGE's, not a copy: the same nav, the same anchor, the same labels.
     expect($html)->toContain('aria-label="Hauptnavigation"');
@@ -52,9 +55,11 @@ it('renders the three shared slots of the bottom bar on an app page', function (
     expect($nav)->not->toBeFalse('marker data-bottom-nav missing — the narrowing would have no subject');
     $nav = (string) mb_strstr((string) $nav, '</nav>', true);
 
-    expect($nav)->not->toContain(route('events'));
-    expect($nav)->not->toContain(route('map'));
-    expect($nav)->not->toContain(route('meetups'));
+    // Since P5 the three old paths are 302 rows (this app's Portal pages moved into the
+    // package, D9) — they must not be slots of the bar either.
+    expect($nav)->not->toContain(url('/events'));
+    expect($nav)->not->toContain(url('/map'));
+    expect($nav)->not->toContain(url('/meetups'));
 });
 
 it('lost the magnifier and the hamburger from the header — one search, one place for "me"', function () {
@@ -63,7 +68,7 @@ it('lost the magnifier and the hamburger from the header — one search, one pla
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $html = (string) $this->get(route('meetups'))->assertOk()->getContent();
+    $html = (string) $this->get(route('ich.inhalte'))->assertOk()->getContent();
 
     // Two search affordances on one screen were the drift this phase removes: the header
     // magnifier and the bar's centre slot asked the same question twelve pixels apart.
@@ -107,7 +112,7 @@ it('hides the create FAB for guests', function () {
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups'))
+    $this->get(route('ich.inhalte'))
         ->assertOk()
         ->assertDontSee(__('Meetup aussuchen'));
 });
@@ -116,18 +121,25 @@ it('shows the context-sensitive create FAB for connected users', function () {
     withPortalToken();
     withCachedPortalProfile();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['is_leader' => true])]]),
+        // „Meine Kurse" is the same endpoint as the course list, only with `user_id` —
+        // that is how the hub counts one's own courses.
+        GetCoursesRequest::class => MockResponse::make([]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => []]),
     ]);
 
-    // On meetups: „Meetup aussuchen" (the discovery-first FAB), not „Termin anlegen".
-    $this->get(route('meetups'))
+    // The two contexts are the app's OWN pages since P5 — the package's Portal pages are
+    // read-only (D9) and deliberately carry no FAB; their write path is the host block at
+    // the end of the page.
+    //
+    // On „Meine Inhalte": „Meetup aussuchen" (the discovery-first FAB), not „Termin anlegen".
+    $this->get(route('ich.inhalte'))
         ->assertOk()
         ->assertSee(__('Meetup aussuchen'))
         ->assertDontSee(__('Termin anlegen'));
 
-    // On dates: „Termin anlegen".
-    $this->get(route('events'))
+    // On „Meine Termine": „Termin anlegen".
+    $this->get(route('ich.inhalte.termine'))
         ->assertOk()
         ->assertSee(__('Termin anlegen'));
 });
@@ -139,11 +151,13 @@ it('renders a back link in the header on detail pages', function () {
         GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups.show', 'aschaffenburg'))
+    // A detail page of this app's own — the Portal detail is the package's since P4, and its
+    // back link points at the package list (asserted there).
+    $this->get(route('ich.inhalte.orte'))
         ->assertOk()
-        // Back navigation (phase 2.4): a chevron link to the index.
+        // Back navigation (phase 2.4): a chevron link to the hub above.
         ->assertSee(__('Zurück'))
-        ->assertSee('/meetups');
+        ->assertSee('/ich/inhalte');
 });
 
 it('sends the root to Start instead of serving a client-side launch switch', function () {

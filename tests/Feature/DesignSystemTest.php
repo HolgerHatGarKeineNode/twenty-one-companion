@@ -1,9 +1,11 @@
 <?php
 
+use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ViewErrorBag;
 use Livewire\Livewire;
@@ -136,17 +138,30 @@ it('keeps the country filters of the browse pages free of native selects', funct
     MockClient::global([
         GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetMeetupEventsRequest::class => MockResponse::make([]),
+        GetCitiesRequest::class => MockResponse::make([cityFixture()]),
+        GetVenuesRequest::class => MockResponse::make([venueFixture()]),
     ]);
 
-    // Meetups und Termine holen ihre Länder-Optionen erst im Lazy-Load; die
-    // Karte rendert sie sofort.
-    foreach (['pages::meetups.index' => true, 'pages::events.index' => true, 'pages::map.index' => false] as $page => $lazy) {
-        $component = Livewire::test($page);
-        $html = ($lazy ? $component->call('load') : $component)->html();
+    /*
+     * This app's three browse pages are deleted with P5; their lists live in the package
+     * (D9) and so do their country options. The measurement therefore happens there — with
+     * the same requirement and for the same reason: the system dialog of a native `<select>`
+     * takes its theme from the app context and opens white inside the dark app.
+     */
+    completeOnboarding();
+
+    foreach (['liste', 'termine'] as $ansicht) {
+        $html = Livewire::withQueryParams(['ansicht' => $ansicht])->test('group::meetups')->html();
 
         expect($html)->not->toContain('<select')
             ->and($html)->toContain('<ui-select');
     }
+
+    // The one list this app kept sits behind the Portal gate and has a case of its own in
+    // `MapPageTest` („lists all cities … in the „alle" scope"). This case stays with the
+    // package views: a `withPortalToken()` in the middle of it no longer had any effect,
+    // because `PortalAuth` is a scoped singleton and was already resolved — a promise that
+    // would be green only because of a resolution order is no promise.
 });
 
 it('keeps the settings page free of native selects', function () {

@@ -465,5 +465,13 @@
     "Meetup oder Stadt suchen": "Search meetup or city",
     "Referenten suchen": "Search lecturers",
     "Kurs oder Referent suchen": "Search course or lecturer",
-    "Meetups, Termine, Orte und Kurse": "Meetups, dates, venues and courses"
+    "Meetups, Termine, Orte und Kurse": "Meetups, dates, venues and courses",
+    "Verbinde dein Konto, um deine eigenen Meetups zu verwalten.": "Connect your account to manage your own meetups.",
+    "Verbinde dein Konto, um die Termine deiner Meetups zu verwalten.": "Connect your account to manage the dates of your meetups.",
+    "Keine Termin-Verwaltung": "No date management",
+    "Termine anlegen kann nur, wer ein Meetup führt. Trag dich im Portal als Leader ein, dann erscheint die Verwaltung hier.": "Only somebody who leads a meetup can create dates. Register as a leader in the Portal and the management appears here.",
+    "Alle": "All",
+    "Stadt oder Land suchen": "Search city or country",
+    "Ort oder Stadt suchen": "Search venue or city",
+    "Zum Bearbeiten im Portal anmelden — in den Einstellungen unter „Portal-Verbindung\".": "Sign in to the Portal to edit — in the settings under „Portal connection\"."
 }

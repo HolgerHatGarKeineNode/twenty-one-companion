@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use Illuminate\Support\Facades\File;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -55,8 +55,18 @@ function mobileUiSources(): array
         $files[] = $file->getPathname();
     }
     $files[] = resource_path('views/partials/ich/inhalte.blade.php');
+    // P5: the REST arm of the RSVP surface and the host block of the Portal detail pages —
+    // both belong to this app and carry text of their own.
+    $files[] = resource_path('views/livewire/rest-rsvp.blade.php');
+    $files[] = resource_path('views/partials/portal/rsvp.blade.php');
+    $files[] = resource_path('views/partials/portal/detail-aktionen.blade.php');
+    $files[] = resource_path('views/components/rsvp-controls.blade.php');
+    $files[] = resource_path('views/components/my-event-row.blade.php');
 
-    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'onboarding', 'mine'] as $module) {
+    // `meetups`, `events`, `map`, `courses` and `lecturers` are deleted with P5: the Portal
+    // pages have lived in the package since P4 (D9) and are translated there. What remains
+    // here are the pages this app owns.
+    foreach (['onboarding', 'mine'] as $module) {
         foreach (File::files(resource_path("views/pages/{$module}")) as $file) {
             $files[] = $file->getPathname();
         }
@@ -89,26 +99,32 @@ it('covers every translation key of the mobile ui in lang/en.json', function () 
     expect($missing)->toBe([], 'Keys ohne englische Übersetzung: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
 });
 
-it('renders the meetups page in english when the locale preference is en', function () {
+it('renders the meetup list in english when the locale preference is en', function () {
+    // The list has lived in the package since P4 (D9); this app's choice of language has to
+    // reach it all the same — the locale switch is host state, the catalogue is the
+    // package's.
     completeOnboarding(locale: 'en');
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups'))
+    // The locale comes from the app preferences and is set by the middleware; the package
+    // page reads the same catalogue.
+    $this->get('/bereich/meetups')
         ->assertOk()
         ->assertSee('All countries')
         ->assertSee('Search meetup or city');
 });
 
-it('renders the meetups page in german by default', function () {
+it('renders the meetup list in german by default', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups'))
+    $this->get('/bereich/meetups')
         ->assertOk()
         ->assertSee('Alle Länder');
 });

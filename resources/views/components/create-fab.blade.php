@@ -12,17 +12,22 @@
      * keine Duplikate, obwohl es das Meetup in der Stadt schon gibt.
      * Termin-Kontext: analog das Sheet `create-event` (Phase 5), besessen von
      * <livewire:event-editor>, geöffnet per `open-event-editor`-Event.
+     *
+     * P5: both contexts now hang on the pages under „Ich › Meine Inhalte" instead of on
+     * this app's deleted Portal pages. The package pages (`/bereich/meetups*`) get NO FAB
+     * — they are read-only (D9), and their way to write is the host slot at the foot of
+     * the page (`partials/portal/detail-aktionen`).
      */
     $connected = app(PortalAuth::class)->hasToken();
 
     $context = match (true) {
-        request()->routeIs('events') => [
+        request()->routeIs('ich.inhalte.termine') => [
             'label' => __('Termin anlegen'),
             'modal' => 'create-event',
             'icon' => 'calendar-days',
             'event' => 'open-event-editor',
         ],
-        request()->routeIs('meetups', 'meetups.show', 'ich.inhalte') => [
+        request()->routeIs('ich.inhalte', 'ich.inhalte.meetups') => [
             'label' => __('Meetup aussuchen'),
             'modal' => 'pick-meetup',
             'icon' => 'user-group',

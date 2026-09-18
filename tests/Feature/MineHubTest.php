@@ -30,7 +30,8 @@ it('bundles the own content sections with counts for connected users', function 
         ->assertSee(__('Meine Termine'))
         ->assertSee(__('Meine Orte & Städte'))
         ->assertSee(__('Meine Kurse'))
-        ->assertSee(route('meetups', ['tab' => 'meine']))
+        ->assertSee(route('ich.inhalte.meetups'))
+        ->assertSee(route('ich.inhalte.termine'))
         // trans_choice-Zähler
         ->assertSee('1 Meetup')
         ->assertSee('1 Kurs');

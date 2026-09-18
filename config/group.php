@@ -1,5 +1,7 @@
 <?php
 
+use App\Services\AppPreferences;
+
 /*
  * ══ The companion's view of the package shell (Concept C, P2) ═══════════════════════
  *
@@ -113,4 +115,24 @@ return [
      * app carries a Portal token — the one host-specific exception to D9's read-only rule.
      */
     'portal_detail_actions' => 'partials.portal.detail-aktionen',
+
+    /*
+     * The REST arm of the RSVP surface (D12/P5). The package binds it exactly where it
+     * may not write a kind 31925 itself: at a date without a published kind 31923, and at a
+     * meetup that keeps its attendance private (D12a). Only this app can send that answer —
+     * it needs a Portal token, which the package does not have. On the web the key stays
+     * `null` and the link into the Portal stands there instead.
+     */
+    'portal_rsvp_view' => 'partials.portal.rsvp',
+
+    /*
+     * The app's region as the default of the country filter on `/bereich/meetups` (P5).
+     *
+     * Until P5 this app had a meetup list of its own, and it opened on the region the user
+     * chose during onboarding. The list has lived in the package since P4 (D9) and knows
+     * nothing about an app region — without this line that behaviour would have disappeared
+     * with the deleted page, and silently. A closure, because the value is decided per USER
+     * (the stored region) while a config file is read once per boot.
+     */
+    'meetup_default_land' => fn (): string => app(AppPreferences::class)->country(),
 ];

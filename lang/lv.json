@@ -504,5 +504,13 @@
     "Meetups, Termine, Orte und Kurse": "Tikšanās, datumi, vietas un kursi",
     "Sitzung": "Sesija",
     "Abmelden": "Iziet",
-    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Iziet? Tava atslēga paliek parakstītājā (Amber/Bunker) — beidzas tikai vietējā sesija."
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Iziet? Tava atslēga paliek parakstītājā (Amber/Bunker) — beidzas tikai vietējā sesija.",
+    "Verbinde dein Konto, um deine eigenen Meetups zu verwalten.": "Savieno savu kontu, lai pārvaldītu savus meetup.",
+    "Verbinde dein Konto, um die Termine deiner Meetups zu verwalten.": "Savieno savu kontu, lai pārvaldītu savu meetup datumus.",
+    "Keine Termin-Verwaltung": "Nav datumu pārvaldības",
+    "Termine anlegen kann nur, wer ein Meetup führt. Trag dich im Portal als Leader ein, dann erscheint die Verwaltung hier.": "Datumus var izveidot tikai tas, kas vada meetup. Reģistrējies portālā kā vadītājs, un pārvaldība parādīsies šeit.",
+    "Alle": "Visi",
+    "Stadt oder Land suchen": "Meklēt pilsētu vai valsti",
+    "Ort oder Stadt suchen": "Meklēt vietu vai pilsētu",
+    "Zum Bearbeiten im Portal anmelden — in den Einstellungen unter „Portal-Verbindung\".": "Lai rediģētu, pieraksties portālā — iestatījumos sadaļā „Portāla savienojums\"."
 }

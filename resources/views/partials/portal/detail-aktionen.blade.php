@@ -49,6 +49,15 @@
                          x-on:click="$haptic('light'); $flux.modal('create-course').show(); Livewire.dispatch('open-course-editor', { id: {{ (int) $courseId }} })">
                 {{ __('Bearbeiten') }}
             </flux:button>
+            {{-- „Kurs-Event anlegen" (P5): stood on this app's own COURSE page until P4,
+                 and that page is deleted with P5. The sheet is already mounted below;
+                 without this button the way from a course to a new course date would have
+                 disappeared — reachable only through „Ich › Meine Inhalte › Kurse". --}}
+            <flux:button size="sm" variant="ghost" icon="calendar-days" class="cursor-pointer"
+                         data-portal-host-editor="course-event"
+                         x-on:click="$haptic('light'); $flux.modal('create-course-event').show(); Livewire.dispatch('open-course-event-editor', { courseId: {{ (int) $courseId }} })">
+                {{ __('Kurs-Event anlegen') }}
+            </flux:button>
         @endif
 
         @if ($verbunden && isset($lecturerId))

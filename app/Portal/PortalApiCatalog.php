@@ -270,11 +270,18 @@ final class PortalApiCatalog implements PortalCatalog
             link: $event->link,
             attendees: $event->attendees,
             mightAttendees: $event->might_attendees,
-            // The app's DTO does not carry `nostr_address` (P1) yet; the RSVP rule that reads
-            // it is D12/P5, and the field gets added to the DTO there. Anything else here
-            // would be a promise about data that does not arrive.
-            nostrAddress: null,
+            // P5: the 31923 coordinate the Portal published for this date (or null). The first
+            // condition of the RSVP rule — without it this client never publishes an answer and
+            // the surface shows its REST arm instead (D12).
+            nostrAddress: $event->nostr_address,
             rsvpEnabled: $event->meetup->rsvp_enabled,
+            /*
+             * `attendees_public` is not a field of the date payload: the Portal expresses it by
+             * sending the counters as `null` (`MeetupEventController`, read 2026-09-18). Derived
+             * once here, so the rule reads a flag instead of inferring one — and identical to
+             * what the web binding derives from the same signal.
+             */
+            attendeesPublic: $event->attendees !== null,
         );
     }
 

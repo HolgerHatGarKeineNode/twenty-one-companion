@@ -504,5 +504,13 @@
     "Meetups, Termine, Orte und Kurse": "Meetups, fechas, lugares y cursos",
     "Sitzung": "Sesión",
     "Abmelden": "Cerrar sesión",
-    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "¿Cerrar sesión? Tu clave permanece en tu firmante (Amber/Bunker); solo termina la sesión local."
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "¿Cerrar sesión? Tu clave permanece en tu firmante (Amber/Bunker); solo termina la sesión local.",
+    "Verbinde dein Konto, um deine eigenen Meetups zu verwalten.": "Conecta tu cuenta para gestionar tus propios meetups.",
+    "Verbinde dein Konto, um die Termine deiner Meetups zu verwalten.": "Conecta tu cuenta para gestionar las fechas de tus meetups.",
+    "Keine Termin-Verwaltung": "Sin gestión de fechas",
+    "Termine anlegen kann nur, wer ein Meetup führt. Trag dich im Portal als Leader ein, dann erscheint die Verwaltung hier.": "Solo quien dirige un meetup puede crear fechas. Regístrate como leader en el Portal y la gestión aparecerá aquí.",
+    "Alle": "Todos",
+    "Stadt oder Land suchen": "Buscar ciudad o país",
+    "Ort oder Stadt suchen": "Buscar lugar o ciudad",
+    "Zum Bearbeiten im Portal anmelden — in den Einstellungen unter „Portal-Verbindung\".": "Inicia sesión en el Portal para editar: en los ajustes, en «Conexión con el Portal»."
 }

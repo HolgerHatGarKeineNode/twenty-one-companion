@@ -1,17 +1,31 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
-use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
+use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use Carbon\CarbonImmutable;
-use Einundzwanzig\Calendar\Calendar;
 use Livewire\Livewire;
-use Native\Mobile\Facades\Share;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
-use Saloon\Http\Request;
-use Saloon\Http\Response;
 
+/**
+ * The date surfaces of this app — AFTER the move (P5).
+ *
+ * ══ What `/events` was, and where it lives now ═══════════════════════════════
+ *
+ * `/events` was two things on one page: the LIST of every meetup's dates (reading) and,
+ * through the slide-in, the REST RSVP. The list has lived in the package since P4
+ * (`/bereich/meetups?ansicht=termine`, D9); since P5 the RSVP is the `rest-rsvp`
+ * component (D12/D15, measured in `MeetupsPageTest`).
+ *
+ * A leader's date MANAGEMENT hung on this app's meetup detail page and is now
+ * `/ich/inhalte/termine` — and better there than before: across all of one's meetups
+ * instead of one detail page per meetup.
+ *
+ * Calendar export and sharing are the package's business since then, through the native
+ * seam (`NativePortalAffordances`, measured in `PortalCatalogBindingTest`) — not twice.
+ */
 afterEach(fn () => MockClient::destroyGlobal());
 
 function upcomingEventFixtures(): array
@@ -32,222 +46,126 @@ function upcomingEventFixtures(): array
     ];
 }
 
-it('lists the upcoming events of the current month from today on', function () {
+// ── 1. The package's Termine list, out of THIS app's data ──────────────────
+
+it('lists the upcoming dates through the package view', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+        // The Termine view builds its country filter from the same slim list as the list
+        // view — one stock, one cache entry.
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::events.index')->call('load')
+    Livewire::withQueryParams(['ansicht' => 'termine'])->test('group::meetups')
+        ->assertSet('ansicht', 'termine')
         ->assertSeeTextInOrder(['Einundzwanzig Franken', 'Einundzwanzig Wien'])
         ->assertSee('19:00')
         ->assertSee('20:30');
-
-    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => str_ends_with(
-        (string) $response->getPendingRequest()->getUri(),
-        '/api/meetup-events/'.CarbonImmutable::today()->toDateString(),
-    ));
 });
 
-it('shows an empty state when no events are returned', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->assertSee('Keine Termine');
-});
-
-it('offers a reset-to-all-countries button when the country filter yields no events', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->set('country', 'FR') // keine Termine in dieser Region
-        ->assertDontSeeText('Einundzwanzig Franken')
-        ->assertSeeText(__('Alle Länder anzeigen'))
-        ->set('country', '')
-        ->assertSeeText('Einundzwanzig Franken');
-});
-
-it('navigates to the next month and queries its first day', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    $nextMonth = CarbonImmutable::today()->startOfMonth()->addMonth();
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('nextMonth')
-        ->assertSet('month', $nextMonth->format('Y-m'))
-        ->call('previousMonth')
-        ->assertSet('month', '');
-
-    MockClient::global()->assertSent(fn (Request $request, Response $response): bool => str_ends_with(
-        (string) $response->getPendingRequest()->getUri(),
-        '/api/meetup-events/'.$nextMonth->toDateString(),
-    ));
-});
-
-it('opens the event details in a modal', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 1)
-        ->assertSet('selected', 1)
-        ->assertSet('showEvent', true)
-        ->assertSee('Stammtisch im Kaffeehaus')
-        ->assertSee(route('meetups.show', 'wien'));
-});
-
-it('hides the rsvp buttons in the slide-in when not connected', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->assertSet('showEvent', true)
-        ->assertDontSee(__('Ich komme'));
-});
-
-it('shows and submits the rsvp from the slide-in when connected', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make([
-            meetupEventFixture(['id' => 777, 'start' => CarbonImmutable::today()->addDay()->setTime(19, 0)->format('Y-m-d H:i')]),
-        ]),
-        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 0, 'might_attendees' => 0]),
-        RsvpMeetupEventRequest::class => MockResponse::make(['status' => 'attending', 'attendees' => 1, 'might_attendees' => 0]),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->assertSet('rsvpStatus', 'none')
-        ->assertSee(__('Ich komme'))
-        ->assertSee(__('Vielleicht'))
-        ->call('setRsvp', 'attending')
-        ->assertSet('rsvpStatus', 'attending')
-        ->assertSet('rsvpAttendees', 1)
-        ->assertSee(__('Kann nicht'));
-});
-
-it('ignores selecting an event index that does not exist', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 5)
-        ->assertSet('selected', null)
-        ->assertSet('showEvent', false);
-});
-
-it('shares the selected event via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    Share::shouldReceive('url')->once()->withArgs(
-        fn (string $title, string $text, string $url): bool => $title === 'Einundzwanzig Franken'
-            && $url === 'https://t.me/Einundzwanzig_FRANKEN',
-    );
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->call('share');
-});
-
-it('exports the selected event as an ics file via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    $captured = null;
-    Share::shouldReceive('file')->once()->withArgs(
-        function (string $title, string $text, string $filePath) use (&$captured): bool {
-            $captured = $filePath;
-
-            return $title === 'Einundzwanzig Franken' && str_ends_with($filePath, '.ics');
-        },
-    );
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->call('addToCalendar');
-
-    expect($captured)->not->toBeNull()
-        ->and(file_get_contents((string) $captured))
-        ->toContain('BEGIN:VCALENDAR')
-        ->toContain('SUMMARY:Einundzwanzig Franken');
-
-    @unlink((string) $captured);
-});
-
-it('opens the native calendar editor when available and skips the ics share', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
-    ]);
-
-    $this->mock(Calendar::class)
-        ->shouldReceive('addEvent')->once()->andReturnTrue();
-    Share::shouldReceive('file')->never();
-
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->call('addToCalendar');
-});
-
-it('applies the onboarding region as default country filter', function () {
+it('applies the app region to the dates as well', function () {
+    // The same promise as on the list: the region chosen during onboarding is the default,
+    // here through the host key `meetup_default_land` (P5).
     completeOnboarding(country: 'at');
     withoutPortalToken();
     MockClient::global([
         GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
     ]);
 
-    Livewire::test('pages::events.index')->call('load')
-        ->assertSet('country', 'at')
+    Livewire::withQueryParams(['ansicht' => 'termine'])->test('group::meetups')
+        ->assertSet('land', 'at')
         ->assertSeeText('Einundzwanzig Wien')
         ->assertDontSeeText('Einundzwanzig Franken');
 });
 
-it('filters the events by country and resets the selection', function () {
-    withoutPortalToken();
+// ── 2. „Meine Termine" at its new address ───────────────────────────────────
+
+it('lists the own dates of every meetup I lead, upcoming and past apart', function () {
+    withPortalToken();
     MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [
+            myMeetupFixture(['id' => 21, 'slug' => 'aschaffenburg', 'is_leader' => true]),
+        ]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [
+            myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'location' => 'Bitcoin-Bar Aschaffenburg']),
+            myMeetupEventFixture(['id' => 40, 'meetup_id' => 21, 'start' => '2022-01-01T19:00:00.000000Z', 'location' => 'Altes Lokal']),
+        ]]),
     ]);
 
-    Livewire::test('pages::events.index')->call('load')
-        ->call('select', 0)
-        ->set('country', 'at')
-        ->assertSet('selected', null)
-        ->assertSet('showEvent', false)
-        ->assertSeeText('Einundzwanzig Wien')
-        ->assertDontSeeText('Einundzwanzig Franken');
+    Livewire::test('pages::mine.events')
+        ->assertSee(__('Termin anlegen'))
+        ->assertSee('Bitcoin-Bar Aschaffenburg')
+        ->assertSee(__('Vergangene Termine'))
+        ->assertSee('Altes Lokal')
+        // Every row carries its meetup: the dates of SEVERAL meetups stand below one
+        // another here, and a date without its meetup does not say which one it is.
+        ->assertSee('Einundzwanzig Aschaffenburg')
+        ->assertSee(__('Termin bearbeiten'));
 });
 
-it('renders the events page over http', function () {
-    withoutPortalToken();
+it('says why there is nothing to manage when I lead no meetup', function () {
+    withPortalToken();
     MockClient::global([
-        GetMeetupEventsRequest::class => MockResponse::make(upcomingEventFixtures()),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [
+            myMeetupFixture(['id' => 21, 'is_leader' => false]),
+        ]]),
     ]);
 
-    // Lazy-Load: der erste HTTP-Render zeigt nur die Hülle + Skeleton, die
-    // Termine kommen per wire:init nach (siehe Livewire-Test oben). Hier zählt,
-    // dass die Route rendert und das Lazy-Wiring drinsteht.
-    $this->get(route('events'))
+    // A button the API answers with a 403 would be worse than the sentence.
+    Livewire::test('pages::mine.events')
+        ->assertSee(__('Keine Termin-Verwaltung'))
+        ->assertDontSee(__('Termin anlegen'));
+});
+
+it('refreshes the own dates after a save event', function () {
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [
+            myMeetupFixture(['id' => 21, 'is_leader' => true]),
+        ]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [
+            myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'location' => 'Bitcoin-Bar Aschaffenburg']),
+        ]]),
+    ]);
+
+    Livewire::test('pages::mine.events')
+        ->dispatch('meetup-event-saved')
+        ->assertSee('Bitcoin-Bar Aschaffenburg');
+});
+
+it('asks for the portal connection instead of showing an empty page', function () {
+    withoutPortalToken();
+
+    Livewire::test('pages::mine.events')
+        ->assertSee('Mit Portal verbinden')
+        ->assertDontSee(__('Termin anlegen'));
+});
+
+it('renders the own dates page over http', function () {
+    completeOnboarding();
+    withPortalToken();
+    MockClient::global([
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [
+            myMeetupFixture(['id' => 21, 'is_leader' => true]),
+        ]]),
+        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [myMeetupEventFixture()]]),
+    ]);
+
+    $this->get(route('ich.inhalte.termine'))
         ->assertOk()
-        ->assertSee('wire:init="load"', false);
+        ->assertSee('Meine Termine');
+});
+
+// ── 3. The old address ──────────────────────────────────────────────────────
+
+it('forwards /events to the package date list and keeps the region', function () {
+    completeOnboarding();
+
+    $this->get('/events')->assertRedirect('/bereich/meetups?ansicht=termine');
+    // `country` is called `land` there; the destination's own parameter (`ansicht`) comes
+    // first and wins against anything the old address brings along.
+    $this->get('/events?country=at')->assertRedirect('/bereich/meetups?ansicht=termine&land=at');
 });

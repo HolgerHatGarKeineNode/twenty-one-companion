@@ -47,13 +47,13 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             [
                 'icon' => 'user-group',
                 'label' => __('Meine Meetups'),
-                'href' => route('meetups', ['tab' => 'meine']),
+                'href' => route('ich.inhalte.meetups'),
                 'subtitle' => trans_choice('{0}Noch keine Meetups|{1}:count Meetup|[2,*]:count Meetups', $meetups, ['count' => $meetups]),
             ],
             [
                 'icon' => 'calendar-days',
                 'label' => __('Meine Termine'),
-                'href' => route('events'),
+                'href' => route('ich.inhalte.termine'),
                 'subtitle' => __('Termine deiner Meetups verwalten'),
             ],
             [

@@ -28,6 +28,16 @@ final class MeetupEventData extends Data
         // null = Teilnehmerzahl öffentlich verborgen (attendees_public=false).
         public ?int $attendees = null,
         public ?int $might_attendees = null,
+        /**
+         * The NIP-01 address of the kind 31923 the Portal published for this date — or
+         * null (written by the Portal in P1, read here since P5).
+         *
+         * Nullable and with a default, like the three fields above it: a (stale) response
+         * cached before the Portal's deploy does not carry the key, and such a response is
+         * meant to keep rendering the date list offline. Without an address the RSVP
+         * surface shows its REST arm — exactly the case D12 keeps that path for.
+         */
+        public ?string $nostr_address = null,
     ) {}
 
     /**

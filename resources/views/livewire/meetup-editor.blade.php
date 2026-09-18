@@ -485,7 +485,7 @@ new class extends Component
                     {{ __('In :city existiert dieses Meetup bereits. Lege kein Duplikat an — füge es stattdessen zu deinen Meetups hinzu.', ['city' => $this->exactDuplicate->city]) }}
                 </flux:text>
                 <a
-                    href="{{ route('meetups.show', $this->exactDuplicate->slug()) }}"
+                    href="{{ route('group.bereich.meetups.show', $this->exactDuplicate->slug()) }}"
                     wire:navigate
                     class="flex items-center gap-2 text-sm font-medium text-red-900 underline dark:text-red-200"
                 >
@@ -516,7 +516,7 @@ new class extends Component
                 <div class="flex flex-col gap-1">
                     @foreach ($this->duplicates as $duplicate)
                         <a
-                            href="{{ route('meetups.show', $duplicate->slug()) }}"
+                            href="{{ route('group.bereich.meetups.show', $duplicate->slug()) }}"
                             wire:navigate
                             wire:key="dup-{{ $duplicate->slug() }}"
                             class="flex items-center gap-2 text-sm font-medium text-amber-900 underline dark:text-amber-200"

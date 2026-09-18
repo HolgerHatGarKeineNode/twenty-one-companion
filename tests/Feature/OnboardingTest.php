@@ -34,8 +34,11 @@ it('redirects to the onboarding until it is completed', function () {
     // `/ich/einstellungen` is a PACKAGE route and would answer 200 here, which is correct and
     // not a gap: Start and the settings hub render for anyone by design (D4).
     $this->get(route('home'))->assertRedirect(route('onboarding'));
-    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
     $this->get(route('ich.inhalte'))->assertRedirect(route('onboarding'));
+    // The 302 row of a deleted Portal page runs through the gate as well — it sits in the
+    // same middleware group, and a redirect loophole around the onboarding is exactly what
+    // this promise rules out.
+    $this->get('/meetups')->assertRedirect(route('onboarding'));
 });
 
 it('keeps the deep-link auth callbacks outside the onboarding gate and returns to the pager', function () {
@@ -219,7 +222,7 @@ it('holt die Benachrichtigungs-Frage bei Bestandsnutzern nach', function () {
 
     expect(app(AppPreferences::class)->hasAskedNotifications())->toBeFalse();
 
-    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
+    $this->get(route('ich.inhalte'))->assertRedirect(route('onboarding'));
 
     // …und landet direkt auf dem Benachrichtigungs-Schritt, nicht bei der Sprachwahl.
     $this->get(route('onboarding'))

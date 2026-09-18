@@ -62,7 +62,7 @@ test('🟠 the Postfach nav label is translated at render time (en → Inbox)', 
     app()->setLocale('en');
     expect(__('Postfach'))->toBe('Inbox');
 
-    $html = (string) $this->get(route('meetups'))->assertOk()->getContent();
+    $html = (string) $this->get(route('ich.inhalte'))->assertOk()->getContent();
 
     // ONLY the bottom-nav region — a bare `assertSee('Inbox')` would also match a page title
     // and mask the very fix this case is about. Anchored on `data-bottom-nav` and not on the
