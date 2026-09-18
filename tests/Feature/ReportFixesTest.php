@@ -16,8 +16,11 @@ use Illuminate\Support\Facades\Blade;
 afterEach(fn () => app()->setLocale('de'));
 
 test('🔴 list-link-card mit navigate=false rendert einen harten Link (kein wire:navigate)', function () {
-    // Cross-Bundle-Links (ins Chat-group.js) müssen hart laden, sonst bootet
-    // group.js nicht via alpine:init (wire:navigate trägt den <head> mit).
+    // Links across the two LAYOUTS load hard. The original reason (a second JS bundle,
+    // `group.js`, that never booted through a carried-over `<head>`) is gone with P4 — the
+    // entry is one now. The unmeasured half is the stylesheet: the two layouts load
+    // different CSS, and nothing has shown that a soft navigation carries it. See the
+    // component's docblock.
     $hard = Blade::render('<x-list-link-card href="/x" :navigate="false">y</x-list-link-card>');
     expect($hard)->toContain('href="/x"')->and($hard)->not->toContain('wire:navigate');
 
@@ -27,9 +30,9 @@ test('🔴 list-link-card mit navigate=false rendert einen harten Link (kein wir
 });
 
 test('🔴 the sign-in card leads to /nostr-login as a HARD load', function () {
-    // Cross-bundle: the login view lives in the chat bundle, so the anchor must not
-    // SPA-navigate — `group.js` boots on `alpine:init`, and `wire:navigate` carries the old
-    // `<head>` along.
+    // Across the layouts, so the anchor must not SPA-navigate. Since P4 that is no longer
+    // about a second JS bundle (there is one entry) but about the stylesheet the other
+    // layout brings — unmeasured, therefore unchanged.
     //
     // Until P2 the anchor stood on the "Mehr" hub, which is gone. It stands on „Ich" now,
     // where the identity lives, and the demand is the same one.
