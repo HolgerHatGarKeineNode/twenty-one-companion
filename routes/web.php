@@ -220,7 +220,8 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     /*
      * ── The Portal pages of this app (P5) ────────────────────────────────────────
      *
-     * Same controller and same rules as the rows above: 302 with the query carried along, a
+     * Same controller and same rules as the rows above: 301 since P7 (302 before), with the
+     * query carried along, a
      * controller rather than a closure because the mobile build caches its routes. Three of
      * these rows do more than change a path, and each does it with the controller's own
      * vocabulary (`behalte`, `umbenenne`, `weiche` — `packages/…/LegacyRedirect.php`):

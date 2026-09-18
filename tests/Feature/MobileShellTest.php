@@ -55,7 +55,7 @@ it('renders the three shared slots of the bottom bar on an app page', function (
     expect($nav)->not->toBeFalse('marker data-bottom-nav missing — the narrowing would have no subject');
     $nav = (string) mb_strstr((string) $nav, '</nav>', true);
 
-    // Since P5 the three old paths are 302 rows (this app's Portal pages moved into the
+    // Since P5 the three old paths are redirect rows (301 since P7; this app's Portal pages moved into the
     // package, D9) — they must not be slots of the bar either.
     expect($nav)->not->toContain(url('/events'));
     expect($nav)->not->toContain(url('/map'));

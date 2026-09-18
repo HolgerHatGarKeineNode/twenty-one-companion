@@ -28,7 +28,7 @@ use Saloon\Http\Request;
  *
  * So this file measures four things instead of one page:
  *   1. the moved write surface at its new address,
- *   2. that the old addresses lead there (302, query preserved),
+ *   2. that the old addresses lead there (301 since P7, query preserved),
  *   3. that the app's region is still the default of the country filter — behaviour
  *      that would have vanished with the deleted page, and silently,
  *   4. the REST RSVP that D15 expressly keeps.
@@ -52,7 +52,7 @@ it('shows the own meetups with badge, edit and remove affordances', function () 
         ->assertSee('Aktiv')
         ->assertSee('Meetup bearbeiten')
         ->assertSee('Aus „Meine“ entfernen')
-        // The card leads to the PACKAGE page and not onto the 302 row: a detour of our
+        // The card leads to the PACKAGE page and not onto the redirect row: a detour of our
         // own through the redirect would be one round trip for nothing.
         ->assertSee(route('group.bereich.meetups.show', 'aschaffenburg'));
 });
@@ -143,13 +143,16 @@ it('renders the own meetups page over http', function () {
         ->assertSee('Meine Meetups');
 });
 
-// ── 2. The old addresses (302, query preserved) ─────────────────────────────
+// ── 2. The old addresses (301 since P7, query preserved) ────────────────────
 
 it('forwards the old meetup list to the package page and keeps its filters', function () {
     completeOnboarding();
 
     // Without a query: the package's list.
-    $this->get('/meetups')->assertRedirect('/bereich/meetups');
+    // **The STATUS, once, in this repository too.** `assertRedirect` accepts any 3xx, so
+    // without this line nothing here would notice if the rows fell back to 302 — and the
+    // whole point of P7's last step is that they are permanent now.
+    $this->get('/meetups')->assertStatus(301)->assertRedirect('/bereich/meetups');
 
     // `country` is called `land` there — renamed, not dropped: the parameter stands in
     // shared links and in shipped app builds.
