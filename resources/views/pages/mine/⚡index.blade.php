@@ -47,25 +47,25 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             [
                 'icon' => 'user-group',
                 'label' => __('Meine Meetups'),
-                'href' => route('meetups', ['tab' => 'meine']),
+                'href' => route('ich.inhalte.meetups'),
                 'subtitle' => trans_choice('{0}Noch keine Meetups|{1}:count Meetup|[2,*]:count Meetups', $meetups, ['count' => $meetups]),
             ],
             [
                 'icon' => 'calendar-days',
                 'label' => __('Meine Termine'),
-                'href' => route('events'),
+                'href' => route('ich.inhalte.termine'),
                 'subtitle' => __('Termine deiner Meetups verwalten'),
             ],
             [
                 'icon' => 'building-office-2',
                 'label' => __('Meine Orte & Städte'),
-                'href' => route('mine.places'),
+                'href' => route('ich.inhalte.orte'),
                 'subtitle' => __('Veranstaltungsorte und Städte'),
             ],
             [
                 'icon' => 'academic-cap',
                 'label' => __('Meine Kurse & Referenten'),
-                'href' => route('mine.teaching'),
+                'href' => route('ich.inhalte.lehre'),
                 'subtitle' => trans_choice('{0}Noch keine Kurse|{1}:count Kurs|[2,*]:count Kurse', $courses, ['count' => $courses]),
             ],
         ];

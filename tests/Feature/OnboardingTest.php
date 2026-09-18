@@ -28,9 +28,17 @@ function mockOnboardingMeetups(): void
 it('redirects to the onboarding until it is completed', function () {
     resetOnboarding();
 
+    // HOST routes: `EnsureOnboarded` wraps this app's own route group, never the package's.
+    // That was true before P2 as well (the chat was reachable un-onboarded) — the earlier
+    // spelling of this case used `/profile`, which was a host route; its successor
+    // `/ich/einstellungen` is a PACKAGE route and would answer 200 here, which is correct and
+    // not a gap: Start and the settings hub render for anyone by design (D4).
     $this->get(route('home'))->assertRedirect(route('onboarding'));
-    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
-    $this->get(route('profile'))->assertRedirect(route('onboarding'));
+    $this->get(route('ich.inhalte'))->assertRedirect(route('onboarding'));
+    // The 302 row of a deleted Portal page runs through the gate as well — it sits in the
+    // same middleware group, and a redirect loophole around the onboarding is exactly what
+    // this promise rules out.
+    $this->get('/meetups')->assertRedirect(route('onboarding'));
 });
 
 it('keeps the deep-link auth callbacks outside the onboarding gate and returns to the pager', function () {
@@ -91,7 +99,7 @@ it('walks through the pager and completes the onboarding', function () {
         ->call('skip') // Push überspringen → Fertig
         ->assertSet('step', AppPreferences::STEP_DONE)
         ->call('finish')
-        ->assertRedirect(route('meetups'));
+        ->assertRedirect(route('group.start'));
 
     $preferences = app(AppPreferences::class);
 
@@ -159,7 +167,7 @@ it('stores the selection and redirects to the start page when finishing', functi
         ->assertSet('country', 'de')
         ->set('country', 'at')
         ->call('finish')
-        ->assertRedirect(route('meetups'));
+        ->assertRedirect(route('group.start'));
 
     $preferences = app(AppPreferences::class);
 
@@ -214,7 +222,7 @@ it('holt die Benachrichtigungs-Frage bei Bestandsnutzern nach', function () {
 
     expect(app(AppPreferences::class)->hasAskedNotifications())->toBeFalse();
 
-    $this->get(route('meetups'))->assertRedirect(route('onboarding'));
+    $this->get(route('ich.inhalte'))->assertRedirect(route('onboarding'));
 
     // …und landet direkt auf dem Benachrichtigungs-Schritt, nicht bei der Sprachwahl.
     $this->get(route('onboarding'))
@@ -265,7 +273,7 @@ it('fragt Bestandsnutzer nur einmal und läuft dabei nicht im Kreis', function (
         ->and($preferences->pushEnabled())->toBeFalse();
 
     // Zweiter Aufruf: keine Umleitung mehr.
-    $this->get(route('meetups'))->assertOk();
+    $this->get(route('group.start'))->assertOk();
 });
 
 it('schaltet Push ein und vermerkt die Frage als gestellt', function () {

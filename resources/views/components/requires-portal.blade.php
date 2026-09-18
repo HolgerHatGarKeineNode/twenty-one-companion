@@ -23,7 +23,9 @@
         <flux:text class="max-w-xs">
             {{ $text ?? __('Verbinde die App mit deinem EINUNDZWANZIG-Portal-Konto, um diese Funktion zu nutzen.') }}
         </flux:text>
-        <flux:button :href="route('profile')" wire:navigate variant="primary" icon="key" class="mt-1 cursor-pointer">
+        {{-- The Portal connection is a section of the package settings hub since P2; this
+             CTA points at the hub, not at the old `/profile` screen (which is a 302 now). --}}
+        <flux:button :href="route('group.ich.einstellungen')" wire:navigate variant="primary" icon="key" class="mt-1 cursor-pointer">
             {{ __('Konto verbinden') }}
         </flux:button>
     </div>

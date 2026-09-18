@@ -18,5 +18,5 @@ it('renders the connect call-to-action instead of the content without a token', 
 
     expect($html)->not->toContain('GEHEIMES FORMULAR')
         ->and($html)->toContain('Konto verbinden')
-        ->and($html)->toContain(route('profile'));
+        ->and($html)->toContain(route('group.ich.einstellungen'));
 });

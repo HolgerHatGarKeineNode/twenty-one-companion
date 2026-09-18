@@ -1,190 +1,91 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventRsvpRequest;
-use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
-use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
 use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use Livewire\Livewire;
-use Native\Mobile\Facades\Browser;
-use Native\Mobile\Facades\Share;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 use Saloon\Http\Request;
 
+/**
+ * The meetup surfaces of this app — AFTER the move (P5).
+ *
+ * ══ What changed, and why this file no longer looks the way it did ═══════════
+ *
+ * Until P4 this app had Portal pages of its own: `/meetups` with the tabs „Alle" and
+ * „Meine", `/meetups/{slug}` as the detail page. The READING surfaces have lived in
+ * the package since P4 (D9 — one stock, not two) and are read-only there; P5 deleted
+ * the copies here. What is NOT reading could not stay there, because the package holds
+ * no Portal token, and moved:
+ *
+ *   „Meine" (picker, editor, remove)  →  `/ich/inhalte/meetups`
+ *   a leader's date management        →  `/ich/inhalte/termine` (EventsPageTest)
+ *   the REST RSVP of a date           →  `<livewire:rest-rsvp>`, included by the
+ *                                        package through `portal_rsvp_view` (D12/D15)
+ *
+ * So this file measures four things instead of one page:
+ *   1. the moved write surface at its new address,
+ *   2. that the old addresses lead there (301 since P7, query preserved),
+ *   3. that the app's region is still the default of the country filter — behaviour
+ *      that would have vanished with the deleted page, and silently,
+ *   4. the REST RSVP that D15 expressly keeps.
+ *
+ * What the PACKAGE pages make of this app's data is in `PortalCatalogBindingTest`
+ * (binding, map, host block, native affordances) and in the package repo itself
+ * (`PortalSeitenTest`). A third place for it would be three truths about one list.
+ */
 afterEach(fn () => MockClient::destroyGlobal());
 
-function viennaMeetupFixture(): array
-{
-    return mobileMeetupFixture([
-        'name' => 'Einundzwanzig Wien',
-        'slug' => 'wien',
-        'country' => 'AT',
-        'city' => 'Wien',
-        'next_event_start' => null,
-    ]);
-}
+// ── 1. „Meine Meetups" at its new address ───────────────────────────────────
 
-it('lists the map meetups with the soonest upcoming event first, then by name', function () {
-    withoutPortalToken();
-    // Wien: späterer Termin, Berlin: kein Termin, Aschaffenburg (Default): frühester Termin (2026-06-19).
-    $wien = mobileMeetupFixture([
-        'name' => 'Einundzwanzig Wien',
-        'slug' => 'wien',
-        'city' => 'Wien',
-        'country' => 'AT',
-        'next_event_start' => '2026-08-01 18:00',
-    ]);
-    $berlin = mobileMeetupFixture(['name' => 'Einundzwanzig Berlin', 'slug' => 'berlin', 'city' => 'Berlin', 'next_event_start' => null]);
-
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([$wien, $berlin, mobileMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->assertSeeTextInOrder(['Einundzwanzig Aschaffenburg', 'Einundzwanzig Wien', 'Einundzwanzig Berlin'])
-        ->assertSee('Aschaffenburg · DE')
-        ->assertSee('Wien · AT')
-        ->assertSee(route('meetups.show', 'aschaffenburg'));
-});
-
-it('renders the next-event badge in the user timezone', function () {
-    withTimezone('Europe/Berlin');
-    withoutPortalToken();
-    // 16:30 UTC (Sommer) → 18:30 Berlin: der Badge muss die konvertierte Zeit zeigen.
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(['next_event_start' => '2026-06-19 16:30'])]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->assertSeeText('18:30')
-        ->assertDontSeeText('16:30');
-});
-
-it('filters meetups by search term and country', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(), viennaMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('search', 'wien')
-        ->assertSeeText('Einundzwanzig Wien')
-        ->assertDontSeeText('Einundzwanzig Aschaffenburg')
-        ->set('search', '')
-        ->set('country', 'DE')
-        ->assertSeeText('Einundzwanzig Aschaffenburg')
-        ->assertDontSeeText('Einundzwanzig Wien');
-});
-
-it('offers a reset-to-all-countries button when the country filter yields no meetups', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]), // nur DE
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('country', 'FR') // keine Meetups → leerer Zustand
-        ->assertDontSeeText('Einundzwanzig Aschaffenburg')
-        ->assertSeeText(__('Alle Länder anzeigen'))
-        ->set('country', '')
-        ->assertSeeText('Einundzwanzig Aschaffenburg');
-});
-
-it('applies the onboarding region as default country filter', function () {
-    completeOnboarding(country: 'at');
-    withoutPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture(), viennaMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->assertSet('country', 'at')
-        ->assertSeeText('Einundzwanzig Wien')
-        ->assertDontSeeText('Einundzwanzig Aschaffenburg');
-});
-
-it('hides the my-meetups tab for guests', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->assertDontSee('Meine Meetups');
-
-    MockClient::global()->assertSentCount(1);
-});
-
-it('shows the own meetups on the my-meetups tab when connected', function () {
+it('shows the own meetups with badge, edit and remove affordances', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->assertSee('Meine Meetups')
-        ->set('tab', 'meine')
-        ->assertSeeText('Einundzwanzig Aschaffenburg')
-        ->assertSee(route('meetups.show', 'aschaffenburg'));
-});
-
-it('shows an edit affordance and status badge on own meetups', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['is_active' => true])]]),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
+    Livewire::test('pages::mine.meetups')
         ->assertSeeText('Einundzwanzig Aschaffenburg')
         ->assertSee('Aktiv')
-        ->assertSee('Meetup bearbeiten');
+        ->assertSee('Meetup bearbeiten')
+        ->assertSee('Aus „Meine“ entfernen')
+        // The card leads to the PACKAGE page and not onto the redirect row: a detour of our
+        // own through the redirect would be one round trip for nothing.
+        ->assertSee(route('group.bereich.meetups.show', 'aschaffenburg'));
 });
 
-it('shows a create call-to-action when the own meetups list is empty', function () {
+it('shows the discovery-first call to action when the own list is empty', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
+    Livewire::test('pages::mine.meetups')
         ->assertSee('Noch keine eigenen Meetups')
-        // Discovery-First (Phase 4.3): „aussuchen“ primär, „neu anlegen“ als Fallback.
+        // „aussuchen" primary, „neu anlegen" as the fallback — against duplicates.
         ->assertSee('Meetup aussuchen')
         ->assertSee('Neues Meetup anlegen');
 });
 
-it('shows a remove-from-mine affordance on own meetups', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
-    ]);
+it('asks for the portal connection instead of showing an empty page', function () {
+    withoutPortalToken();
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
-        ->assertSee('Aus „Meine“ entfernen');
+    Livewire::test('pages::mine.meetups')
+        ->assertSee('Mit Portal verbinden')
+        ->assertDontSee('Meetup aussuchen');
 });
 
 it('removes a meetup from mine by slug', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
         RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
-        ->call('removeFromMine', 'aschaffenburg');
+    Livewire::test('pages::mine.meetups')->call('removeFromMine', 'aschaffenburg');
 
     MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof RemoveMeetupFromMineRequest
         && $request->resolveEndpoint() === '/my-meetups/aschaffenburg');
@@ -193,13 +94,11 @@ it('removes a meetup from mine by slug', function () {
 it('removes from mine after the native confirm button', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
         RemoveMeetupFromMineRequest::class => MockResponse::make(['data' => myMeetupFixture(['slug' => 'aschaffenburg'])], 200),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
+    Livewire::test('pages::mine.meetups')
         ->set('confirmKey', 'remove-from-mine')
         ->set('confirmPayload', ['slug' => 'aschaffenburg'])
         ->call('handleConfirmButton', 1, 'Entfernen', 'remove-from-mine');
@@ -210,12 +109,10 @@ it('removes from mine after the native confirm button', function () {
 it('keeps the meetup when the native confirm is cancelled', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['slug' => 'aschaffenburg'])]]),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
+    Livewire::test('pages::mine.meetups')
         ->set('confirmKey', 'remove-from-mine')
         ->set('confirmPayload', ['slug' => 'aschaffenburg'])
         ->call('handleConfirmButton', 0, 'Abbrechen', 'remove-from-mine');
@@ -223,276 +120,134 @@ it('keeps the meetup when the native confirm is cancelled', function () {
     MockClient::global()->assertNotSent(RemoveMeetupFromMineRequest::class);
 });
 
-it('does not remove from mine without a portal token', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.index')->call('load')
-        ->call('removeFromMine', 'aschaffenburg');
-
-    MockClient::global()->assertNotSent(RemoveMeetupFromMineRequest::class);
-});
-
 it('refreshes the own meetups after a save event', function () {
     withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([viennaMeetupFixture()]),
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);
 
-    Livewire::test('pages::meetups.index')->call('load')
-        ->set('tab', 'meine')
+    Livewire::test('pages::mine.meetups')
         ->dispatch('meetup-saved')
         ->assertSeeText('Einundzwanzig Aschaffenburg');
 });
 
-it('renders the meetups page over http', function () {
-    withoutPortalToken();
+it('renders the own meetups page over http', function () {
+    completeOnboarding();
+    withPortalToken();
     MockClient::global([
-        GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
+        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);
 
-    // Lazy-Load: der erste HTTP-Render zeigt Filterleiste + Skeleton, die Liste
-    // kommt per wire:init nach (Datenprüfung siehe Livewire-Test oben). Hier
-    // zählt, dass die Route rendert und das Lazy-Wiring drinsteht.
-    $this->get(route('meetups'))
+    $this->get(route('ich.inhalte.meetups'))
         ->assertOk()
-        ->assertSee('wire:init="load"', false);
+        ->assertSee('Meine Meetups');
 });
 
-it('shows the meetup detail with next event, intro and links', function () {
-    withoutPortalToken();
+// ── 2. The old addresses (301 since P7, query preserved) ────────────────────
+
+it('forwards the old meetup list to the package page and keeps its filters', function () {
+    completeOnboarding();
+
+    // Without a query: the package's list.
+    // **The STATUS, once, in this repository too.** `assertRedirect` accepts any 3xx, so
+    // without this line nothing here would notice if the rows fell back to 302 — and the
+    // whole point of P7's last step is that they are permanent now.
+    $this->get('/meetups')->assertStatus(301)->assertRedirect('/bereich/meetups');
+
+    // `country` is called `land` there — renamed, not dropped: the parameter stands in
+    // shared links and in shipped app builds.
+    // Order: `behalte` before `umbenenne`, the way the controller works through them.
+    $this->get('/meetups?country=at&q=wien')
+        ->assertRedirect('/bereich/meetups?q=wien&land=at');
+
+    // `?tab=meine` was the WRITE surface and leaves the list entirely.
+    $this->get('/meetups?tab=meine')->assertRedirect('/ich/inhalte/meetups');
+});
+
+it('forwards an old meetup detail link with its slug', function () {
+    completeOnboarding();
+
+    $this->get('/meetups/aschaffenburg')->assertRedirect('/bereich/meetups/aschaffenburg');
+});
+
+// ── 3. The app's region stays the default of the country filter ─────────────
+
+it('opens the package meetup list on the app region', function () {
+    // The behaviour of the deleted own list: whoever chose Austria during onboarding gets
+    // Austria. Without the host default (`meetup_default_land`) it would have disappeared
+    // with the page — silently.
+    completeOnboarding(country: 'at');
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([
-            mapMeetupFixture(['intro' => 'Wir treffen uns **jeden Monat**.', 'website' => 'https://aschaffenburg.example']),
+        GetMobileMeetupsRequest::class => MockResponse::make([
+            mobileMeetupFixture(),
+            mobileMeetupFixture(['name' => 'Einundzwanzig Wien', 'slug' => 'wien', 'city' => 'Wien', 'country' => 'AT']),
         ]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSeeText('Einundzwanzig Aschaffenburg')
-        ->assertSee('Nächster Termin')
-        ->assertSee('Mainaschaff')
-        ->assertSee('jeden Monat')
-        ->assertSee('Telegram')
-        ->assertSee('Website');
+    Livewire::test('group::meetups')
+        ->assertSet('land', 'at')
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertDontSeeText('Einundzwanzig Aschaffenburg');
 });
 
-it('shows the own-event management section on the detail of an own meetup', function () {
+it('lets a shared link and an emptied filter win over the app region', function () {
+    completeOnboarding(country: 'at');
+    MockClient::global([
+        GetMobileMeetupsRequest::class => MockResponse::make([
+            mobileMeetupFixture(),
+            mobileMeetupFixture(['name' => 'Einundzwanzig Wien', 'slug' => 'wien', 'city' => 'Wien', 'country' => 'AT']),
+        ]),
+    ]);
+
+    // A shared link carrying `?land=de`.
+    Livewire::withQueryParams(['land' => 'de'])->test('group::meetups')
+        ->assertSet('land', 'de')
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
+
+    // And „Alle Länder" has to stay reachable: `?land=` is NOT a missing value.
+    Livewire::withQueryParams(['land' => ''])->test('group::meetups')
+        ->assertSet('land', '')
+        ->assertSeeText('Einundzwanzig Wien')
+        ->assertSeeText('Einundzwanzig Aschaffenburg');
+});
+
+// ── 4. The REST RSVP stays (D15) ────────────────────────────────────────────
+
+it('hydrates the own REST rsvp status and offers the three answers', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['id' => 21, 'slug' => 'aschaffenburg'])]]),
-        GetMyMeetupEventsRequest::class => MockResponse::make(['data' => [
-            myMeetupEventFixture(['id' => 55, 'meetup_id' => 21, 'location' => 'Bitcoin-Bar Aschaffenburg']),
-            myMeetupEventFixture(['id' => 40, 'meetup_id' => 21, 'start' => '2022-01-01T19:00:00.000000Z', 'location' => 'Altes Lokal']),
-        ]]),
-        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSee(__('Meine Termine'))
-        ->assertSee(__('Termin anlegen'))
-        ->assertSee('Bitcoin-Bar Aschaffenburg')
-        ->assertSee(__('Vergangene Termine'))
-        ->assertSee('Altes Lokal')
-        // Edit-Affordance fürs eigene Meetup (Phase 4.2 auf der Detail-Seite).
-        ->assertSee(__('Bearbeiten'))
-        ->assertSeeHtml("Livewire.dispatch('open-meetup-editor', { id: 21 })");
-});
-
-it('hides the own-event management section for non-owners', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
-        GetMeetupEventRsvpRequest::class => MockResponse::make(['status' => 'none', 'attendees' => 1, 'might_attendees' => 0]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSeeText('Einundzwanzig Aschaffenburg')
-        ->assertDontSee(__('Meine Termine'))
-        ->assertDontSee(__('Bearbeiten'));
-});
-
-it('shows the room-chat deep-link button when the meetup has a private room', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => 7, 'has_room' => true])]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSee(__('Zum Raum-Chat'))
-        ->assertSee(route('group.room', 'm7902699be42c'));
-});
-
-it('hides the room-chat deep-link button when the meetup has no room', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => 7, 'has_room' => false])]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertDontSee(__('Zum Raum-Chat'));
-});
-
-it('hides the room-chat deep-link button when the meetup has no id even with has_room true', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture(['id' => null, 'has_room' => true])]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertDontSee(__('Zum Raum-Chat'));
-});
-
-it('shows a friendly fallback for unknown meetup slugs', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'gibt-es-nicht'])->call('load')
-        ->assertSee('Meetup nicht gefunden');
-});
-
-it('shares the meetup link via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Share::shouldReceive('url')->once()->withArgs(
-        fn (string $title, string $text, string $url): bool => $title === 'Einundzwanzig Aschaffenburg'
-            && $url === 'https://portal.einundzwanzig.space/de/meetup/aschaffenburg',
-    );
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('share');
-});
-
-it('renders the next-event action buttons on the detail page', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSee('Nächster Termin')
-        ->assertSee(__('Link öffnen'))
-        ->assertSee(__('Teilen'))
-        ->assertSee(__('Zum Kalender'));
-});
-
-it('shares the next event via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Share::shouldReceive('url')->once()->withArgs(
-        // Teilt den nächsten Termin (dessen Link), nicht die Meetup-Portalseite.
-        fn (string $title, string $text, string $url): bool => $title === 'Einundzwanzig Aschaffenburg'
-            && $url === 'https://t.me/einundzwanzig_aschaffenburg',
-    );
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('shareEvent');
-});
-
-it('exports the next event as an ics file via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    $captured = null;
-    Share::shouldReceive('file')->once()->withArgs(
-        function (string $title, string $text, string $filePath) use (&$captured): bool {
-            $captured = $filePath;
-
-            return $title === 'Einundzwanzig Aschaffenburg' && str_ends_with($filePath, '.ics');
-        },
-    );
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('addToCalendar');
-
-    expect($captured)->not->toBeNull()
-        ->and(file_get_contents((string) $captured))
-        ->toContain('BEGIN:VCALENDAR')
-        ->toContain('SUMMARY:Einundzwanzig Aschaffenburg');
-
-    @unlink((string) $captured);
-});
-
-it('hides the rsvp buttons for the next event when not connected', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSee('Nächster Termin')
-        ->assertDontSee(__('Ich komme'));
-});
-
-it('shows the rsvp buttons and hydrates the own status when connected', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
         GetMeetupEventRsvpRequest::class => MockResponse::make([
             'status' => 'maybe', 'attendees' => 3, 'might_attendees' => 2,
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
+    Livewire::test('rest-rsvp', ['eventId' => 555])
         ->assertSet('rsvpStatus', 'maybe')
         ->assertSet('rsvpAttendees', 3)
         ->assertSet('rsvpMightAttendees', 2)
         ->assertSee(__('Ich komme'))
         ->assertSee(__('Vielleicht'))
-        // „Kann nicht" nur, wenn der Nutzer aktuell zu-/vielleicht-gesagt hat.
+        // „Kann nicht" only when the user currently answered yes or maybe.
         ->assertSee(__('Kann nicht'));
 });
 
 it('does not show the withdraw button when the user has not responded', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
         GetMeetupEventRsvpRequest::class => MockResponse::make([
             'status' => 'none', 'attendees' => 0, 'might_attendees' => 0,
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
+    Livewire::test('rest-rsvp', ['eventId' => 555])
         ->assertSet('rsvpStatus', 'none')
         ->assertSee(__('Ich komme'))
         ->assertDontSee(__('Kann nicht'));
 });
 
-it('sends the rsvp and updates status and counts from the response', function () {
+it('sends the REST rsvp and updates status and counts from the response', function () {
     withPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-        GetMyMeetupsRequest::class => MockResponse::make(['data' => []]),
         GetMeetupEventRsvpRequest::class => MockResponse::make([
             'status' => 'none', 'attendees' => 1, 'might_attendees' => 0,
         ]),
@@ -501,50 +256,17 @@ it('sends the rsvp and updates status and counts from the response', function ()
         ]),
     ]);
 
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->assertSet('rsvpStatus', 'none')
+    Livewire::test('rest-rsvp', ['eventId' => 555])
         ->call('setRsvp', 'attending')
         ->assertSet('rsvpStatus', 'attending')
         ->assertSet('rsvpAttendees', 2)
         ->assertSee(__('Kann nicht'));
 });
 
-it('opens external links in the system browser', function () {
+it('shows no REST rsvp buttons without a portal token', function () {
     withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
 
-    Browser::shouldReceive('open')->once()->with('https://t.me/einundzwanzig_aschaffenburg');
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('openLink', 'https://t.me/einundzwanzig_aschaffenburg');
-});
-
-it('opens messenger links with a native app in the system browser', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Browser::shouldReceive('open')->once()->with('https://api.whatsapp.com/send?phone=4915112345678');
-    Browser::shouldReceive('inApp')->never();
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('openLink', 'https://api.whatsapp.com/send?phone=4915112345678');
-});
-
-it('refuses to open links with non-http schemes', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([mapMeetupFixture()]),
-        GetMeetupEventsRequest::class => MockResponse::make([]),
-    ]);
-
-    Browser::shouldReceive('open')->never();
-
-    Livewire::test('pages::meetups.show', ['slug' => 'aschaffenburg'])->call('load')
-        ->call('openLink', 'nostrsigner:xyz');
+    Livewire::test('rest-rsvp', ['eventId' => 555])
+        ->assertSet('rsvpStatus', null)
+        ->assertDontSee(__('Ich komme'));
 });

@@ -1,17 +1,23 @@
 <?php
 
-/*
- * P3 (App-Shell-Verschmelzung §3.2/§8.2): der Feature-Flag `UNIFIED_SHELL`
- * schaltet die verschmolzene 4-Tab-Shell (Chat · Wallet · Meetups · Mehr)
- * kohärent an EINER Stelle — er steuert sowohl die Nav-Registry + den
- * Chat-Rücksprung hier als auch `mobile.blade` (alte 5-Tab-Nav vs. geteilte
- * `<x-group::bottom-nav>`). Aus = heutiges Verhalten (Package-Default-Nav im
- * Chat, 5-Tab-Nav auf den Meetups-Seiten, „‹ Meetups"-Ausgang). An = Chat ist
- * Tab 1, kein Takeover, kein Exit-Link.
- */
-$unifiedShell = (bool) env('UNIFIED_SHELL', false);
+use App\Services\AppPreferences;
 
-$config = [
+/*
+ * ══ The companion's view of the package shell (Concept C, P2) ═══════════════════════
+ *
+ * `unified_shell`, `exit` and `nav` are GONE from this file. They were the three keys of
+ * the two-shell era: a flag that switched between a legacy 5-tab bar with a hamburger
+ * flyout and a merged 4-tab bar, an exit link back out of the chat takeover, and a per-host
+ * tab registry. Since Concept C there is ONE shell with three fixed slots
+ * (Start · Search · Postfach), and what a host may still redirect are the flat keys below.
+ *
+ * `settings_route` is gone as well, and that is the more interesting deletion: it pointed at
+ * this app's own `/profile` screen, because that screen carried the Portal preferences AND
+ * the Nostr sections while the package hub carried a second, thinner version of the same
+ * sections. Now the app's own sections are INJECTED into the package hub (`view:` entries in
+ * `settings`), so there is one settings place and no config line is needed to say where it is.
+ */
+return [
     /*
      * Fixierter Default-Space (§12): die Relay-URL, die die Web-Client-Insel
      * VOR dem welshman-Boot als `window.__nostrSpace` gesetzt bekommt. Leer =
@@ -31,84 +37,102 @@ $config = [
      * head_partial = group::partials.head). Der Fremdhost zeigt hier auf seinen
      * Insel-Entry + das Chat-Theme-CSS.
      */
-    'vite' => ['resources/css/group.css', 'resources/js/group.js'],
+    'vite' => ['resources/css/group.css', 'resources/js/app.js'],
 
     /*
-     * Feature-Flag der verschmolzenen Shell (P3). Von `mobile.blade` gelesen, um
-     * zwischen alter 5-Tab-Nav (+ Hamburger-Flyout) und der geteilten
-     * `<x-group::bottom-nav>` (4 Tabs, Mehr-Hub statt Flyout) umzuschalten.
+     * ── The area tiles on Start ───────────────────────────────────────────────────
+     *
+     * No override any more (P4). Up to P3 this file redirected `meetups` and `kurse` to
+     * this app's own pages, because the package had none — D9 built them in P4, so both
+     * tiles now lead to the package routes in every host. The `AreaRegistry::defaults()`
+     * argument stays available for the next host that has a better page for one area.
      */
-    'unified_shell' => $unifiedShell,
 
     /*
-     * Settings-Registry (§4.1): geordnete Section-Keys, die der verschmolzene
-     * group.settings-Hub iteriert. Mobile-Satz: MIT 'relays' (Power-User, NIP-65
-     * read-only Netzwerk & Relays, §6.4), OHNE 'wallet' — die Wallet ist ein eigener
-     * Bottom-Nav-Peer-Tab (Chat·Wallet·Meetups·Mehr), kein doppelter Hub-Einstieg.
-     * Ersetzt den früheren `show_relays`-Flag (Sichtbarkeit = „ist der Key gelistet?").
+     * ── The „Ich" page ───────────────────────────────────────────────────────────
+     *
+     * Plus "Meine Inhalte" (`/ich/inhalte`), which only this app has: creating and editing
+     * meetups, dates, venues and courses needs a Portal token, and the package knows
+     * nothing about one. Injected with a `view:` prefix, the same mechanism as the settings
+     * sections below.
+     */
+    'ich' => ['identitaet', 'wallet', 'view:partials.ich.inhalte', 'verein', 'lesezeichen', 'einstellungen'],
+
+    /*
+     * ── The settings hub — ONE place, and this app's sections live INSIDE it ──────
+     *
+     * Until P2 this app had its own settings screen (`pages/profile`) and pointed
+     * `settings_route` at it, because the Portal preferences are Livewire server state and
+     * the package hub has none. The package hub now understands `view:` entries: the entry
+     * is included as a HOST view, and each of those views mounts a Livewire component of
+     * its own — which is where the server state lives.
+     *
+     * Order follows the user's mental model: identity → the service bound to it → space →
+     * region → appearance → notifications → the advanced relay/media block → about →
+     * sign out.
+     *
+     * `session` is deliberately NOT in this list: the package's own partial signs out of
+     * the NOSTR session only. In this app signing out also has to revoke the Portal token,
+     * so `view:partials.settings.logout` replaces it — one sign-out, not two.
      *
      * @var list<string>
      */
-    'settings' => ['account', 'space', 'relays', 'blossom', 'appearance', 'session'],
+    'settings' => [
+        'account',
+        'view:partials.settings.portal-connect',
+        'space',
+        'view:partials.settings.region',
+        'appearance',
+        'view:partials.settings.push',
+        'relays',
+        'blossom',
+        'view:partials.settings.about',
+        'view:partials.settings.logout',
+    ],
 
     /*
-     * Rücksprung aus dem Vollbild-Chat zurück in die App. Nur im Legacy-Modus:
-     * dort läuft der Chat als eingebetteter Tab mit eigenem Vollbild-Layout, das
-     * die App-Shell ersetzt — der App-Header zeigt oben links einen „‹ Meetups"-
-     * Ausgang (bewusst NICHT über `home`: die Start-Weiche loopt chat-eingeloggte
-     * Nutzer zurück in den Chat). Unified: Chat ist Tab 1 der einen Shell → kein
-     * Exit-Link mehr (§3.3), darum `null` = Brand-Mark statt Ausgang.
+     * The views `/bereich/meetups` offers. This app adds `karte`: the map needs Leaflet and
+     * the device's location, so it is the one view only the app can bind.
+     *
+     * @var list<string>
      */
-    'exit' => $unifiedShell ? null : ['route' => 'meetups', 'label' => 'Meetups'],
+    'meetup_views' => ['liste', 'termine', 'karte'],
 
     /*
-     * „Einstellungen" heißt in dieser App `pages/profile`, nicht `group.settings`.
+     * …and this is the view that renders it (P4). It lives HERE and not in the package for
+     * one measured reason: Leaflet plus marker clustering is ~150 kB, and the package is
+     * embedded by the association's web app for four chat views. A map in that embed would
+     * be weight nobody there asked for. On the web the package therefore links to the
+     * Portal's own map instead (`meetup_map_view => null` is the default).
      *
-     * P6 hat Portal-Prefs und Nostr-Sektionen auf EINEN Screen verschmolzen: `/profile`
-     * bindet dieselben `group::partials.settings.*` inline ein, dazu Sprache, Land,
-     * Zeitzone, Dichte und Push (belegt in `tests/Feature/ProfilePageTest.php`). Die
-     * package-eigene Route `/settings` existiert weiterhin und rendert eine ZWEITE,
-     * dünnere Fassung derselben Sektionen — die Befehlspalette und der Profil-Chip auf
-     * `/spaces` führten ohne diese Zeile genau dorthin, während der „Mehr"-Hub auf
-     * `/profile` zeigt. Zwei Orte für eine Sache, je nachdem, welchen Weg man nimmt.
-     *
-     * Der Chat-Tab leuchtet auf `/profile` NICHT — er leuchtet nicht falsch, sondern
-     * gar nicht: `profile` steht im `match` des „Mehr"-Tabs (siehe unten), und dort
-     * gehört der Screen auch hin.
+     * The view is included with `$meetups` (list<PortalMeetup>) in scope.
      */
-    'settings_route' => 'profile',
+    'meetup_map_view' => 'partials.portal.karte',
+
+    /*
+     * The block at the end of a Portal detail page. On the web this is a link INTO the
+     * Portal („Im Portal bearbeiten"); in this app it is the editor sheet, because only the
+     * app carries a Portal token — the one host-specific exception to D9's read-only rule.
+     */
+    'portal_detail_actions' => 'partials.portal.detail-aktionen',
+
+    /*
+     * The REST arm of the RSVP surface (D12/P5). The package binds it exactly where it
+     * may not write a kind 31925 itself: at a date without a published kind 31923, and at a
+     * meetup that keeps its attendance private (D12a). Only this app can send that answer —
+     * it needs a Portal token, which the package does not have. On the web the key stays
+     * `null` and the link into the Portal stands there instead.
+     */
+    'portal_rsvp_view' => 'partials.portal.rsvp',
+
+    /*
+     * The app's region as the default of the country filter on `/bereich/meetups` (P5).
+     *
+     * Until P5 this app had a meetup list of its own, and it opened on the region the user
+     * chose during onboarding. The list has lived in the package since P4 (D9) and knows
+     * nothing about an app region — without this line that behaviour would have disappeared
+     * with the deleted page, and silently. A closure, because the value is decided per USER
+     * (the stored region) while a config file is read once per boot.
+     */
+    'meetup_default_land' => fn (): string => app(AppPreferences::class)->country(),
 ];
-
-/*
- * Nav-Registry (§8.2) nur im Unified-Modus setzen. Legacy lässt den Key weg →
- * der Package-Default (3 Chat-Tabs) trägt das alte Vollbild-Layout unverändert,
- * die Meetups-Seiten behalten ihre 5-Tab-Nav in `mobile.blade`. Unified = die
- * 4 Tabs aus Plan §3.2, in beiden Shells identisch konsumiert.
- *
- * `match` listet alle Routen, unter denen der Tab aktiv leuchtet — für die
- * host-injizierten Tabs (Meetups/Mehr) über die Host-Route-Namen (§10.6). Der
- * Mehr-Tab bündelt die aus der Bottom-Nav verdrängten Bereiche (Termine/Karte/
- * Profil) plus Entdecken/Meine-Inhalte, damit er auf all deren Seiten aktiv ist.
- */
-if ($unifiedShell) {
-    $config['nav'] = [
-        // `match` trägt jeden Screen, der HINTER dem Chat-Tab liegt — sonst leuchtet
-        // dort kein Tab, und der Nutzer verliert die Ortsangabe, obwohl er den Bereich
-        // nie verlassen hat. `group.room.thread` fehlte und ist der teuerste Fall: ein
-        // Thread-Deep-Link aus einer Push-Notification landet als Kaltstart genau dort.
-        // `Str::is('group.room', 'group.room.thread')` ist false — der Punkt trennt.
-        // Die Wildcards decken `articles`/`articles.author` bzw. `forge.repo|issue|pull`
-        // mit ab; alle sind ausschliesslich vom Chat aus erreichbar.
-        // `group.messages` (NIP-17) was missing up to v1.12.0 and it showed on the
-        // device: on `/messages` NO tab lit up, the whole bar stayed dark. This list
-        // is no longer kept by hand against a copy — `UnifiedShellTest` derives the
-        // chat-side screens from the registered package routes, so a screen the
-        // package adds tomorrow fails the suite tomorrow.
-        ['key' => 'chat', 'route' => 'group.spaces', 'match' => 'group.spaces,group.directory,group.room,group.room.thread,group.join,group.updates,group.bookmarks,group.messages,group.settings,group.articles*,group.article,group.forge*', 'icon' => 'chat-bubble-left-right', 'label' => 'Chat', 'gate' => 'nostr'],
-        ['key' => 'wallet', 'route' => 'group.wallet', 'match' => 'group.wallet', 'icon' => 'bolt', 'label' => 'Wallet', 'gate' => 'nostr'],
-        ['key' => 'meetups', 'route' => 'meetups', 'match' => 'meetups,meetups.show', 'icon' => 'calendar', 'label' => 'Meetups', 'gate' => 'guest'],
-        ['key' => 'more', 'route' => 'more', 'match' => 'more,events,map,courses,courses.show,lecturers.show,mine,mine.places,mine.teaching,profile', 'icon' => 'squares-2x2', 'label' => 'Mehr', 'gate' => 'guest'],
-    ];
-}
-
-return $config;

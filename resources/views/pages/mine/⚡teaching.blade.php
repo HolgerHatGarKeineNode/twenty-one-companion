@@ -24,7 +24,7 @@ use Livewire\Attributes\Url;
  * dieser beiden Tabs sind entsprechend gegated (das Profil kommt netzwerkfrei aus
  * dem lokalen Cache).
  */
-new #[Layout('layouts::mobile', ['title' => 'Meine Kurse & Referenten', 'heading' => 'Kurse & Referenten', 'back' => '/mine'])] class extends PortalPage
+new #[Layout('layouts::mobile', ['title' => 'Meine Kurse & Referenten', 'heading' => 'Kurse & Referenten', 'back' => '/ich/inhalte'])] class extends PortalPage
 {
     #[Url]
     public string $tab = 'kurse';

@@ -1,6 +1,13 @@
 @props([
     'event',
     'past' => false,
+    /**
+     * Der Meetup-Name. Auf der Sammel-Seite „Meine Termine" (P5) trägt jede Zeile ihn,
+     * weil dort die Termine MEHRERER Meetups untereinander stehen und ein Datum ohne
+     * Meetup nicht sagt, um welches es geht. Leer = weglassen (so stand die Zeile bis
+     * P4 auf der Detailseite EINES Meetups, wo der Name im Kopf steht).
+     */
+    'meetup' => null,
 ])
 
 {{--
@@ -21,6 +28,9 @@
     </span>
     <div class="min-w-0 flex-1">
         <span class="font-semibold">{{ $event->start->forDisplay()->translatedFormat('D, d. M Y · H:i') }}</span>
+        @if (filled($meetup))
+            <flux:text class="truncate text-sm">{{ $meetup }}</flux:text>
+        @endif
         @if ($event->location)
             <flux:text class="truncate text-sm">{{ $event->location }}</flux:text>
         @endif

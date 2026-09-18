@@ -3,13 +3,28 @@
 use App\Http\Integrations\Portal\Requests\GetCourseRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetLecturersRequest;
-use Einundzwanzig\Calendar\Calendar;
 use Livewire\Livewire;
 use Native\Mobile\Facades\Browser;
 use Native\Mobile\Facades\Share;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
 
+/**
+ * The course surfaces of this app — AFTER the move (P5).
+ *
+ * ══ What `/courses` was, and where it lives now ══════════════════════════════
+ *
+ * The list and the detail page have lived in the package since P4 (`/bereich/kurse`,
+ * `/bereich/kurse/{id}`, D9); P5 deleted this app's copies. Two things on them were
+ * not reading, and they moved:
+ *
+ *   tab „Meine" (one's own courses)  →  `/ich/inhalte/lehre` (MineTeachingTest)
+ *   „Kurs-Event anlegen" on a course →  the host slot at the foot of the page
+ *                                       (`partials/portal/detail-aktionen`)
+ *
+ * What is measured here is what THIS host contributes — its data, its native
+ * affordances — and that the old addresses lead there, `?tab=` included.
+ */
 afterEach(fn () => MockClient::destroyGlobal());
 
 function miningCourseFixture(): array
@@ -22,111 +37,81 @@ function miningCourseFixture(): array
     ]);
 }
 
+// ── 1. List and lecturers through the package page ──────────────────────────
+
 it('lists courses with upcoming events first', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([miningCourseFixture(), detailedCourseFixture()]),
     ]);
 
-    Livewire::test('pages::courses.index')
+    Livewire::test('group::kurse')
         ->assertSeeInOrder(['Bitcoin, Blockchain und Geld', 'Bitcoin Mining 101'])
         ->assertSee('Toni Stack')
-        ->assertSee(route('courses.show', 5));
+        ->assertSee(route('group.bereich.kurse.show', 5));
 });
 
 it('filters courses by course or lecturer name', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(), miningCourseFixture()]),
     ]);
 
-    Livewire::test('pages::courses.index')
-        ->set('search', 'mining')
+    Livewire::test('group::kurse')
+        ->set('suche', 'mining')
         ->assertSee('Bitcoin Mining 101')
         ->assertDontSee('Blockchain und Geld')
-        ->set('search', 'toni')
+        ->set('suche', 'toni')
         ->assertSee('Blockchain und Geld')
         ->assertDontSee('Bitcoin Mining 101');
 });
 
-it('lists lecturers on the referenten tab with future event count', function () {
+it('lists lecturers in the referenten view, soonest event first', function () {
+    completeOnboarding();
     withoutPortalToken();
-    MockClient::global([
-        GetCoursesRequest::class => MockResponse::make([]),
-        GetLecturersRequest::class => MockResponse::make([detailedLecturerFixture()]),
-    ]);
-
-    Livewire::test('pages::courses.index')
-        ->set('tab', 'referenten')
-        ->assertSee('Toni Stack')
-        ->assertSee('Bitcoin-Educator')
-        ->assertSee('2 kommende Termine')
-        ->assertSee(route('lecturers.show', 3));
-});
-
-it('lists lecturers with the soonest upcoming event first, then by name', function () {
-    withoutPortalToken();
-    // Toni (Default): früher Termin 2026-07-01, Hash: später Termin, Zoe: kein Termin.
+    // Toni (default): early date 2026-07-01, Hash: a later one, Zoe: no date at all.
     $hash = detailedLecturerFixture(['id' => 4, 'name' => 'Hash Rate', 'next_event' => '2026-09-01 18:00:00']);
     $zoe = detailedLecturerFixture(['id' => 5, 'name' => 'Aaron Zoe', 'next_event' => null, 'future_events_count' => 0]);
 
     MockClient::global([
-        GetCoursesRequest::class => MockResponse::make([]),
         GetLecturersRequest::class => MockResponse::make([$hash, $zoe, detailedLecturerFixture()]),
     ]);
 
-    Livewire::test('pages::courses.index')
-        ->set('tab', 'referenten')
-        ->assertSeeInOrder(['Toni Stack', 'Hash Rate', 'Aaron Zoe']);
-});
-
-it('hides the my-courses tab for guests and non-lecturers', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()]),
-    ]);
-
-    Livewire::test('pages::courses.index')
-        ->assertDontSee('Meine');
-});
-
-it('shows the own courses on the my-courses tab for lecturers', function () {
-    withPortalToken();
-    withCachedPortalProfile(['is_lecturer' => true]);
-    MockClient::global([
-        GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()]),
-    ]);
-
-    Livewire::test('pages::courses.index')
-        ->assertSee('Meine')
-        ->set('tab', 'meine')
-        ->assertSee('Bitcoin, Blockchain und Geld');
+    Livewire::withQueryParams(['ansicht' => 'referenten'])->test('group::kurse')
+        ->assertSeeInOrder(['Toni Stack', 'Hash Rate', 'Aaron Zoe'])
+        ->assertSee('Bitcoin-Educator')
+        ->assertSee(route('group.bereich.referenten.show', 3));
 });
 
 it('renders the courses page over http', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture()]),
     ]);
 
-    $this->get(route('courses'))
+    $this->get(route('group.bereich.kurse'))
         ->assertOk()
         ->assertSee('Bitcoin, Blockchain und Geld');
 });
 
+// ── 2. The course detail page ───────────────────────────────────────────────
+
 it('shows the course detail with events, description and lecturer', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
     ]);
 
-    Livewire::test('pages::courses.show', ['id' => 5])
+    Livewire::test('group::kurs', ['id' => 5])
         ->assertSee('Bitcoin, Blockchain und Geld')
-        ->assertSee('Kommende Termine')
         ->assertSee('Volkshochschule · Regensburg')
         ->assertSee('Grundlagen zu')
         ->assertSee('Toni Stack')
-        ->assertSee(route('lecturers.show', 3));
+        ->assertSee(route('group.bereich.referenten.show', 3));
 });
 
 it('shows a friendly fallback for unknown courses', function () {
@@ -135,11 +120,14 @@ it('shows a friendly fallback for unknown courses', function () {
         GetCourseRequest::class => MockResponse::make(['message' => 'Not Found'], 404),
     ]);
 
-    Livewire::test('pages::courses.show', ['id' => 999])
+    Livewire::test('group::kurs', ['id' => 999])
         ->assertSee('Kurs nicht gefunden');
 });
 
 it('shares the course link via the native share sheet', function () {
+    // This host's native seam carries the package page: sharing goes through the system
+    // sheet, not through the web's `navigator.share`.
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
@@ -150,53 +138,11 @@ it('shares the course link via the native share sheet', function () {
             && $url === 'https://portal.einundzwanzig.space/de/course/5',
     );
 
-    Livewire::test('pages::courses.show', ['id' => 5])
-        ->call('share');
-});
-
-it('exports a course event as an ics file via the native share sheet', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
-    ]);
-
-    $captured = null;
-    Share::shouldReceive('file')->once()->withArgs(
-        function (string $title, string $text, string $filePath) use (&$captured): bool {
-            $captured = $filePath;
-
-            return $title === 'Bitcoin, Blockchain und Geld' && str_ends_with($filePath, '.ics');
-        },
-    );
-
-    Livewire::test('pages::courses.show', ['id' => 5])
-        ->call('addToCalendar', 9);
-
-    expect($captured)->not->toBeNull()
-        ->and(file_get_contents((string) $captured))
-        ->toContain('SUMMARY:Bitcoin\, Blockchain und Geld')
-        ->toContain('DTSTART:20260701T180000Z')
-        ->toContain('DTEND:20260701T200000Z')
-        ->toContain('LOCATION:Volkshochschule · Regensburg');
-
-    @unlink((string) $captured);
-});
-
-it('opens the native calendar editor for a course event when available', function () {
-    withoutPortalToken();
-    MockClient::global([
-        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
-    ]);
-
-    $this->mock(Calendar::class)
-        ->shouldReceive('addEvent')->once()->andReturnTrue();
-    Share::shouldReceive('file')->never();
-
-    Livewire::test('pages::courses.show', ['id' => 5])
-        ->call('addToCalendar', 9);
+    Livewire::test('group::kurs', ['id' => 5])->call('teilen');
 });
 
 it('opens the event link in the in-app browser', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
         GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
@@ -204,6 +150,34 @@ it('opens the event link in the in-app browser', function () {
 
     Browser::shouldReceive('inApp')->once()->with('https://example.com/kurs-anmeldung');
 
-    Livewire::test('pages::courses.show', ['id' => 5])
+    Livewire::test('group::kurs', ['id' => 5])
         ->call('openLink', 'https://example.com/kurs-anmeldung');
+});
+
+it('offers the course-event editor to a connected user', function () {
+    // The one button that would have been lost with this app's deleted course page:
+    // „Kurs-Event anlegen". Since P5 it stands in the host slot at the foot of the page —
+    // otherwise the only way there would have been through „Ich › Meine Inhalte".
+    completeOnboarding();
+    withPortalToken();
+    MockClient::global([
+        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
+    ]);
+
+    Livewire::test('group::kurs', ['id' => 5])
+        ->assertSee('data-portal-host-editor="course-event"', false)
+        ->assertSee(__('Kurs-Event anlegen'));
+});
+
+// ── 3. The old addresses ────────────────────────────────────────────────────
+
+it('forwards the old course addresses, including the two tabs', function () {
+    completeOnboarding();
+
+    $this->get('/courses')->assertRedirect('/bereich/kurse');
+    $this->get('/courses/5')->assertRedirect('/bereich/kurse/5');
+    // `tab=referenten` is called `ansicht=referenten` there …
+    $this->get('/courses?tab=referenten')->assertRedirect('/bereich/kurse?ansicht=referenten');
+    // … and `tab=meine` was the write surface and leaves the list entirely.
+    $this->get('/courses?tab=meine')->assertRedirect('/ich/inhalte/lehre');
 });

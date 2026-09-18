@@ -500,5 +500,17 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "A portál-munkameneted lejárt. Csatlakozz újra, hogy lásd a saját tartalmaidat.",
     "Neu verbinden": "Újracsatlakozás",
     "Fenster schließen": "Párbeszédablak bezárása",
-    "Eingabe leeren": "Bevitel törlése"
+    "Eingabe leeren": "Bevitel törlése",
+    "Meetups, Termine, Orte und Kurse": "Meetupok, időpontok, helyszínek és kurzusok",
+    "Sitzung": "Munkamenet",
+    "Abmelden": "Kijelentkezés",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Kijelentkezés? A kulcsod a signerben marad (Amber/Bunker) — csak a helyi munkamenet zárul le.",
+    "Verbinde dein Konto, um deine eigenen Meetups zu verwalten.": "Kapcsold össze a fiókodat, hogy kezelhesd a saját meetupjaidat.",
+    "Verbinde dein Konto, um die Termine deiner Meetups zu verwalten.": "Kapcsold össze a fiókodat, hogy kezelhesd a meetupjaid időpontjait.",
+    "Keine Termin-Verwaltung": "Nincs időpont-kezelés",
+    "Termine anlegen kann nur, wer ein Meetup führt. Trag dich im Portal als Leader ein, dann erscheint die Verwaltung hier.": "Időpontot csak az hozhat létre, aki meetupot vezet. Regisztrálj leaderként a portálon, és a kezelés itt megjelenik.",
+    "Alle": "Mind",
+    "Stadt oder Land suchen": "Város vagy ország keresése",
+    "Ort oder Stadt suchen": "Helyszín vagy város keresése",
+    "Zum Bearbeiten im Portal anmelden — in den Einstellungen unter „Portal-Verbindung\".": "A szerkesztéshez jelentkezz be a portálra – a beállításokban a „Portál-kapcsolat\" alatt."
 }

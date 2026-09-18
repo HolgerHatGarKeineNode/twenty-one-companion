@@ -1,19 +1,17 @@
 <?php
 
 /**
- * `/` leitet NICHT mehr server-seitig um: der Chat-Login lebt auf Mobile nur
- * client-seitig (localStorage['pubkey']), daher entscheidet launch.blade.php
- * erst im Browser zwischen Chat und Meetups.
+ * `/` forwards to Start again — server-side, and that is a reversal worth recording.
  *
- * Der Test hing noch am Server-302 aus 27169bf („redirect / to Meetups") und war
- * seit Einführung der Launch-Weiche (592e36c) rot — hier auf das tatsächliche
- * Verhalten nachgezogen.
+ * The test used to hang on a server 302 to the meetups (27169bf) and went red when the launch
+ * switch arrived (592e36c): the chat login lives on mobile only client-side
+ * (`localStorage['pubkey']`), so `launch.blade.php` decided between chat and meetups in the
+ * browser — a page whose whole content was a redirect.
+ *
+ * Concept C removes the question instead of answering it faster: Start renders for a guest and
+ * a member alike and decides the difference in its own island with a skeleton (D4). There is
+ * nothing left for the client to route, so the server may do it — and does.
  */
-it('responds to the start route with the client-side launch switch', function () {
-    // Nicht auf route('meetups') prüfen: @js() rendert JSON-escaped
-    // ("http:\/\/…"), die rohe URL steht so nie im Markup.
-    $this->get(route('home'))
-        ->assertOk()
-        ->assertSee("localStorage.getItem('pubkey')", escape: false)
-        ->assertSee('window.location.replace(target)', escape: false);
+it('forwards the root to Start', function () {
+    $this->get(route('home'))->assertRedirect(route('group.start'));
 });

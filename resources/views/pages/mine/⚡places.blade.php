@@ -4,7 +4,9 @@ use App\Data\Portal\CityData;
 use App\Data\Portal\CountryData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyVenueData;
+use App\Data\Portal\VenueData;
 use App\Livewire\PortalPage;
+use App\Services\CountryOptions;
 use App\Services\PortalApi;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -17,11 +19,108 @@ use Livewire\Attributes\Url;
  * Veranstaltungsorte. Auth-gated über <x-requires-portal>; Anlegen/Bearbeiten
  * laufen über die im Layout eingebetteten City-/Venue-Editoren (Sheets), die
  * nach dem Speichern `places-changed` melden → die Listen laden neu.
+ *
+ * ── P5: „Alle" arrives here from the deleted map page ────────────────────────
+ *
+ * `/map` had three tabs: map, cities, places. The MAP has lived in the package since P4
+ * (`/bereich/meetups?ansicht=karte`, the one view only this chassis can bind) — after
+ * that the two LISTS sat on a page that existed only because of them. So they move here,
+ * as a second SCOPE next to „Meine": this is where they belong by subject (they are
+ * cities and places), and whoever creates a place of their own first looks whether the
+ * city already exists anyway.
+ *
+ * Two axes and not four tabs: „Städte | Orte" times „Meine | Alle" fits into two bars,
+ * while four tabs with the German labels overflow at 390 px.
  */
-new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' => 'Orte & Städte', 'back' => '/mine'])] class extends PortalPage
+new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' => 'Orte & Städte', 'back' => '/ich/inhalte'])] class extends PortalPage
 {
     #[Url]
     public string $tab = 'staedte';
+
+    /** `meine` | `alle` — one's own stock or the Portal's (P5). */
+    #[Url]
+    public string $umfang = 'meine';
+
+    /** Search term, in the „Alle" scope only (one's own stock is short). */
+    #[Url(as: 'q')]
+    public string $search = '';
+
+    /** Country/region filter in the „Alle" scope; empty = every country. */
+    #[Url]
+    public string $country = '';
+
+    public function mount(): void
+    {
+        // An unknown scope falls back to one's own stock — that is the page this address
+        // carries; „Alle" is the guest on it.
+        if (! in_array($this->umfang, ['meine', 'alle'], true)) {
+            $this->umfang = 'meine';
+        }
+        $this->country = $this->defaultCountry();
+    }
+
+    public function updatedUmfang(): void
+    {
+        $this->search = '';
+    }
+
+    /**
+     * Every city of the Portal, filtered by region and search term (P5, from `/map`).
+     *
+     * `withDetails: true` lifts the Portal's limit of 10 — the same call and therefore the
+     * same cache entry the package map and the venue editor use.
+     *
+     * @return Collection<int, CityData>
+     */
+    #[Computed]
+    public function alleStaedte(): Collection
+    {
+        $search = mb_strtolower(trim($this->search));
+        $country = mb_strtolower($this->country);
+
+        return app(PortalApi::class)
+            ->cities(withDetails: true)
+            ->filter(fn (CityData $city): bool => $country === '' || $city->countryCode() === $country)
+            ->filter(fn (CityData $city): bool => $search === ''
+                || str_contains(mb_strtolower($city->name), $search)
+                || str_contains(mb_strtolower($city->country->name), $search))
+            ->values();
+    }
+
+    /**
+     * Alle Veranstaltungsorte des Portals, gefiltert wie die Städte (P5, von `/map`).
+     *
+     * @return Collection<int, VenueData>
+     */
+    #[Computed]
+    public function alleOrte(): Collection
+    {
+        $search = mb_strtolower(trim($this->search));
+        $country = mb_strtolower($this->country);
+
+        return app(PortalApi::class)
+            ->venues(withDetails: true)
+            ->filter(fn (VenueData $venue): bool => $country === '' || $venue->countryCode() === $country)
+            ->filter(fn (VenueData $venue): bool => $search === ''
+                || str_contains(mb_strtolower($venue->name), $search)
+                || (is_string($venue->description) && str_contains(mb_strtolower($venue->description), $search)))
+            ->values();
+    }
+
+    /**
+     * Country codes for the region filter — taken from the cities, because every place lies
+     * in a city and the city list is the more complete of the two.
+     *
+     * @return list<string>
+     */
+    #[Computed]
+    public function countries(): array
+    {
+        return CountryOptions::filterCodes(
+            app(PortalApi::class)->cities(withDetails: true)->map(fn (CityData $city): string => $city->countryCode()),
+            $this->country,
+        );
+    }
 
     /**
      * @return Collection<int, MyCityData>
@@ -84,7 +183,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
     #[On('places-changed')]
     public function refreshLists(): void
     {
-        unset($this->myCities, $this->myVenues, $this->countryNames, $this->cityNames);
+        unset($this->myCities, $this->myVenues, $this->countryNames, $this->cityNames, $this->alleStaedte, $this->alleOrte);
     }
 };
 ?>
@@ -96,7 +195,73 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
             <flux:tab name="orte">{{ __('Orte') }}</flux:tab>
         </flux:tabs>
 
-        @if ($tab === 'staedte')
+        {{-- The second axis: one's own stock or the Portal's (P5, from the deleted map
+             page). Two bars instead of four tabs — four German labels overflow at
+             390 px. --}}
+        <flux:tabs wire:model.live="umfang" variant="segmented" class="w-full" data-orte-umfang>
+            <flux:tab name="meine" data-orte-umfang-tab="meine">{{ __('Meine') }}</flux:tab>
+            <flux:tab name="alle" data-orte-umfang-tab="alle">{{ __('Alle') }}</flux:tab>
+        </flux:tabs>
+
+        @if ($umfang === 'alle')
+            {{-- Read-only: the Portal's cities and places to look something up before
+                 creating one's own. No edit button — somebody else's master data is changed
+                 in the Portal, not here (the one exception the Portal API allows are the
+                 OSM fields of a city, and those belong in the city editor). --}}
+            <flux:input
+                wire:model.live.debounce.300ms="search"
+                type="search"
+                icon="magnifying-glass"
+                data-orte-suche
+                :aria-label="$tab === 'staedte' ? __('Stadt oder Land suchen') : __('Ort oder Stadt suchen')"
+                :placeholder="$tab === 'staedte' ? __('Stadt oder Land suchen …') : __('Ort oder Stadt suchen …')"
+                clearable
+            />
+            {{-- listbox statt nativem Select: der System-Dialog der Android-WebView
+                 ignoriert das Dark-Theme (siehe x-locale-radio-group). --}}
+            <flux:select variant="listbox" :prefix="__('Region')" wire:model.live="country">
+                <flux:select.option value="">🌍 {{ __('Alle Länder') }}</flux:select.option>
+                @foreach ($this->countries as $code)
+                    <flux:select.option value="{{ $code }}">{{ \App\Services\CountryOptions::flagEmoji($code) }} {{ strtoupper($code) }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            @if ($tab === 'staedte')
+                @if ($this->alleStaedte->isEmpty())
+                    <x-portal-empty-state icon="building-office-2" :heading="__('Keine Städte gefunden')" :error-heading="__('Städte nicht verfügbar')">
+                        <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+                    </x-portal-empty-state>
+                @else
+                    <div class="flex flex-col gap-3" data-orte-liste="staedte">
+                        @foreach ($this->alleStaedte as $city)
+                            <x-place-card
+                                wire:key="alle-city-{{ $city->id }}"
+                                :flag="$city->flag"
+                                :name="$city->name"
+                                :subtitle="$city->country->name"
+                            />
+                        @endforeach
+                    </div>
+                @endif
+            @else
+                @if ($this->alleOrte->isEmpty())
+                    <x-portal-empty-state icon="building-storefront" :heading="__('Keine Orte gefunden')" :error-heading="__('Orte nicht verfügbar')">
+                        <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+                    </x-portal-empty-state>
+                @else
+                    <div class="flex flex-col gap-3" data-orte-liste="orte">
+                        @foreach ($this->alleOrte as $venue)
+                            <x-place-card
+                                wire:key="alle-venue-{{ $venue->id }}"
+                                :flag="$venue->flag"
+                                :name="$venue->name"
+                                :subtitle="$venue->locationLabel()"
+                            />
+                        @endforeach
+                    </div>
+                @endif
+            @endif
+        @elseif ($tab === 'staedte')
             @if ($this->myCities->isEmpty())
                 <x-portal-empty-state icon="building-office-2" :heading="__('Noch keine eigenen Städte')" :error-heading="__('Städte nicht verfügbar')">
                     <flux:text class="max-w-xs">{{ __('Lege eine Stadt an, damit Meetups und Orte ihr zugeordnet werden können.') }}</flux:text>

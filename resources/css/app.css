@@ -45,6 +45,14 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
+    /* Muted secondary text — the package's own token (`text-muted`).
+       It stands here because since P4 shared package components render on THIS layout as well
+       (the command palette, the Portal status lines): without the variable Tailwind does not
+       generate the `text-muted` utility at all, the class falls away silently and the text
+       inherits its colour. Same value as in the package theme (zinc-600 / zinc-400 in dark),
+       so there is ONE muted colour in the house and not two. */
+    --color-muted: var(--color-zinc-600);
+
     --color-accent: var(--color-brand-500);
     --color-accent-content: var(--color-brand-700);
     --color-accent-foreground: var(--color-zinc-950);
@@ -93,6 +101,9 @@
         --color-accent: var(--color-brand-500);
         --color-accent-content: var(--color-brand-400);
         --color-accent-foreground: var(--color-zinc-950);
+        /* Lighter in dark rather than darker — zinc-600 on zinc-950 would be below the AA
+           threshold. Same value as in the package theme. */
+        --color-muted: var(--color-zinc-400);
     }
 }
 

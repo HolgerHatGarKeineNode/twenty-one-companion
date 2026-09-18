@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetAppLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,16 @@ return Application::configure(basePath: dirname(__DIR__))
         // Ungefährlich: die Route liest keine Session, sondern schiebt einen vom
         // Client mitgebrachten Zustand ins Gerät zurück.
         $middleware->preventRequestForgery(except: ['push/sync', 'push/seen']);
+
+        /*
+         * Die gewählte Sprache gilt für JEDE Route dieser App (P5).
+         *
+         * Bis dahin setzte sie nur `EnsureOnboarded`, und das hängt an der Routen-Gruppe
+         * dieser App — die Seiten des Pakets (seit P2 die ganze Shell, seit P4 auch die
+         * Portal-Seiten) liefen deshalb in ihrem eigenen Default Deutsch, egal was der
+         * Nutzer gewählt hatte. Begründung und Messung im Kopf von {@see SetAppLocale}.
+         */
+        $middleware->web(append: [SetAppLocale::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

@@ -5,6 +5,7 @@ use App\Http\Controllers\PortalNostrHandoffController;
 use App\Http\Controllers\PortalSignedEventController;
 use App\Http\Middleware\EnsureOnboarded;
 use App\Services\AppPreferences;
+use Einundzwanzig\Group\Http\Controllers\LegacyRedirect;
 use Einundzwanzig\Push\Push;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -129,26 +130,145 @@ Route::post('push/seen', function (Push $push) {
 Route::livewire('onboarding', 'pages::onboarding.index')->name('onboarding');
 
 Route::middleware(EnsureOnboarded::class)->group(function () {
-    // Start-Weiche: in den Chat, wenn dort eingeloggt, sonst Meetups. Der
-    // Chat-Login liegt auf Mobile nur client-seitig (localStorage), daher
-    // entscheidet die Launch-Seite per JS statt eines Server-Redirects.
-    // (Ein server-seitiger 302-Fastpath scheiterte an der NativePHP-Bridge:
-    // sie persistiert keine fetch-Response-Cookies — siehe OPTIMIZE.md Phase 8.)
-    Route::view('/', 'launch')->name('home');
+    /*
+     * The root leads to Start (Concept C, P2).
+     *
+     * `launch.blade.php` stood here: a bare document whose only job was to read
+     * `localStorage['pubkey']` in the <head> and replace the location with either the chat
+     * or the meetups. It existed because the chat login lives client-side only and the
+     * server cannot see it — and because a server-side 302 fastpath failed on the NativePHP
+     * bridge, which does not persist fetch response cookies (OPTIMIZE.md phase 8).
+     *
+     * Start answers the same question WITHOUT the detour: it renders for a guest and for a
+     * member alike and decides the difference in its own island with a skeleton (D4). A
+     * page whose entire content is a redirect is a frame the user pays for and never sees.
+     *
+     * The route NAME stays `home`: the onboarding pager and the deeplink handlers use it.
+     */
+    Route::get('/', LegacyRedirect::class)
+        ->defaults('ziel', '/start')
+        ->name('home');
 
-    // „Mehr"-Hub (P3, §3.4): der vierte Tab der verschmolzenen Shell. Gast-lesbar
-    // (Entdecken), geschützte Einträge (Meine Inhalte/Konto) gaten client-seitig.
-    Route::livewire('more', 'pages::more.index')->name('more');
+    /*
+     * ── „Meine Inhalte" lives under „Ich" (P2, extended in P5) ───────────────────
+     *
+     * The first three pages were `/mine`, `/mine/places` and `/mine/teaching`, reached
+     * through the hamburger flyout and later through the "Mehr" hub. Both are gone; what is
+     * mine belongs under „Ich", next to bookmarks, wallet and the association — and the entry
+     * is a `view:` row of `config('group.ich')`.
+     *
+     * Host routes and not package routes, because creating and editing Portal content needs
+     * a Portal token and the package knows nothing about one (the plan's app-only surfaces).
+     *
+     * P5 added the last two, and they are the write surfaces that had nowhere else to go once
+     * this app's own Portal pages were deleted (D9 gave the reading to the package in P4):
+     *
+     *   `ich/inhalte/meetups`  the „Meine" tab of the old `/meetups` — picker, editor,
+     *                          remove-from-mine.
+     *   `ich/inhalte/termine`  the leader date management that hung under the old meetup
+     *                          DETAIL, now over all own meetups at once instead of one page
+     *                          per meetup.
+     *
+     * The old map's „Städte"/„Orte" lists went into `ich/inhalte/orte` as a second SCOPE
+     * („Alle" next to „Meine") rather than into a route of their own — they are lists of
+     * cities and venues, which is what that page is about.
+     */
+    Route::livewire('ich/inhalte', 'pages::mine.index')->name('ich.inhalte');
+    Route::livewire('ich/inhalte/meetups', 'pages::mine.meetups')->name('ich.inhalte.meetups');
+    Route::livewire('ich/inhalte/termine', 'pages::mine.events')->name('ich.inhalte.termine');
+    Route::livewire('ich/inhalte/orte', 'pages::mine.places')->name('ich.inhalte.orte');
+    Route::livewire('ich/inhalte/lehre', 'pages::mine.teaching')->name('ich.inhalte.lehre');
 
-    Route::livewire('meetups', 'pages::meetups.index')->name('meetups');
-    Route::livewire('meetups/{slug}', 'pages::meetups.show')->name('meetups.show');
-    Route::livewire('events', 'pages::events.index')->name('events');
-    Route::livewire('map', 'pages::map.index')->name('map');
-    Route::livewire('courses', 'pages::courses.index')->name('courses');
-    Route::livewire('courses/{id}', 'pages::courses.show')->whereNumber('id')->name('courses.show');
-    Route::livewire('lecturers/{id}', 'pages::lecturers.show')->whereNumber('id')->name('lecturers.show');
-    Route::livewire('profile', 'pages::profile.index')->name('profile');
-    Route::livewire('mine', 'pages::mine.index')->name('mine');
-    Route::livewire('mine/places', 'pages::mine.places')->name('mine.places');
-    Route::livewire('mine/teaching', 'pages::mine.teaching')->name('mine.teaching');
+    /*
+     * ══ The old paths of this app (R7) ══════════════════════════════════════════
+     *
+     * Same controller and same reasoning as the package rows (`routes/group.php` there):
+     * a 302 that keeps the query string, and a controller rather than a closure because the
+     * mobile build caches its routes. 302 until the sweep in P7, then 301.
+     *
+     * The Portal-page rows (`/meetups*`, `/events`, `/map`, `/courses*`, `/lecturers/*`)
+     * arrived with P5 — P4 built the package pages (D9), P5 deleted this app's copies and
+     * moved the app-only WRITE surfaces under `/ich/inhalte*`. Two of the rows do more than
+     * change a path:
+     *
+     *   `/meetups?tab=meine` → `/ich/inhalte/meetups`, because that tab is the write surface
+     *                          and the package list has no tabs. Without the query it is the
+     *                          package's meetup list.
+     *   `/events`            → `/bereich/meetups?ansicht=termine`, the read list. The leader
+     *                          management that also lived there is `/ich/inhalte/termine`.
+     *
+     * `/map` keeps its promise: the app binds the map view, so the redirect lands on a real
+     * map (`?ansicht=karte`) and not on the Portal link-out the web shows there.
+     *
+     * `/profile` is the interesting one. It was this app's settings screen; its sections are
+     * injected into the package hub since P2 (`config/group.php`). It forwards to „Ich" and
+     * not straight to the hub, because that is where a user who typed the old address is
+     * looking for himself — the hub is one row further.
+     */
+    $legacy = static function (string $pfad, string $ziel, string $name): void {
+        Route::get($pfad, LegacyRedirect::class)
+            ->defaults('ziel', $ziel)
+            ->name($name);
+    };
+
+    $legacy('more', '/start', 'legacy.more');
+    $legacy('profile', '/ich', 'legacy.profile');
+    $legacy('mine', '/ich/inhalte', 'legacy.mine');
+    $legacy('mine/places', '/ich/inhalte/orte', 'legacy.mine.places');
+    $legacy('mine/teaching', '/ich/inhalte/lehre', 'legacy.mine.teaching');
+
+    /*
+     * ── The Portal pages of this app (P5) ────────────────────────────────────────
+     *
+     * Same controller and same rules as the rows above: 301 since P7 (302 before), with the
+     * query carried along, a
+     * controller rather than a closure because the mobile build caches its routes. Three of
+     * these rows do more than change a path, and each does it with the controller's own
+     * vocabulary (`behalte`, `umbenenne`, `weiche` — `packages/…/LegacyRedirect.php`):
+     *
+     *   `?tab=meine`       leaves the list entirely. It was the WRITE surface, and the
+     *                      package's read-only list has no tab for it — so it lands on
+     *                      „Ich › Meine Inhalte", where that surface now lives.
+     *   `?country=`        is called `land` in the package. Renamed, not dropped: it is in
+     *                      links people have shared and in shipped app builds.
+     *   `/map?tab=staedte` keeps its two lists: they moved into `/ich/inhalte/orte` as the
+     *   `…?tab=orte`       scope „Alle", and the row carries the reader to exactly that.
+     *
+     * `/map` without a tab lands on a REAL map: this chassis binds the map view
+     * (`meetup_map_view`), unlike the web, which offers the Portal's map there instead.
+     */
+    $legacyQuery = static function (string $pfad, string $ziel, string $name, array $defaults = []): void {
+        Route::get($pfad, LegacyRedirect::class)
+            ->defaults('ziel', $ziel)
+            ->defaults('behalte', $defaults['behalte'] ?? [])
+            ->defaults('umbenenne', $defaults['umbenenne'] ?? [])
+            ->defaults('weiche', $defaults['weiche'] ?? null)
+            ->name($name);
+    };
+
+    $legacyQuery('meetups', '/bereich/meetups', 'legacy.meetups', [
+        'behalte' => ['q'],
+        'umbenenne' => ['country' => 'land'],
+        'weiche' => ['param' => 'tab', 'werte' => ['meine' => '/ich/inhalte/meetups']],
+    ]);
+    $legacy('meetups/{slug}', '/bereich/meetups/{slug}', 'legacy.meetups.show');
+    $legacyQuery('events', '/bereich/meetups?ansicht=termine', 'legacy.events', [
+        'umbenenne' => ['country' => 'land'],
+    ]);
+    $legacyQuery('map', '/bereich/meetups?ansicht=karte', 'legacy.map', [
+        'umbenenne' => ['country' => 'land'],
+        'weiche' => ['param' => 'tab', 'werte' => [
+            'staedte' => '/ich/inhalte/orte?umfang=alle&tab=staedte',
+            'orte' => '/ich/inhalte/orte?umfang=alle&tab=orte',
+        ]],
+    ]);
+    $legacyQuery('courses', '/bereich/kurse', 'legacy.courses', [
+        'behalte' => ['q'],
+        'weiche' => ['param' => 'tab', 'werte' => [
+            'meine' => '/ich/inhalte/lehre',
+            'referenten' => '/bereich/kurse?ansicht=referenten',
+        ]],
+    ]);
+    $legacy('courses/{id}', '/bereich/kurse/{id}', 'legacy.courses.show');
+    $legacy('lecturers/{id}', '/bereich/kurse/referenten/{id}', 'legacy.lecturers.show');
 });

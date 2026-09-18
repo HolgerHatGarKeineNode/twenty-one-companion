@@ -500,5 +500,17 @@
     "Deine Portal-Sitzung ist abgelaufen. Bitte verbinde dich neu, um deine eigenen Inhalte zu sehen.": "Twoja sesja portalu wygasła. Połącz się ponownie, aby zobaczyć swoje treści.",
     "Neu verbinden": "Połącz ponownie",
     "Fenster schließen": "Zamknij okno dialogowe",
-    "Eingabe leeren": "Wyczyść pole"
+    "Eingabe leeren": "Wyczyść pole",
+    "Meetups, Termine, Orte und Kurse": "Meetupy, terminy, miejsca i kursy",
+    "Sitzung": "Sesja",
+    "Abmelden": "Wyloguj",
+    "Abmelden? Dein Schlüssel bleibt in deinem Signer (Amber/Bunker) — nur die lokale Sitzung wird beendet.": "Wylogować? Twój klucz zostaje w signerze (Amber/Bunker) — kończy się tylko lokalna sesja.",
+    "Verbinde dein Konto, um deine eigenen Meetups zu verwalten.": "Połącz konto, aby zarządzać własnymi meetupami.",
+    "Verbinde dein Konto, um die Termine deiner Meetups zu verwalten.": "Połącz konto, aby zarządzać terminami swoich meetupów.",
+    "Keine Termin-Verwaltung": "Brak zarządzania terminami",
+    "Termine anlegen kann nur, wer ein Meetup führt. Trag dich im Portal als Leader ein, dann erscheint die Verwaltung hier.": "Terminy może tworzyć tylko osoba prowadząca meetup. Zapisz się w portalu jako leader, wtedy zarządzanie pojawi się tutaj.",
+    "Alle": "Wszystkie",
+    "Stadt oder Land suchen": "Szukaj miasta lub kraju",
+    "Ort oder Stadt suchen": "Szukaj miejsca lub miasta",
+    "Zum Bearbeiten im Portal anmelden — in den Einstellungen unter „Portal-Verbindung\".": "Aby edytować, zaloguj się w portalu — w ustawieniach pod „Połączenie z portalem\"."
 }

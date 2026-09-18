@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetMapMeetupsRequest;
+use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use Illuminate\Support\Facades\File;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -21,7 +21,6 @@ function mobileUiSources(): array
         resource_path('views/layouts/mobile.blade.php'),
         resource_path('views/components/create-fab.blade.php'),
         resource_path('views/livewire/portal/connect.blade.php'),
-        resource_path('views/livewire/global-search.blade.php'),
         resource_path('views/livewire/meetup-picker.blade.php'),
         resource_path('views/livewire/meetup-editor.blade.php'),
         resource_path('views/livewire/meetup-privacy-hint-banner.blade.php'),
@@ -46,7 +45,28 @@ function mobileUiSources(): array
         app_path('Data/Portal/LecturerDetailData.php'),
     ];
 
-    foreach (['meetups', 'events', 'map', 'courses', 'lecturers', 'profile', 'onboarding', 'mine', 'more'] as $module) {
+    // `profile` and `more` are gone with P2: the app's settings sections are injected into
+    // the package hub (`views/livewire/settings/*`, collected below) and the "Mehr" hub is
+    // replaced by Start and „Ich".
+    foreach (File::files(resource_path('views/livewire/settings')) as $file) {
+        $files[] = $file->getPathname();
+    }
+    foreach (File::files(resource_path('views/partials/settings')) as $file) {
+        $files[] = $file->getPathname();
+    }
+    $files[] = resource_path('views/partials/ich/inhalte.blade.php');
+    // P5: the REST arm of the RSVP surface and the host block of the Portal detail pages —
+    // both belong to this app and carry text of their own.
+    $files[] = resource_path('views/livewire/rest-rsvp.blade.php');
+    $files[] = resource_path('views/partials/portal/rsvp.blade.php');
+    $files[] = resource_path('views/partials/portal/detail-aktionen.blade.php');
+    $files[] = resource_path('views/components/rsvp-controls.blade.php');
+    $files[] = resource_path('views/components/my-event-row.blade.php');
+
+    // `meetups`, `events`, `map`, `courses` and `lecturers` are deleted with P5: the Portal
+    // pages have lived in the package since P4 (D9) and are translated there. What remains
+    // here are the pages this app owns.
+    foreach (['onboarding', 'mine'] as $module) {
         foreach (File::files(resource_path("views/pages/{$module}")) as $file) {
             $files[] = $file->getPathname();
         }
@@ -79,38 +99,55 @@ it('covers every translation key of the mobile ui in lang/en.json', function () 
     expect($missing)->toBe([], 'Keys ohne englische Übersetzung: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
 });
 
-it('renders the meetups page in english when the locale preference is en', function () {
+it('renders the meetup list in english when the locale preference is en', function () {
+    // The list has lived in the package since P4 (D9); this app's choice of language has to
+    // reach it all the same — the locale switch is host state, the catalogue is the
+    // package's.
     completeOnboarding(locale: 'en');
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups'))
+    // The locale comes from the app preferences and is set by the middleware; the package
+    // page reads the same catalogue.
+    $this->get('/bereich/meetups')
         ->assertOk()
         ->assertSee('All countries')
         ->assertSee('Search meetup or city');
 });
 
-it('renders the meetups page in german by default', function () {
+it('renders the meetup list in german by default', function () {
+    completeOnboarding();
     withoutPortalToken();
     MockClient::global([
-        GetMapMeetupsRequest::class => MockResponse::make([]),
+        GetMobileMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $this->get(route('meetups'))
+    $this->get('/bereich/meetups')
         ->assertOk()
         ->assertSee('Alle Länder');
 });
 
-it('covers every Mehr-Hub key in ALL locale files (not just en)', function () {
-    // Der Mehr-Hub (config-Nav-Label + Karten-Subtitles) muss in JEDER
-    // ausgelieferten Sprache aufgelöst werden — sonst greift der de-Fallback und
-    // der Screen wird gemischtsprachig (spanische Labels, deutsche Untertitel).
-    // Die en-only-Coverage oben hat genau diese Lücke NICHT erkannt.
-    $code = (string) file_get_contents(resource_path('views/pages/more/⚡index.blade.php'));
-    preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)*)'/u", $code, $m);
-    $keys = array_unique(array_map('stripcslashes', $m[1]));
+it('covers every key of the injected settings sections in ALL locale files (not just en)', function () {
+    // Until P2 this case measured the "Mehr" hub. That hub is gone; what took its place as
+    // the app's OWN screen text are the sections injected into the package settings hub
+    // (`views/livewire/settings/*`). The demand is unchanged and it is the stricter one: every
+    // shipped language has to resolve them, otherwise the German fallback kicks in and the
+    // screen becomes mixed-language (Spanish labels, German descriptions). The en-only
+    // coverage above does NOT catch that gap.
+    $keys = [];
+
+    foreach (File::files(resource_path('views/livewire/settings')) as $file) {
+        $code = (string) file_get_contents($file->getPathname());
+        preg_match_all("/(?:__|trans_choice)\(\s*'((?:[^'\\\\]|\\\\.)*)'/u", $code, $m);
+        $keys = [...$keys, ...array_map('stripcslashes', $m[1])];
+    }
+
+    // Fail-closed: a probe that collects nothing would report a clean result.
+    expect($keys)->not->toBeEmpty('no translation key found — the probe measures nothing');
+
+    $keys = array_unique($keys);
 
     $missing = [];
     foreach (['en', 'es', 'pt', 'nl', 'pl', 'hu', 'lv'] as $loc) {
@@ -122,5 +159,5 @@ it('covers every Mehr-Hub key in ALL locale files (not just en)', function () {
         }
     }
 
-    expect($missing)->toBe([], 'Mehr-Hub-Keys ohne Übersetzung: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
+    expect($missing)->toBe([], 'settings keys without a translation: '.json_encode($missing, JSON_UNESCAPED_UNICODE));
 });

@@ -169,7 +169,11 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         $preferences->completeOnboarding($this->locale, $this->country);
 
         // Frisch onboardet = noch kein Chat-Login → in die Meetups.
-        $this->redirectRoute('meetups', navigate: true);
+        // Start and no longer the meetups list (Concept C, P2): Start is the one entrance,
+        // and it is the only surface that shows a fresh user BOTH the public areas and what
+        // an account would add. Landing on a filtered list of meetups answered a question
+        // nobody had asked yet.
+        $this->redirectRoute('group.start', navigate: true);
     }
 
     /** Nächster Schritt, an der letzten Seite gedeckelt. */
