@@ -120,8 +120,8 @@
             "@php -r \"file_exists('scripts/apply-vendor-patches.sh') && passthru('bash scripts/apply-vendor-patches.sh');\""
         ],
         "post-update-cmd": [
-        "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
-        "@php artisan boost:update --env=local --ansi"
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
+            "@php artisan boost:update --env=local --ansi"
         ],
         "post-root-package-install": [
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
@@ -133,6 +133,14 @@
         ],
         "pre-package-uninstall": [
             "Illuminate\\Foundation\\ComposerScripts::prePackageUninstall"
+        ],
+        "test:feature": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test tests/Feature"
+        ],
+        "test:unit": [
+            "Composer\\Config::disableProcessTimeout",
+            "@php artisan test tests/Unit"
         ]
     },
     "extra": {
@@ -154,35 +162,42 @@
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
-    "repositories": [{
-        "name": "amber-signer",
-        "type": "path",
-        "url": "../einundzwanzig-group/packages/amber-signer",
-        "options": {
-            "symlink": true
+    "repositories": [
+        {
+            "name": "amber-signer",
+            "type": "path",
+            "url": "../einundzwanzig-group/packages/amber-signer",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "name": "calendar",
+            "type": "path",
+            "url": "packages/calendar"
+        },
+        {
+            "name": "push",
+            "type": "path",
+            "url": "packages/push"
+        },
+        {
+            "name": "einundzwanzig-group",
+            "type": "path",
+            "url": "../einundzwanzig-group/packages/einundzwanzig-group",
+            "options": {
+                "symlink": true
+            }
+        },
+        {
+            "name": "flux-pro",
+            "type": "composer",
+            "url": "https://composer.fluxui.dev"
+        },
+        {
+            "name": "nativephp-plugins",
+            "type": "composer",
+            "url": "https://plugins.nativephp.com"
         }
-    },{
-        "name": "calendar",
-        "type": "path",
-        "url": "packages/calendar"
-    },{
-        "name": "push",
-        "type": "path",
-        "url": "packages/push"
-    },{
-        "name": "einundzwanzig-group",
-        "type": "path",
-        "url": "../einundzwanzig-group/packages/einundzwanzig-group",
-        "options": {
-            "symlink": true
-        }
-    },{
-        "name": "flux-pro",
-        "type": "composer",
-        "url": "https://composer.fluxui.dev"
-    },{
-        "name": "nativephp-plugins",
-        "type": "composer",
-        "url": "https://plugins.nativephp.com"
-    }]
+    ]
 }
