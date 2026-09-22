@@ -22,14 +22,17 @@
     x-data="{
         map: null,
         marker: null,
-        init() {
+        async init() {
+            {{-- Leaflet is loaded on demand (resources/js/app.js); the picker used to
+                 assume a global `L` left behind by the map view. --}}
+            const L = await window.loadLeaflet();
             const hasStart = {{ $latitude !== null && $longitude !== null ? 'true' : 'false' }};
             const start = hasStart ? [{{ $latitude }}, {{ $longitude }}] : [51.0, 10.0];
 
             this.map = L.map(this.$refs.picker).setView(start, hasStart ? 13 : 5);
 
-            {{-- Dunkle Tiles, zentral aus config/maps.php (dark-only Chrome). --}}
-            L.tileLayer(@js(config('maps.tiles.url')), @js(config('maps.tiles.options'))).addTo(this.map);
+            {{-- The base map, configured in config/maps.php only. --}}
+            window.addBaseMap(L, this.map, @js(config('maps.tiles')));
 
             const icon = L.icon({
                 iconUrl: @js(asset('img/btc_marker.png')),

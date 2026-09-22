@@ -4,24 +4,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Leaflet-Tile-Layer
+    | Base map (Leaflet + a MapLibre GL layer)
     |--------------------------------------------------------------------------
     |
-    | Gemeinsame Tile-Konfiguration für die Karten-Seite und den Orts-Picker.
-    | Dunkle Tiles (CARTO Dark Matter), passend zum dark-only Chrome der App.
-    | Hier zentral, damit ein Provider-/Lizenz-Wechsel nur an EINER Stelle
-    | passiert.
+    | Shared by the map view and the location picker, and the ONE place for a
+    | provider change. OpenFreeMap "Dark": vector tiles without a key or a
+    | request limit, commercial use allowed (https://openfreemap.org). CARTO,
+    | used before, started answering 200 PNGs with a burned-in "API KEY
+    | REQUIRED" watermark.
+    |
+    | The attribution comes from the style's own source (TileJSON of
+    | tiles.openfreemap.org/planet): "OpenFreeMap © OpenMapTiles Data from
+    | OpenStreetMap", the wording of OpenFreeMap's quick start. The Leaflet
+    | attribution control shows it bottom-right once the style has loaded.
     |
     */
 
     'tiles' => [
-        'url' => 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        'options' => [
-            'minZoom' => 2,
-            'maxZoom' => 18,
-            'subdomains' => 'abcd',
-            'attribution' => '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        ],
+        'style' => 'https://tiles.openfreemap.org/styles/dark',
+        'minZoom' => 2,
+        'maxZoom' => 18,
     ],
 
 ];

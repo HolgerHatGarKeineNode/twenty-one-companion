@@ -50,10 +50,52 @@ window.loadLeaflet = function () {
         // views read it from there.
         window.L = L;
 
+        // The base map is a MapLibre GL layer inside Leaflet (vector tiles, see
+        // config/maps.php). Loaded here and not in the main entry: MapLibre is the largest
+        // part of this bundle, and only the two map views need it.
+        //
+        // The worker is emitted by Vite (`?worker&url`, bundled with its shared chunk) and
+        // handed to MapLibre explicitly: its own default looks for `maplibre-gl-worker.mjs`
+        // next to the importing chunk, a file the build does not emit.
+        const [{ maplibreGL }, maplibre, { default: workerUrl }] = await Promise.all([
+            import('@maplibre/maplibre-gl-leaflet'),
+            import('maplibre-gl'),
+            import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'),
+            import('maplibre-gl/dist/maplibre-gl.css'),
+        ]);
+        maplibre.setWorkerUrl(workerUrl);
+        L.maplibreGL = maplibreGL;
+
         return L;
     })();
 
     return leafletPromise;
+};
+
+/**
+ * Put the configured base map (`config('maps.tiles')`) onto a Leaflet map. Both map views
+ * call this, so the provider stays a matter of config/maps.php alone.
+ */
+window.addBaseMap = function (L, map, tiles) {
+    map.setMinZoom(tiles.minZoom);
+    map.setMaxZoom(tiles.maxZoom);
+
+    const layer = L.maplibreGL({ style: tiles.style }).addTo(map);
+
+    // The OpenFreeMap dark style fills forests with `wood-pattern`, an image its own sprite
+    // (ofm_f384) does not contain — measured 2026-09-22, 264 sprite entries, none of them
+    // that one. Without a stand-in MapLibre warns on every page with a map. A transparent
+    // pixel draws what the style would draw anyway: nothing.
+    // (`styleimagemissing` listeners cannot resolve it for the current request in
+    // MapLibre 6 — the resolver can.)
+    const gl = layer.getMaplibreMap();
+    gl.setMissingStyleImageResolver((id) => {
+        if (!gl.hasImage(id)) {
+            gl.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
+        }
+    });
+
+    return layer;
 };
 
 /**

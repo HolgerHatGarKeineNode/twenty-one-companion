@@ -52,7 +52,7 @@
              async init() {
                  const L = await window.loadLeaflet()
                  this.map = L.map(this.$refs.karte).setView([50.9, 10.3], 5)
-                 L.tileLayer(@js(config('maps.tiles.url')), @js(config('maps.tiles.options'))).addTo(this.map)
+                 window.addBaseMap(L, this.map, @js(config('maps.tiles')))
                  this.icon = L.icon({
                      iconUrl: @js(asset('img/btc_marker.png')),
                      iconSize: [32, 32],

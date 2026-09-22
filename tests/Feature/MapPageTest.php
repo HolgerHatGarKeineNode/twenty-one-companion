@@ -153,6 +153,7 @@ it('renders the package map with its tiles and marker through this chassis', fun
     // there, with its tiles and its marker — only inside the package chassis now.
     $this->get('/bereich/meetups?ansicht=karte')
         ->assertOk()
-        ->assertSee('basemaps.cartocdn.com')
+        ->assertSee('tiles.openfreemap.org', false)
+        ->assertDontSee('basemaps.cartocdn.com', false)
         ->assertSee('btc_marker.png');
 });
