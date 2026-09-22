@@ -48,6 +48,75 @@ final class Sichtung
     }
 
     /**
+     * The config keys whose values are origins the browser is SUPPOSED to reach. The browser
+     * suite points every one of them at a dead loopback port (`phpunit.browser.xml`), so a
+     * request there is the app following its configuration.
+     *
+     * @var list<string>
+     */
+    public const CONFIGURED_ORIGIN_KEYS = [
+        'group.space_url',
+        'group.workspace_url',
+        'group.board_relay_url',
+        'group.portal_url',
+        'group.verein_proxy_base',
+        'group.media_public_url',
+    ];
+
+    /**
+     * `host[:port]` of every configured origin, in the form `URL.host` reports it (no
+     * default port). Comma-separated relay lists (`article_relay_urls`,
+     * `calendar_relay_urls`) count as well.
+     *
+     * @return list<string>
+     */
+    public static function configuredHosts(): array
+    {
+        $values = array_map(fn (string $key): string => (string) config($key), self::CONFIGURED_ORIGIN_KEYS);
+
+        foreach (['group.article_relay_urls', 'group.calendar_relay_urls'] as $listKey) {
+            array_push($values, ...explode(',', (string) config($listKey)));
+        }
+
+        $hosts = [];
+
+        foreach ($values as $value) {
+            $parts = parse_url(trim($value));
+
+            if (! is_array($parts) || ! isset($parts['host'])) {
+                continue;
+            }
+
+            $hosts[] = strtolower($parts['host']).(isset($parts['port']) ? ':'.$parts['port'] : '');
+        }
+
+        return array_values(array_unique($hosts));
+    }
+
+    /**
+     * A request to this machine's own loopback that NO configuration asked for — a code
+     * default leaking into the bundle. The v1.13.0 device sighting found one: the island's
+     * space fell back to `ws://localhost:3334/` on every page whose head did not set
+     * `__nostrSpace`, and a phone refuses that connection on every load. Only cross-origin
+     * requests are recorded at all (`fremdAnfragen`), so the app's own origin never
+     * reaches this check; the configured dead ports of the suite are passed in.
+     *
+     * @param  list<string>  $configuredHosts
+     */
+    public static function isUnconfiguredLoopback(string $host, array $configuredHosts): bool
+    {
+        $host = strtolower($host);
+        $hostname = (string) preg_replace('/:\d+$/', '', $host);
+        $loopback = $hostname === 'localhost'
+            || str_ends_with($hostname, '.localhost')
+            || preg_match('/^127\.\d+\.\d+\.\d+$/', $hostname) === 1
+            || $hostname === '[::1]'
+            || $hostname === '0.0.0.0';
+
+        return $loopback && ! in_array($host, $configuredHosts, true);
+    }
+
+    /**
      * @see the class docblock for the reason behind each individual hook.
      */
     private const INIT_SCRIPT = <<<'JS'
@@ -212,15 +281,27 @@ final class Sichtung
      * strings byte-identical on every page while the bar was white and square on six of
      * them — `layouts::mobile` loaded a stylesheet that had never defined the tokens behind
      * `dark:bg-bg-elevated` and `rounded-fab`, and Tailwind drops such a utility silently.
+     *
+     * The same script records which of the island's boot globals the page defined
+     * (`bootGlobals`) — the other half of "this layout loads the package's parts".
      */
     private const SHELL_MEASURE = <<<'JS'
         (() => {
             const nav = document.querySelector('[data-bottom-nav]')?.closest('nav') ?? null;
             const fab = document.querySelector('[data-palette-open]');
 
+            // The island's boot globals, as written by `group::partials.globals` — which of
+            // them this page defined before the bundle ran. `null` on a document that does
+            // not load the island bundle at all (the JSON of `/suche/portal-index`).
+            const island = [...document.scripts].some((script) => /\/build\/assets\/app-[^/]*\.js$/.test(script.src));
+            const bootGlobals = !island ? null : ['__nostrSpace', '__nostrWorkspace', '__nostrBoard', '__nostrArticleRelays',
+                '__nostrCalendarRelays', '__nostrCalendarAuthors', '__nostrMedia', '__nostrPortal',
+                '__nostrMobile', '__nostrVerein', '__nostrI18n'].filter((key) => window[key] !== undefined);
+
             return {
                 navHintergrund: nav ? getComputedStyle(nav).backgroundColor : null,
                 fabRadius: fab ? getComputedStyle(fab).borderTopLeftRadius : null,
+                bootGlobals,
             };
         })()
         JS;
@@ -249,11 +330,11 @@ final class Sichtung
     }
 
     /**
-     * @return array{navHintergrund: string|null, fabRadius: string|null}
+     * @return array{navHintergrund: string|null, fabRadius: string|null, bootGlobals: list<string>|null}
      */
     public static function measureShell(object $webpage): array
     {
-        /** @var array{navHintergrund: string|null, fabRadius: string|null} $result */
+        /** @var array{navHintergrund: string|null, fabRadius: string|null, bootGlobals: list<string>|null} $result */
         $result = $webpage->script(self::SHELL_MEASURE);
 
         return $result;

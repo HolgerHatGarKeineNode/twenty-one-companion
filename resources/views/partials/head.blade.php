@@ -11,15 +11,22 @@
 
 @fonts
 
-{{-- The island bundle (`resources/js/app.js`) evaluates on these pages too, and `core.ts`
-     freezes `isMobile` from this flag the moment it does — every reader of it (the login
-     sheet, secure storage, the image proxy, the association calls) keeps that value for the
-     whole document. Without the line a host-first document booted the island as "web"
-     (device sighting v1.13.0). Byte-identical to the line in `group::partials.head`, so
-     Livewire's head merge on `wire:navigate` recognises it and adds no second copy.
-     Safe since the device gate acts only on routes behind `nostr.auth`: host pages carry
-     no such mark, so the flag does not send a guest away from them. --}}
-<script>window.__nostrMobile = window.__nostrMobile ?? @js(\Einundzwanzig\Group\Chassis::istApp());</script>
+{{-- The island's boot globals (`__nostrSpace`, `__nostrPortal`, `__nostrMobile`,
+     `__nostrI18n`, …) from the package's ONE partial — the same lines the package layout's
+     head includes, so the values cannot drift between the two layouts.
+
+     The island bundle (`resources/js/app.js`) evaluates on these pages too and freezes
+     its module constants from these globals the moment it does. Until the v1.13.0 device
+     sighting this head set only `__nostrMobile`; everything else fell back to the
+     island's code defaults — the space to `ws://localhost:3334/`, a refused socket and a
+     refused NIP-11 fetch on every page of this layout (measured on build 142 via CDP on
+     /ich/inhalte/orte and /ich/inhalte/meetups, none on /start).
+
+     The script lines come out byte-identical to the package head's, so Livewire's head
+     merge on `wire:navigate` recognises them and adds no second copy. Safe for guests:
+     the device gate acts only on routes behind `nostr.auth`, and host pages carry no such
+     mark. --}}
+@include('group::partials.globals')
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
 <script>

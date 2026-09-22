@@ -180,12 +180,13 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         // an account would add. Landing on a filtered list of meetups answered a question
         // nobody had asked yet.
         //
-        // A full load and not `navigate: true`: this page runs the host layout, whose head
-        // carries none of the island's boot globals (`__nostrSpace`, `__nostrPortal`,
-        // `__nostrI18n`, …). The bundle has already evaluated here and froze its module
-        // constants from what was missing; a `wire:navigate` hand-off kept those and let
-        // Livewire's head merge append every island script twice (device sighting v1.13.0).
-        // The language chosen a few steps back also only reaches `<html lang>` this way.
+        // A full load and not `navigate: true`: this page runs the host layout, and at the
+        // v1.13.0 device sighting its head carried none of the island's boot globals — the
+        // bundle froze its module constants from what was missing, and a `wire:navigate`
+        // hand-off kept those and let Livewire's head merge append every island script
+        // twice. The head now includes the package globals, but the reason that still
+        // holds is the language: the one chosen a few steps back reaches `<html lang>` and
+        // the frozen `__nostrI18n` catalogue only through a real load.
         $this->redirectRoute('group.start');
     }
 

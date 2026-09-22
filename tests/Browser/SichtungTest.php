@@ -86,6 +86,7 @@ function measureSightingCase(
         'leer' => null,
         'navHintergrund' => null,
         'fabRadius' => null,
+        'bootGlobals' => null,
         'screenshot' => null,
         'fehler' => null,
     ];
@@ -133,6 +134,7 @@ function measureSightingCase(
         $finding['leer'] = $overflow['leer'];
         $finding['navHintergrund'] = $shell['navHintergrund'];
         $finding['fabRadius'] = $shell['fabRadius'];
+        $finding['bootGlobals'] = $shell['bootGlobals'];
     } catch (Throwable $e) {
         $finding['fehler'] = ($finding['fehler'] !== null ? $finding['fehler'].' | ' : '').'Browser: '.$e::class.': '.mb_substr($e->getMessage(), 0, 300);
     }
@@ -147,6 +149,19 @@ test('the nine legacy routes from the former SmokeTest each individually answer 
         expect($response->getStatusCode())
             ->toBe(301, "{$path} answered with {$response->getStatusCode()} instead of 301 — assertRedirect() alone would have accepted any 3xx and missed this.");
     }
+})->group('a11y', 'sichtung');
+
+test('the loopback latch flags a code default and passes the configured dead ports', function () {
+    // Control for the loopback latch below: without it a latch that never fires would look
+    // exactly like a clean run.
+    $configured = Sichtung::configuredHosts();
+
+    expect($configured)->toContain('127.0.0.1:7', '127.0.0.1:9')
+        ->and(Sichtung::isUnconfiguredLoopback('localhost:3334', $configured))->toBeTrue()
+        ->and(Sichtung::isUnconfiguredLoopback('127.0.0.1:3334', $configured))->toBeTrue()
+        ->and(Sichtung::isUnconfiguredLoopback('[::1]:3334', $configured))->toBeTrue()
+        ->and(Sichtung::isUnconfiguredLoopback('127.0.0.1:7', $configured))->toBeFalse()
+        ->and(Sichtung::isUnconfiguredLoopback('group.einundzwanzig.space', $configured))->toBeFalse();
 })->group('a11y', 'sichtung');
 
 test('v1.13.0 sighting: every view, three passes, measured and backed by a screenshot', function () {
@@ -263,6 +278,49 @@ test('v1.13.0 sighting: every view, three passes, measured and backed by a scree
 
         expect($deviations->all())
             ->toBe([], "Pass {$pass}: the bottom bar differs from /start (nav {$reference['navHintergrund']}, button radius {$reference['fabRadius']}) on: ".$deviations->implode(' | '));
+    }
+
+    // Latch: no browser request may go to this machine's own loopback unless a
+    // configuration pointed it there (`Sichtung::isUnconfiguredLoopback()`). Before the fix
+    // the eight pages of `layouts::mobile` fetched `http://localhost:3334/` six times each
+    // per pass — the island's old code default for the space, because that layout's head
+    // set none of the boot globals. The record is taken at CALL time, so a refused
+    // connection counts exactly like an answered one.
+    $configuredHosts = Sichtung::configuredHosts();
+    $loopbackRequests = collect($findings)
+        ->flatMap(fn (array $finding): array => array_map(
+            fn (array $request): string => "{$finding['route']} [{$finding['durchgang']}]: {$request['art']} {$request['url']}",
+            array_filter($finding['fremdAnfragen'], fn (array $request): bool => Sichtung::isUnconfiguredLoopback($request['host'], $configuredHosts)),
+        ))
+        ->values();
+
+    expect($loopbackRequests->all())
+        ->toBe([], 'Browser requests reached an unconfigured loopback port (configured: '.implode(', ', $configuredHosts).'): '.$loopbackRequests->implode(' | '));
+
+    // Latch: every sighted page boots the island with the same globals as /start. The
+    // bundle reads `__nostrSpace`, `__nostrPortal`, `__nostrI18n`, … once at top level; a
+    // layout whose head does not write them runs the island on its code defaults. Before
+    // the fix `layouts::mobile` wrote only `__nostrMobile` — on the device its eight pages
+    // dialled `localhost:3334`. Compared per pass against /start (the package layout), so
+    // a global that a new layout forgets fails here whatever it is called.
+    foreach (array_keys(SIGHTING_PASSES) as $pass) {
+        $passFindings = collect($findings)->where('durchgang', $pass);
+        $reference = $passFindings->firstWhere('route', 'start')['bootGlobals'] ?? null;
+
+        expect($reference)->toContain('__nostrSpace', '__nostrMobile', '__nostrI18n');
+
+        // Fail-closed: a page drops out of this comparison only as a named document without
+        // the island bundle — not silently because its scripts went missing.
+        expect($passFindings->whereNull('bootGlobals')->pluck('route')->values()->all())
+            ->toBe(['suche/portal-index'], "Pass {$pass}: unexpected pages without the island bundle.");
+
+        $missing = $passFindings
+            ->filter(fn (array $finding): bool => $finding['bootGlobals'] !== null && $finding['bootGlobals'] !== $reference)
+            ->map(fn (array $finding): string => "{$finding['route']}: missing ".implode(',', array_diff($reference, $finding['bootGlobals'])).', extra '.implode(',', array_diff($finding['bootGlobals'], $reference)))
+            ->values();
+
+        expect($missing->all())
+            ->toBe([], "Pass {$pass}: pages boot the island with other globals than /start (".implode(',', $reference).'): '.$missing->implode(' | '));
     }
 
     // The recording keeps at most 50 entries per list (`sichtungCap`). A case at the cap may
