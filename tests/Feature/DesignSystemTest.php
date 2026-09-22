@@ -5,7 +5,6 @@ use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
-use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ViewErrorBag;
 use Livewire\Livewire;
@@ -139,7 +138,6 @@ it('keeps the country filters of the browse pages free of native selects', funct
         GetMobileMeetupsRequest::class => MockResponse::make([mobileMeetupFixture()]),
         GetMeetupEventsRequest::class => MockResponse::make([]),
         GetCitiesRequest::class => MockResponse::make([cityFixture()]),
-        GetVenuesRequest::class => MockResponse::make([venueFixture()]),
     ]);
 
     /*

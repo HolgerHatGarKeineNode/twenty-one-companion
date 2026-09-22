@@ -512,50 +512,6 @@ function cityFixture(array $overrides = []): array
 }
 
 /**
- * Veranstaltungsort aus GET /api/venues (inkl. Stadt/Land, Flagge, Beschreibung).
- *
- * @param  array<string, mixed>  $overrides
- * @return array<string, mixed>
- */
-function venueFixture(array $overrides = []): array
-{
-    return array_merge([
-        'id' => 131,
-        'name' => 'AfueraFest 2025',
-        'city_id' => 80,
-        'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
-        'description' => 'Regensburg, Hauptstraße 1',
-        'city' => [
-            'id' => 80,
-            'name' => 'Regensburg',
-            'country_id' => 1,
-            'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
-        ],
-    ], $overrides);
-}
-
-/**
- * Eigener Veranstaltungsort aus GET /api/my-venues (VenueResource, flache
- * Schreib-/Eigentums-Sicht mit id + city_id + street, im data-Wrapper).
- *
- * @param  array<string, mixed>  $overrides
- * @return array<string, mixed>
- */
-function myVenueFixture(array $overrides = []): array
-{
-    return array_merge([
-        'id' => 131,
-        'city_id' => 80,
-        'name' => 'Bitcoin-Bar',
-        'slug' => 'bitcoin-bar',
-        'street' => 'Hauptstraße 1',
-        'created_by' => 7,
-        'created_at' => '2026-01-01T00:00:00.000000Z',
-        'updated_at' => '2026-06-01T00:00:00.000000Z',
-    ], $overrides);
-}
-
-/**
  * Eigene Stadt aus GET /api/my-cities (CityResource, flache Schreib-/
  * Eigentums-Sicht mit id + country_id + Geo, im data-Wrapper).
  *

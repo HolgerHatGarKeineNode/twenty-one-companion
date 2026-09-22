@@ -110,11 +110,11 @@
                      `registerNostrComponents`, and that used to run in the chat bundle only. --}}
                 <x-group::command-palette />
 
-                {{-- Editor-Sheets (Phase 4/5/6): Meetup-Editor besitzt `create-meetup`,
-                     Termin-Editor `create-event`, Venue-Editor `create-venue`,
-                     City-Editor `create-city`. Geöffnet vom FAB, den „Meine“-Listen,
-                     der Termin-Verwaltung und den inline-Stadt-Flows. Nur für
-                     verbundene Nutzer — Schreiben braucht ein Token. --}}
+                {{-- Editor sheets (phases 4/5/6): the meetup editor owns `create-meetup`, the
+                     date editor `create-event`, the city editor `create-city`. Opened from the
+                     FAB, the "Meine" lists, the date management and the inline city flows.
+                     Connected users only — writing needs a token. The venue editor is gone
+                     with the portal's venue model (einundzwanzig-portal 5aba6dc). --}}
                 @if ($connected)
                     {{-- Discovery-First: „Meetup aussuchen“ (Phase 4.3) öffnet den
                          Picker, der bestehende Meetups zu „Meine“ hinzufügt, statt
@@ -125,7 +125,6 @@
                          im Meetup-Editor (öffnet via open-meetup-leaders). --}}
                     <livewire:meetup-leaders/>
                     <livewire:event-editor/>
-                    <livewire:venue-editor/>
                     <livewire:city-editor/>
                     {{-- Kurse & Referenten (Phase 7): Referenten-Editor besitzt
                          `create-lecturer`, Kurs-Editor `create-course`, Kurs-Event-

@@ -21,7 +21,6 @@ use App\Http\Integrations\Portal\Requests\GetMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetUserRequest;
-use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use App\Services\PortalApi;
 use App\Services\PortalAuth;
 use Carbon\CarbonImmutable;
@@ -52,23 +51,6 @@ function courseFixture(): array
         'name' => 'Bitcoin, Blockchain und Geld',
         'image' => 'https://portal.einundzwanzig.space/img/einundzwanzig.png',
         'media' => [],
-    ];
-}
-
-function courseEventFixture(): array
-{
-    return [
-        'id' => 9,
-        'course_id' => 5,
-        'venue_id' => 3,
-        'from' => '2026-07-01T18:00:00.000000Z',
-        'to' => '2026-07-01T20:00:00.000000Z',
-        'link' => 'https://example.com/kurs',
-        'created_by' => 7,
-        'created_at' => '2026-06-01T00:00:00.000000Z',
-        'updated_at' => '2026-06-01T00:00:00.000000Z',
-        'course' => ['id' => 5, 'name' => 'Bitcoin, Blockchain und Geld'],
-        'venue' => ['id' => 3, 'name' => 'Volkshochschule'],
     ];
 }
 
@@ -123,26 +105,11 @@ it('nests the dotted meetup keys of meetup events and filters by month', functio
     ));
 });
 
-it('maps cities, venues and countries with their nested relations', function () {
+it('maps cities and countries with their nested relations', function () {
     withoutPortalToken();
     MockClient::global([
         GetCitiesRequest::class => MockResponse::make([
             ['id' => 221, 'name' => 'Cottbus', 'country_id' => 1, 'country' => ['id' => 1, 'name' => 'Germany']],
-        ]),
-        GetVenuesRequest::class => MockResponse::make([
-            [
-                'id' => 131,
-                'name' => 'AfueraFest 2025',
-                'city_id' => 80,
-                'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-de.svg',
-                'description' => 'Regensburg, ',
-                'city' => [
-                    'id' => 80,
-                    'name' => 'Regensburg',
-                    'country_id' => 1,
-                    'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
-                ],
-            ],
         ]),
         GetCountriesRequest::class => MockResponse::make([
             ['id' => 22, 'name' => 'Afghanistan', 'code' => 'af', 'flag' => 'https://portal.einundzwanzig.space/vendor/blade-flags/country-af.svg'],
@@ -152,7 +119,6 @@ it('maps cities, venues and countries with their nested relations', function () 
     $api = portalApi();
 
     expect($api->cities()->first()->country->name)->toBe('Germany')
-        ->and($api->venues()->first()->city->country->code)->toBe('de')
         ->and($api->countries()->first()->flag)->toContain('country-af.svg');
 });
 
@@ -215,7 +181,6 @@ it('maps my course events including course and city summaries, as the portal sen
         ->and($event->from)->toBeInstanceOf(CarbonImmutable::class)
         ->and($event->course?->name)->toBe('Bitcoin, Blockchain und Geld')
         ->and($event->city_id)->toBe(80)
-        ->and($event->venue)->toBeNull()
         ->and($event->locationLabel())->toBe('Volkshochschule · Regensburg');
 
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('course_id') === 5);
@@ -326,19 +291,17 @@ it('maps detailed courses and sends the withDetails flag', function () {
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
 });
 
-it('sends the withDetails flag for cities and venues and maps the flag url', function () {
+it('sends the withDetails flag for cities and maps the flag url', function () {
     withoutPortalToken();
     MockClient::global([
         GetCitiesRequest::class => MockResponse::make([cityFixture()]),
-        GetVenuesRequest::class => MockResponse::make([venueFixture()]),
     ]);
 
     $api = portalApi();
 
-    expect($api->cities(withDetails: true)->first()->flag)->toContain('country-de.svg')
-        ->and($api->venues(withDetails: true)->first()->description)->toBe('Regensburg, Hauptstraße 1');
+    expect($api->cities(withDetails: true)->first()->flag)->toContain('country-de.svg');
 
-    MockClient::global()->assertSentCount(2);
+    MockClient::global()->assertSentCount(1);
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
 });
 
@@ -359,13 +322,6 @@ it('maps the course detail including events with location and city, without a ve
         (string) $response->getPendingRequest()->getUri(),
         '/api/courses/5',
     ));
-});
-
-it('still labels a course event that carries a nested venue', function () {
-    $event = CourseEventData::from(courseEventFixture() + ['location' => 'ignored']);
-
-    expect($event->venue_id)->toBe(3)
-        ->and($event->locationLabel())->toBe('Volkshochschule');
 });
 
 it('labels a course event from location or city alone and leaves it empty without either', function () {
@@ -513,4 +469,20 @@ it('returns no my-courses without a cached profile', function () {
     expect(portalApi()->myCourses())->toBeEmpty();
 
     MockClient::global()->assertNothingSent();
+});
+
+it('treats a redirect as a failed read, never as data', function () {
+    // The portal answers GET /api/venues with a 301 to /api/courses since the venue model is
+    // gone. Followed, that redirect handed course rows to the venue data class — a 200 with
+    // the wrong data. The connector follows no redirect, and a 3xx is a failed read.
+    withoutPortalToken();
+    MockClient::global([
+        GetCitiesRequest::class => MockResponse::make([detailedCourseFixture()], 301, ['Location' => '/api/courses']),
+    ]);
+
+    $api = portalApi();
+
+    expect($api->cities())->toBeEmpty()
+        ->and($api->hasMissingData())->toBeTrue()
+        ->and(app(PortalConnector::class)->config()->get('allow_redirects'))->toBeFalse();
 });

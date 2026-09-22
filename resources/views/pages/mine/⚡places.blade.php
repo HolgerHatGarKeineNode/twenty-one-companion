@@ -3,11 +3,11 @@
 use App\Data\Portal\CityData;
 use App\Data\Portal\CountryData;
 use App\Data\Portal\MyCityData;
-use App\Data\Portal\MyVenueData;
-use App\Data\Portal\VenueData;
 use App\Livewire\PortalPage;
 use App\Services\CountryOptions;
 use App\Services\PortalApi;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -15,6 +15,11 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 
 /**
+ * Cities only since 2026-09-22: the portal removed its venue model (einundzwanzig-portal
+ * 5aba6dc) and answers GET /api/venues with a redirect, so the "Orte" tab, its lists and
+ * the venue editor are gone. The address stays — it is the city management — and the old
+ * venue view (`?tab=orte`) answers with a 301 to it.
+ *
  * „Meine Orte & Städte“ (Phase 6.4): Verwaltungsseite für die eigenen Städte und
  * Veranstaltungsorte. Auth-gated über <x-requires-portal>; Anlegen/Bearbeiten
  * laufen über die im Layout eingebetteten City-/Venue-Editoren (Sheets), die
@@ -32,10 +37,8 @@ use Livewire\Attributes\Url;
  * Two axes and not four tabs: „Städte | Orte" times „Meine | Alle" fits into two bars,
  * while four tabs with the German labels overflow at 390 px.
  */
-new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' => 'Orte & Städte', 'back' => '/ich/inhalte'])] class extends PortalPage
+new #[Layout('layouts::mobile', ['title' => 'Meine Städte', 'heading' => 'Meine Städte', 'back' => '/ich/inhalte'])] class extends PortalPage
 {
-    #[Url]
-    public string $tab = 'staedte';
 
     /** `meine` | `alle` — one's own stock or the Portal's (P5). */
     #[Url]
@@ -51,6 +54,17 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
 
     public function mount(): void
     {
+        // The venue view of this page is gone with the portal's venues: a 301 to the same
+        // scope of the city view, so shared links and old builds land somewhere real.
+        if (request()->query('tab') === 'orte') {
+            $query = array_filter(['umfang' => request()->query('umfang')], fn (mixed $value): bool => is_string($value) && $value !== '');
+
+            throw new HttpResponseException(new RedirectResponse(
+                route('ich.inhalte.orte').($query === [] ? '' : '?'.http_build_query($query)),
+                301,
+            ));
+        }
+
         // An unknown scope falls back to one's own stock — that is the page this address
         // carries; „Alle" is the guest on it.
         if (! in_array($this->umfang, ['meine', 'alle'], true)) {
@@ -88,26 +102,6 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
     }
 
     /**
-     * Alle Veranstaltungsorte des Portals, gefiltert wie die Städte (P5, von `/map`).
-     *
-     * @return Collection<int, VenueData>
-     */
-    #[Computed]
-    public function alleOrte(): Collection
-    {
-        $search = mb_strtolower(trim($this->search));
-        $country = mb_strtolower($this->country);
-
-        return app(PortalApi::class)
-            ->venues(withDetails: true)
-            ->filter(fn (VenueData $venue): bool => $country === '' || $venue->countryCode() === $country)
-            ->filter(fn (VenueData $venue): bool => $search === ''
-                || str_contains(mb_strtolower($venue->name), $search)
-                || (is_string($venue->description) && str_contains(mb_strtolower($venue->description), $search)))
-            ->values();
-    }
-
-    /**
      * Country codes for the region filter — taken from the cities, because every place lies
      * in a city and the city list is the more complete of the two.
      *
@@ -132,15 +126,6 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
     }
 
     /**
-     * @return Collection<int, MyVenueData>
-     */
-    #[Computed]
-    public function myVenues(): Collection
-    {
-        return app(PortalApi::class)->myVenues();
-    }
-
-    /**
      * Landesnamen für die eigenen Städte (über die distinct country_ids; ein
      * Aufruf mit selected hebt das 10er-Limit für genau diese Länder auf).
      *
@@ -161,40 +146,16 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
             ->all();
     }
 
-    /**
-     * Stadtnamen für die eigenen Orte (aus der gecachten Städte-Liste, derselbe
-     * withDetails-Call wie die Karten-Seite).
-     *
-     * @return array<int, string>
-     */
-    #[Computed]
-    public function cityNames(): array
-    {
-        if ($this->myVenues->isEmpty()) {
-            return [];
-        }
-
-        return app(PortalApi::class)
-            ->cities(withDetails: true)
-            ->mapWithKeys(fn (CityData $city): array => [$city->id => $city->name])
-            ->all();
-    }
-
     #[On('places-changed')]
     public function refreshLists(): void
     {
-        unset($this->myCities, $this->myVenues, $this->countryNames, $this->cityNames, $this->alleStaedte, $this->alleOrte);
+        unset($this->myCities, $this->countryNames, $this->alleStaedte);
     }
 };
 ?>
 
 <x-portal-page>
-    <x-requires-portal :heading="__('Mit Portal verbinden')" :text="__('Verbinde dein Konto, um deine eigenen Orte und Städte zu verwalten.')">
-        <flux:tabs wire:model.live="tab" variant="segmented" class="w-full">
-            <flux:tab name="staedte">{{ __('Städte') }}</flux:tab>
-            <flux:tab name="orte">{{ __('Orte') }}</flux:tab>
-        </flux:tabs>
-
+    <x-requires-portal :heading="__('Mit Portal verbinden')" :text="__('Verbinde dein Konto, um deine eigenen Städte zu verwalten.')">
         {{-- The second axis: one's own stock or the Portal's (P5, from the deleted map
              page). Two bars instead of four tabs — four German labels overflow at
              390 px. --}}
@@ -213,8 +174,8 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
                 type="search"
                 icon="magnifying-glass"
                 data-orte-suche
-                :aria-label="$tab === 'staedte' ? __('Stadt oder Land suchen') : __('Ort oder Stadt suchen')"
-                :placeholder="$tab === 'staedte' ? __('Stadt oder Land suchen …') : __('Ort oder Stadt suchen …')"
+                :aria-label="__('Stadt oder Land suchen')"
+                :placeholder="__('Stadt oder Land suchen …')"
                 clearable
             />
             {{-- listbox statt nativem Select: der System-Dialog der Android-WebView
@@ -226,45 +187,26 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
                 @endforeach
             </flux:select>
 
-            @if ($tab === 'staedte')
-                @if ($this->alleStaedte->isEmpty())
-                    <x-portal-empty-state icon="building-office-2" :heading="__('Keine Städte gefunden')" :error-heading="__('Städte nicht verfügbar')">
-                        <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
-                    </x-portal-empty-state>
-                @else
-                    <div class="flex flex-col gap-3" data-orte-liste="staedte">
-                        @foreach ($this->alleStaedte as $city)
-                            <x-place-card
-                                wire:key="alle-city-{{ $city->id }}"
-                                :flag="$city->flag"
-                                :name="$city->name"
-                                :subtitle="$city->country->name"
-                            />
-                        @endforeach
-                    </div>
-                @endif
+            @if ($this->alleStaedte->isEmpty())
+                <x-portal-empty-state icon="building-office-2" :heading="__('Keine Städte gefunden')" :error-heading="__('Städte nicht verfügbar')">
+                    <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
+                </x-portal-empty-state>
             @else
-                @if ($this->alleOrte->isEmpty())
-                    <x-portal-empty-state icon="building-storefront" :heading="__('Keine Orte gefunden')" :error-heading="__('Orte nicht verfügbar')">
-                        <flux:text class="max-w-xs">{{ __('Versuche eine andere Suche.') }}</flux:text>
-                    </x-portal-empty-state>
-                @else
-                    <div class="flex flex-col gap-3" data-orte-liste="orte">
-                        @foreach ($this->alleOrte as $venue)
-                            <x-place-card
-                                wire:key="alle-venue-{{ $venue->id }}"
-                                :flag="$venue->flag"
-                                :name="$venue->name"
-                                :subtitle="$venue->locationLabel()"
-                            />
-                        @endforeach
-                    </div>
-                @endif
+                <div class="flex flex-col gap-3" data-orte-liste="staedte">
+                    @foreach ($this->alleStaedte as $city)
+                        <x-place-card
+                            wire:key="alle-city-{{ $city->id }}"
+                            :flag="$city->flag"
+                            :name="$city->name"
+                            :subtitle="$city->country->name"
+                        />
+                    @endforeach
+                </div>
             @endif
-        @elseif ($tab === 'staedte')
+        @else
             @if ($this->myCities->isEmpty())
                 <x-portal-empty-state icon="building-office-2" :heading="__('Noch keine eigenen Städte')" :error-heading="__('Städte nicht verfügbar')">
-                    <flux:text class="max-w-xs">{{ __('Lege eine Stadt an, damit Meetups und Orte ihr zugeordnet werden können.') }}</flux:text>
+                    <flux:text class="max-w-xs">{{ __('Lege eine Stadt an, damit Meetups und Kurs-Termine ihr zugeordnet werden können.') }}</flux:text>
                     <flux:button
                         type="button"
                         variant="primary"
@@ -309,60 +251,6 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Orte & Städte', 'heading' =>
                                 icon="pencil-square"
                                 :aria-label="__('Stadt bearbeiten')"
                                 x-on:click="$haptic('light'); $flux.modal('create-city').show(); Livewire.dispatch('open-city-editor', { id: {{ $city->id }} })"
-                                class="shrink-0 cursor-pointer"
-                            />
-                        </div>
-                    @endforeach
-                </div>
-            @endif
-        @else
-            @if ($this->myVenues->isEmpty())
-                <x-portal-empty-state icon="building-storefront" :heading="__('Noch keine eigenen Orte')" :error-heading="__('Orte nicht verfügbar')">
-                    <flux:text class="max-w-xs">{{ __('Lege einen Veranstaltungsort an, an dem eure Termine stattfinden.') }}</flux:text>
-                    <flux:button
-                        type="button"
-                        variant="primary"
-                        icon="plus"
-                        x-on:click="$haptic('medium'); $flux.modal('create-venue').show(); Livewire.dispatch('open-venue-editor')"
-                        class="cursor-pointer"
-                    >
-                        {{ __('Ort anlegen') }}
-                    </flux:button>
-                </x-portal-empty-state>
-            @else
-                <div class="flex justify-end">
-                    <flux:button
-                        type="button"
-                        size="sm"
-                        variant="primary"
-                        icon="plus"
-                        x-on:click="$haptic('medium'); $flux.modal('create-venue').show(); Livewire.dispatch('open-venue-editor')"
-                        class="cursor-pointer"
-                    >
-                        {{ __('Ort anlegen') }}
-                    </flux:button>
-                </div>
-
-                <div class="list-stagger flex flex-col gap-3">
-                    @foreach ($this->myVenues as $venue)
-                        <div
-                            class="surface-card flex items-center gap-3 p-4"
-                            wire:key="my-venue-{{ $venue->id }}"
-                            style="--i: {{ $loop->index }}"
-                        >
-                            <span class="flex size-11 shrink-0 items-center justify-center rounded-tile bg-brand-500/10 text-brand-600 dark:text-brand-400">
-                                <flux:icon name="building-storefront" class="size-6"/>
-                            </span>
-                            <span class="flex min-w-0 flex-1 flex-col gap-0.5">
-                                <span class="truncate font-semibold">{{ $venue->name }}</span>
-                                <flux:text class="truncate text-sm">{{ trim(($this->cityNames[$venue->city_id] ?? '').' · '.$venue->street, ' ·') }}</flux:text>
-                            </span>
-                            <flux:button
-                                type="button"
-                                variant="ghost"
-                                icon="pencil-square"
-                                :aria-label="__('Ort bearbeiten')"
-                                x-on:click="$haptic('light'); $flux.modal('create-venue').show(); Livewire.dispatch('open-venue-editor', { id: {{ $venue->id }} })"
                                 class="shrink-0 cursor-pointer"
                             />
                         </div>

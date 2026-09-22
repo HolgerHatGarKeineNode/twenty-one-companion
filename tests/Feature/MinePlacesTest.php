@@ -1,9 +1,7 @@
 <?php
 
-use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
-use App\Http\Integrations\Portal\Requests\GetMyVenuesRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -33,20 +31,6 @@ it('lists own cities with the resolved country and an edit affordance', function
         ->assertSee(__('Stadt bearbeiten'));
 });
 
-it('lists own venues with the resolved city and street on the venues tab', function () {
-    withPortalToken();
-    MockClient::global([
-        GetMyVenuesRequest::class => MockResponse::make(['data' => [myVenueFixture(['id' => 131, 'city_id' => 80, 'name' => 'Bitcoin-Bar', 'street' => 'Hauptstraße 1'])]]),
-        GetCitiesRequest::class => MockResponse::make([cityFixture(['id' => 80, 'name' => 'Regensburg'])]),
-    ]);
-
-    Livewire::test('pages::mine.places', ['tab' => 'orte'])
-        ->assertSee('Bitcoin-Bar')
-        ->assertSee('Regensburg')
-        ->assertSee('Hauptstraße 1')
-        ->assertSee(__('Ort bearbeiten'));
-});
-
 it('shows the empty-state create CTA when the user has no cities', function () {
     withPortalToken();
     MockClient::global([
@@ -69,4 +53,15 @@ it('refreshes the lists when places change', function () {
         ->assertSee('Regensburg')
         ->call('refreshLists')
         ->assertSee('Regensburg');
+});
+
+it('answers the old venue view with a 301 to the cities, keeping the scope', function () {
+    // The portal removed its venue model (einundzwanzig-portal 5aba6dc); the „Orte" tab is
+    // gone, and a shared or bookmarked link to it lands on the city view of this page.
+    completeOnboarding();
+    withoutPortalToken();
+
+    $this->get('/ich/inhalte/orte?tab=orte')->assertStatus(301)->assertRedirect('/ich/inhalte/orte');
+    $this->get('/ich/inhalte/orte?umfang=alle&tab=orte')->assertStatus(301)->assertRedirect('/ich/inhalte/orte?umfang=alle');
+    $this->get('/ich/inhalte/orte')->assertOk()->assertSee(__('Meine Städte'))->assertDontSee('data-orte-liste="orte"', false);
 });

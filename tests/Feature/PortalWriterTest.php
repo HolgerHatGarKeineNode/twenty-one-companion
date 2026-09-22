@@ -178,7 +178,6 @@ it('builds the correct request for each write entity', function (string $entity,
 
     match ($entity) {
         'meetup-event' => $writer->createMeetupEvent(['meetup_id' => 7, 'start' => '2026-08-01 18:00:00']),
-        'venue' => $writer->createVenue(['city_id' => 42, 'name' => 'Bitcoin Bar']),
         'city' => $writer->createCity(['country_id' => 1, 'name' => 'Ansbach']),
     };
 
@@ -188,6 +187,5 @@ it('builds the correct request for each write entity', function (string $entity,
     ));
 })->with([
     'meetup event' => ['meetup-event', '/api/meetup-events'],
-    'venue' => ['venue', '/api/venues'],
     'city' => ['city', '/api/cities'],
 ]);

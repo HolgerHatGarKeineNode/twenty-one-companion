@@ -19,9 +19,7 @@ use App\Data\Portal\MobileMeetupData;
 use App\Data\Portal\MyCityData;
 use App\Data\Portal\MyLecturerData;
 use App\Data\Portal\MyMeetupEventData;
-use App\Data\Portal\MyVenueData;
 use App\Data\Portal\UserProfileData;
-use App\Data\Portal\VenueData;
 use App\Http\Integrations\Portal\PortalConnector;
 use App\Http\Integrations\Portal\Requests\GetBtcMapCommunitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
@@ -40,9 +38,7 @@ use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyLecturersRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupEventsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyMeetupsRequest;
-use App\Http\Integrations\Portal\Requests\GetMyVenuesRequest;
 use App\Http\Integrations\Portal\Requests\GetUserRequest;
-use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -307,21 +303,6 @@ final class PortalApi
     }
 
     /**
-     * @return Collection<int, VenueData>
-     */
-    public function venues(?string $search = null, bool $withDetails = false): Collection
-    {
-        $json = $this->remember(
-            'venues',
-            [$search, $withDetails],
-            self::TTL_STATIC_SECONDS,
-            new GetVenuesRequest($search, withDetails: $withDetails),
-        );
-
-        return GetVenuesRequest::collectData($json ?? []);
-    }
-
-    /**
      * Ohne search/selected begrenzt das Portal auf 10 Einträge; selected
      * (Codes oder IDs) hebt das Limit für genau diese Länder auf.
      *
@@ -478,30 +459,6 @@ final class PortalApi
         );
 
         return GetMyMeetupEventsRequest::collectData($json ?? []);
-    }
-
-    /**
-     * Eigene Veranstaltungsorte (vom Nutzer erstellt). Ohne Portal-Token leer,
-     * ohne Request. Der Stadt-Anzeigename wird vom Aufrufer über die city_id
-     * aufgelöst (die VenueResource liefert nur die id).
-     *
-     * @return Collection<int, MyVenueData>
-     */
-    public function myVenues(): Collection
-    {
-        if (! $this->portalAuth->hasToken()) {
-            return new Collection;
-        }
-
-        $json = $this->remember(
-            'my-venues',
-            [],
-            self::TTL_MINE_SECONDS,
-            new GetMyVenuesRequest,
-            fn (Response $response): mixed => $response->json('data'),
-        );
-
-        return GetMyVenuesRequest::collectData($json ?? []);
     }
 
     /**
@@ -675,7 +632,11 @@ final class PortalApi
             $this->authExpired = true;
         }
 
-        if ($response->failed()) {
+        // A redirect is not an answer either. The portal sends GET /api/venues to
+        // /api/courses since the venue model is gone, and a followed redirect hydrated
+        // course rows as venues without any error. The connector does not follow
+        // redirects (`PortalConnector::defaultConfig`); a 3xx here is a failed read.
+        if ($response->failed() || $response->status() >= 300) {
             return $this->stale($key);
         }
 

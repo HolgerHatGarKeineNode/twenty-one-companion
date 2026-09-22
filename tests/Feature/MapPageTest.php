@@ -4,8 +4,6 @@ use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCountriesRequest;
 use App\Http\Integrations\Portal\Requests\GetMobileMeetupsRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCitiesRequest;
-use App\Http\Integrations\Portal\Requests\GetMyVenuesRequest;
-use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
 use Saloon\Http\Faking\MockResponse;
@@ -72,27 +70,6 @@ it('filters all cities by city or country name and by region', function () {
         ->assertDontSee('Wien');
 });
 
-it('lists all venues with their location label and filters them', function () {
-    withPortalToken();
-    MockClient::global([
-        GetVenuesRequest::class => MockResponse::make([
-            venueFixture(),
-            venueFixture(['id' => 132, 'name' => 'Volkshochschule', 'description' => 'Kempten, ']),
-        ]),
-        // The region filter of both lists comes from the CITIES: every place lies in a
-        // city, and the city list is the more complete of the two.
-        GetCitiesRequest::class => MockResponse::make([cityFixture()]),
-    ]);
-
-    Livewire::withQueryParams(['umfang' => 'alle', 'tab' => 'orte', 'country' => ''])->test('pages::mine.places')
-        ->assertSee('AfueraFest 2025')
-        ->assertSee('Regensburg, Hauptstraße 1')
-        ->assertSee('Volkshochschule')
-        ->set('search', 'afuera')
-        ->assertSee('AfueraFest 2025')
-        ->assertDontSee('Volkshochschule');
-});
-
 it('shows an empty state for an unknown search on the „alle" lists', function () {
     withPortalToken();
     MockClient::global([
@@ -110,7 +87,6 @@ it('opens on the OWN entries and offers the other scope', function () {
     withPortalToken();
     MockClient::global([
         GetMyCitiesRequest::class => MockResponse::make(['data' => [myCityFixture()]]),
-        GetMyVenuesRequest::class => MockResponse::make(['data' => []]),
         GetCountriesRequest::class => MockResponse::make([countryFixture(['id' => 1, 'name' => 'Germany'])]),
     ]);
 
@@ -137,9 +113,10 @@ it('forwards /map to the package map and its two lists to the new scope', functi
     $this->get('/map')->assertRedirect('/bereich/meetups?ansicht=karte');
     $this->get('/map?country=at')->assertRedirect('/bereich/meetups?ansicht=karte&land=at');
 
-    // Both lists to their new address, with the scope they stand under there.
-    $this->get('/map?tab=staedte')->assertRedirect('/ich/inhalte/orte?umfang=alle&tab=staedte');
-    $this->get('/map?tab=orte')->assertRedirect('/ich/inhalte/orte?umfang=alle&tab=orte');
+    // The city list to its new address, with the scope it stands under there. The venue
+    // list is gone with the portal's venue model; its old link lands on the cities too.
+    $this->get('/map?tab=staedte')->assertStatus(301)->assertRedirect('/ich/inhalte/orte?umfang=alle');
+    $this->get('/map?tab=orte')->assertStatus(301)->assertRedirect('/ich/inhalte/orte?umfang=alle');
 });
 
 it('renders the package map with its tiles and marker through this chassis', function () {

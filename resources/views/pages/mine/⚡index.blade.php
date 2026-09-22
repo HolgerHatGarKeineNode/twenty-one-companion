@@ -58,9 +58,9 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
             ],
             [
                 'icon' => 'building-office-2',
-                'label' => __('Meine Orte & Städte'),
+                'label' => __('Meine Städte'),
                 'href' => route('ich.inhalte.orte'),
-                'subtitle' => __('Veranstaltungsorte und Städte'),
+                'subtitle' => __('Städte für Meetups und Kurse'),
             ],
             [
                 'icon' => 'academic-cap',

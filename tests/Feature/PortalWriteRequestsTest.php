@@ -4,12 +4,10 @@ use App\Http\Integrations\Portal\Requests\AddMeetupToMineRequest;
 use App\Http\Integrations\Portal\Requests\CreateCityRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
-use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
 use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCityRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
-use App\Http\Integrations\Portal\Requests\UpdateVenueRequest;
 use Saloon\Enums\Method;
 use Saloon\Http\Request;
 
@@ -73,24 +71,6 @@ it('builds the rsvp-meetup-event request with id in path and status body', funct
     expect($request->getMethod())->toBe(Method::POST)
         ->and($request->resolveEndpoint())->toBe('/meetup-events/13/rsvp')
         ->and(bodyOf($request))->toBe(['status' => 'attending']);
-});
-
-it('builds the create-venue request', function () {
-    $payload = ['city_id' => 42, 'name' => 'Bitcoin Bar', 'street' => 'Hauptstr. 1'];
-
-    $request = new CreateVenueRequest($payload);
-
-    expect($request->getMethod())->toBe(Method::POST)
-        ->and($request->resolveEndpoint())->toBe('/venues')
-        ->and(bodyOf($request))->toBe($payload);
-});
-
-it('builds the update-venue request', function () {
-    $request = new UpdateVenueRequest(5, ['name' => 'Neuer Name']);
-
-    expect($request->getMethod())->toBe(Method::PATCH)
-        ->and($request->resolveEndpoint())->toBe('/venues/5')
-        ->and(bodyOf($request))->toBe(['name' => 'Neuer Name']);
 });
 
 it('builds the create-city request', function () {

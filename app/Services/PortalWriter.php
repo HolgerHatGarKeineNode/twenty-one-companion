@@ -12,7 +12,6 @@ use App\Http\Integrations\Portal\Requests\CreateCourseRequest;
 use App\Http\Integrations\Portal\Requests\CreateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\CreateMeetupRequest;
-use App\Http\Integrations\Portal\Requests\CreateVenueRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupFromMineRequest;
 use App\Http\Integrations\Portal\Requests\RemoveMeetupLeaderRequest;
 use App\Http\Integrations\Portal\Requests\RsvpMeetupEventRequest;
@@ -23,7 +22,6 @@ use App\Http\Integrations\Portal\Requests\UpdateLecturerRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupEventRequest;
 use App\Http\Integrations\Portal\Requests\UpdateMeetupRequest;
 use App\Http\Integrations\Portal\Requests\UpdateUserProfileRequest;
-use App\Http\Integrations\Portal\Requests\UpdateVenueRequest;
 use App\Http\Integrations\Portal\Requests\UploadCourseLogoRequest;
 use App\Http\Integrations\Portal\Requests\UploadLecturerAvatarRequest;
 use App\Http\Integrations\Portal\Requests\UploadMeetupLogoRequest;
@@ -172,22 +170,6 @@ final class PortalWriter
         }
 
         return $result;
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    public function createVenue(array $payload): WriteResult
-    {
-        return $this->send(new CreateVenueRequest($payload), ['venues', 'my-venues']);
-    }
-
-    /**
-     * @param  array<string, mixed>  $payload
-     */
-    public function updateVenue(int $id, array $payload): WriteResult
-    {
-        return $this->send(new UpdateVenueRequest($id, $payload), ['venues', 'my-venues']);
     }
 
     /**

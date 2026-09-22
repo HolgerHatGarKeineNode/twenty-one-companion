@@ -258,8 +258,10 @@ Route::middleware(EnsureOnboarded::class)->group(function () {
     $legacyQuery('map', '/bereich/meetups?ansicht=karte', 'legacy.map', [
         'umbenenne' => ['country' => 'land'],
         'weiche' => ['param' => 'tab', 'werte' => [
-            'staedte' => '/ich/inhalte/orte?umfang=alle&tab=staedte',
-            'orte' => '/ich/inhalte/orte?umfang=alle&tab=orte',
+            'staedte' => '/ich/inhalte/orte?umfang=alle',
+            // The venue list is gone with the portal's venue model (einundzwanzig-portal
+            // 5aba6dc); the old link lands on the cities, like `?tab=orte` on the page.
+            'orte' => '/ich/inhalte/orte?umfang=alle',
         ]],
     ]);
     $legacyQuery('courses', '/bereich/kurse', 'legacy.courses', [

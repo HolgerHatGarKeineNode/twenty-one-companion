@@ -86,7 +86,6 @@
         <livewire:meetup-editor />
         <livewire:meetup-leaders />
         <livewire:event-editor />
-        <livewire:venue-editor />
         <livewire:city-editor />
     @endif
     @if (isset($courseId))

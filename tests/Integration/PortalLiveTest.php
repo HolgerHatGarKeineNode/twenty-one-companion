@@ -243,46 +243,6 @@ it('creates (idempotent) and updates a city against the live portal', function (
     expect($updated->status)->toBe(WriteStatus::Success);
 })->group('integration');
 
-it('creates (idempotent) and updates a venue against the live portal', function () {
-    $token = env('PORTAL_TEST_TOKEN');
-
-    if (blank($token)) {
-        test()->markTestSkipped('PORTAL_TEST_TOKEN nicht gesetzt — Schreibtest übersprungen.');
-    }
-
-    withPortalToken((string) $token);
-    SecureStorage::shouldReceive('set')->andReturnTrue();
-
-    // Idempotent: einen festen Test-Datensatz wiederverwenden.
-    $name = 'Integrationstest Ort (mobile)';
-    $existing = app(PortalApi::class)->myVenues()->firstWhere('name', $name);
-
-    if ($existing === null) {
-        $city = app(PortalApi::class)->cities(withDetails: true)->first();
-        expect($city)->not->toBeNull('Keine Stadt im lokalen Portal vorhanden — bitte seeden.');
-
-        $created = app(PortalWriter::class)->createVenue([
-            'name' => $name,
-            'street' => 'Integrationstest-Straße 21',
-            'city_id' => $city->id,
-        ]);
-
-        expect($created->status)->toBe(WriteStatus::Success)
-            ->and($created->successful())->toBeTrue();
-
-        Cache::flush();
-        $existing = app(PortalApi::class)->myVenues()->firstWhere('name', $name);
-    }
-
-    expect($existing)->not->toBeNull('Angelegter Ort nicht in my-venues gefunden.');
-
-    $updated = app(PortalWriter::class)->updateVenue($existing->id, [
-        'street' => 'Aktualisiert am '.now()->toDateTimeString(),
-    ]);
-
-    expect($updated->status)->toBe(WriteStatus::Success);
-})->group('integration');
-
 it('rejects an invalid create with structured 422 field errors', function () {
     $token = env('PORTAL_TEST_TOKEN');
 
@@ -403,8 +363,10 @@ it('creates (idempotent) and updates a course event against the live portal', fu
         ?? app(PortalApi::class)->myCourses()->first();
     expect($course)->not->toBeNull('Kein eigener Kurs vorhanden — bitte zuerst den Kurs-Schreibtest laufen lassen.');
 
-    $venue = app(PortalApi::class)->venues(withDetails: true)->first();
-    expect($venue)->not->toBeNull('Kein Ort im lokalen Portal vorhanden — bitte seeden.');
+    // The portal's contract names the city and the place in free text; it has no venues
+    // since einundzwanzig-portal 5aba6dc.
+    $city = app(PortalApi::class)->cities(withDetails: true)->first();
+    expect($city)->not->toBeNull('No city in the local portal — seed one first.');
 
     // Idempotent: einen vorhandenen eigenen Kurs-Termin dieses Kurses wiederverwenden,
     // sonst genau einen neuen anlegen.
@@ -413,7 +375,8 @@ it('creates (idempotent) and updates a course event against the live portal', fu
     if ($existing === null) {
         $created = app(PortalWriter::class)->createCourseEvent([
             'course_id' => $course->id,
-            'venue_id' => $venue->id,
+            'city_id' => $city->id,
+            'location' => 'Integration test room',
             'from' => now()->addMonth()->format('Y-m-d').' 18:00',
             'to' => now()->addMonth()->format('Y-m-d').' 20:00',
             'link' => 'https://example.com/integrationstest-anmeldung',

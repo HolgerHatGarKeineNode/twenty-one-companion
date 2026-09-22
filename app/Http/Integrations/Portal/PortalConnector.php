@@ -34,6 +34,19 @@ class PortalConnector extends Connector
 
     public function __construct(private readonly PortalAuth $portalAuth) {}
 
+    /**
+     * Redirects are not followed. The portal answers GET /api/venues with a 301 to
+     * /api/courses since it removed the venue model, and a followed redirect handed course
+     * rows to the venue data class — silently, with a 200. Unfollowed, a 3xx is a failed
+     * read (`PortalApi::remember`) and a failed write, never data of the wrong kind.
+     *
+     * @return array<string, mixed>
+     */
+    protected function defaultConfig(): array
+    {
+        return ['allow_redirects' => false];
+    }
+
     public function resolveBaseUrl(): string
     {
         return $this->portalAuth->baseUrl().'/api';
