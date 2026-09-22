@@ -591,6 +591,45 @@ if [ "$DEV_HITS" -gt 0 ]; then
 fi
 echo "   ✓ keine Dev-Pakete im Bundle"
 
+echo "→ Checking the bundle for local files under storage/app …"
+# storage/app holds whatever local runs left behind: the route sightings wrote
+# screenshots of a real, signed-in account there, and a bundle carried them
+# (2026-09-23, 20 MB). Directories may exist; files must not.
+LOCAL_FILES=$(unzip -Z -1 "$BUNDLE_TMP/laravel_bundle.zip" | grep -E '^storage/app/.*[^/]$' || true)
+if [ -n "$LOCAL_FILES" ]; then
+    echo "❌ The bundle carries $(printf '%s\n' "$LOCAL_FILES" | wc -l) local files under storage/app:"
+    printf '%s\n' "$LOCAL_FILES" | cut -d/ -f1-3 | sort | uniq -c | sed 's/^/     /'
+    echo "   Exclude them via cleanup_exclude_files in config/nativephp.php."
+    exit 1
+fi
+echo "   ✓ no local files under storage/app"
+
+echo "→ Checking the bundle's top level against the allowlist …"
+# A denylist ages: every release since v1.2.0 shipped the signing keystore,
+# auth.json and agent config from the project root, and no exclusion listed them
+# (measured 2026-09-23). So the top level is checked against what the runtime
+# needs; anything else fails the build. Key material is refused anywhere.
+BUNDLE_ALLOWED='^(app|bootstrap|config|database|lang|packages|public|resources|routes|storage|vendor|\.env|\.version|artisan\.php|composer\.json|native|LICENSE)$'
+BUNDLE_TOP=$(unzip -Z -1 "$BUNDLE_TMP/laravel_bundle.zip" | cut -d/ -f1 | sort -u)
+if [ -z "$BUNDLE_TOP" ]; then
+    echo "❌ Bundle listing is empty — build not verifiable."
+    exit 1
+fi
+UNEXPECTED=$(printf '%s\n' "$BUNDLE_TOP" | grep -vE "$BUNDLE_ALLOWED" || true)
+if [ -n "$UNEXPECTED" ]; then
+    echo "❌ Top-level entries outside the allowlist:"
+    printf '%s\n' "$UNEXPECTED" | sed 's/^/     /'
+    echo "   Exclude them via cleanup_exclude_files in config/nativephp.php."
+    exit 1
+fi
+KEY_MATERIAL=$(unzip -Z -1 "$BUNDLE_TMP/laravel_bundle.zip" | grep -iE '\.(p12|jks|keystore|pem|pfx)$|(^|/)auth\.json$|(^|/)credentials/' | grep -v '^vendor/' || true)
+if [ -n "$KEY_MATERIAL" ]; then
+    echo "❌ Key material or credentials in the bundle:"
+    printf '%s\n' "$KEY_MATERIAL" | sed 's/^/     /'
+    exit 1
+fi
+echo "   ✓ top level matches the allowlist, no key material"
+
 echo "→ App-Link-Pfade im APK-Manifest pruefen …"
 if ! pruefe_pfad_prefixe "${DIST}/${APK_NAME}"; then
     exit 1

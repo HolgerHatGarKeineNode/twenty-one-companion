@@ -223,6 +223,43 @@ return [
         '/.agents',        // Agent-Skills (Dev-Tooling)
         '/tests',          // App-Testsuite (zur Laufzeit nicht benötigt)
         '/storage/logs',   // Logs (können sich ansammeln)
+        // Local runtime files: route-sighting screenshots of a real account, crop
+        // uploads from dev runs. Measured 2026-09-23: 20 MB of them in the v1.13.0
+        // bundle. The device keeps its own storage; nothing here is needed there.
+        '/storage/app',
+        // Secrets and dev tooling in the project root. Measured 2026-09-23: every
+        // release since v1.2.0 carried the signing keystore (credentials/*.p12),
+        // auth.json with registry credentials, and agent/tool config. The release
+        // script checks the bundle against an allowlist of top-level entries, so
+        // anything new in the root fails the build instead of shipping.
+        '/credentials',
+        '/keys',
+        '/auth.json',
+        '/.mcp.json',
+        '/.npmrc',
+        '/opencode.json',
+        '/boost.json',
+        '/.omo',
+        '/.playwright-mcp',
+        '/assets',
+        '/scripts',
+        '/package.json',
+        '/package-lock.json',
+        '/phpstan.neon',
+        '/phpstan-bootstrap.php',
+        '/pint.json',
+        '/maintainers.yaml',
+        '/zapstore.yaml',
+        '/locale-listbox-open.png',
+        '/onboarding-push-de.png',
+        '/onboarding-push-en.png',
+        // The chat package is a path repo; its TypeScript sources (6.4 MB, 2.6 MB of
+        // them tests and fixtures) are compiled into public/build and never read at
+        // runtime. Its agent and test-run leftovers do not belong on a device either.
+        '/vendor/einundzwanzig/group/js',
+        '/vendor/einundzwanzig/group/.claude',
+        '/vendor/einundzwanzig/group/test-results',
+        '/vendor/einundzwanzig/group/scripts',
 
         // Lokale Dev-SQLite NICHT mitliefern: NativePHP legt die DB on-device an
         // und migriert beim Start. Würde die Dev-Datei gebündelt, käme deren
