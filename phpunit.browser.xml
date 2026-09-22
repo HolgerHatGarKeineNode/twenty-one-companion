@@ -42,5 +42,16 @@
              wss://buzz.einundzwanzig.space, die ein /forge-Browsertest sonst ansprechen
              würde. -->
         <env name="NOSTR_WORKSPACE_URL" value="ws://127.0.0.1:9"/>
+        <!-- Same reason, both measured by the v1.13.0 sighting (one run, without these two
+             lines): .env points NOSTR_SPACE_URL at wss://group.einundzwanzig.space/ — 72
+             WebSocket connections and 324 fetches of the relay root (NIP-11) to production,
+             plus 29 raw blossom.einundzwanzig.space images and 3 connections to
+             nostr.einundzwanzig.space from the data it served — and VEREIN_PROXY_BASE at
+             https://group.einundzwanzig.space (3 fetches of /api/verein/config). The space
+             gets its own dead port (7, not 9): the package config keeps space and workspace
+             deliberately apart. The latch is in tests/Browser/SichtungTest.php (no browser
+             request to a production host). -->
+        <env name="NOSTR_SPACE_URL" value="ws://127.0.0.1:7"/>
+        <env name="VEREIN_PROXY_BASE" value="http://127.0.0.1:9"/>
     </php>
 </phpunit>

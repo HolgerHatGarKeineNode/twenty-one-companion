@@ -78,6 +78,7 @@ function measureSightingCase(
         'consoleErrors' => [],
         'pageErrors' => [],
         'netzwerkFehler' => [],
+        'fremdAnfragen' => [],
         'ueberlauf' => false,
         'ueberlaufPx' => 0,
         'ueberstehend' => [],
@@ -121,6 +122,7 @@ function measureSightingCase(
         $finding['consoleErrors'] = $measured['consoleErrors'];
         $finding['pageErrors'] = $measured['pageErrors'];
         $finding['netzwerkFehler'] = $measured['netzwerkFehler'];
+        $finding['fremdAnfragen'] = $measured['fremdAnfragen'];
         $finding['ueberlauf'] = $overflow['ueberlauf'];
         $finding['ueberlaufPx'] = $overflow['ueberlaufPx'];
         $finding['ueberstehend'] = $overflow['ueberstehend'];
@@ -202,4 +204,43 @@ test('v1.13.0 sighting: every view, three passes, measured and backed by a scree
     $expectedCases = count(RouteInventory::pages()) * count(SIGHTING_PASSES)
         + count(filledSightingRoutes()) * count(SIGHTING_PASSES);
     expect($findings)->toHaveCount($expectedCases);
+
+    // Latch: an element with an EMPTY `src` attribute makes the browser resolve it to the
+    // page URL and fire an error event — 26 of them over eight routes before the fix. The
+    // attribute is read off the raising element itself (`srcAttribut`), so an image that
+    // merely failed to load is not counted here.
+    $emptySrcErrors = collect($findings)
+        ->flatMap(fn (array $finding): array => array_map(
+            fn (array $error): string => "{$finding['route']} [{$finding['durchgang']}]: ".($error['html'] ?? ''),
+            array_filter($finding['pageErrors'], fn (array $error): bool => ($error['srcAttribut'] ?? null) === ''),
+        ))
+        ->values();
+
+    expect($emptySrcErrors->all())
+        ->toBe([], 'Elements rendered with an empty src attribute and raised an error event: '.$emptySrcErrors->implode(' | '));
+
+    // Latch: no browser request may reach a production host (`Sichtung::isProductionHost()`,
+    // `*.einundzwanzig.space`). Before the fix, in one run: the portal meetup list 59 times
+    // (one 429), the space relay 72 times over WebSocket and 324 times for its NIP-11
+    // document, the association proxy 3 times, plus raw blossom images and a second relay
+    // reached through the production data — all from inside the tests.
+    $productionRequests = collect($findings)
+        ->flatMap(fn (array $finding): array => array_map(
+            fn (array $request): string => "{$finding['route']} [{$finding['durchgang']}]: {$request['art']} {$request['url']}",
+            array_filter($finding['fremdAnfragen'], fn (array $request): bool => Sichtung::isProductionHost($request['host'])),
+        ))
+        ->values();
+
+    expect($productionRequests->all())
+        ->toBe([], 'Browser requests reached a production host: '.$productionRequests->implode(' | '));
+
+    // The recording keeps at most 50 entries per list (`sichtungCap`). A case at the cap may
+    // have dropped a production request, so a full list fails closed instead of passing.
+    $casesAtCap = collect($findings)
+        ->filter(fn (array $finding): bool => count($finding['fremdAnfragen']) >= 50)
+        ->map(fn (array $finding): string => "{$finding['route']} [{$finding['durchgang']}]")
+        ->values();
+
+    expect($casesAtCap->all())
+        ->toBe([], 'Cross-origin recording hit its cap of 50 — the production check is incomplete for: '.$casesAtCap->implode(', '));
 })->group('a11y', 'sichtung');

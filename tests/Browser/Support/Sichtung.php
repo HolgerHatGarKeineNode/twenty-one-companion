@@ -20,13 +20,58 @@ namespace Tests\Browser\Support;
 final class Sichtung
 {
     /**
+     * Every host under this domain is production. The browser tests point each configured
+     * origin (PORTAL_URL, NOSTR_SPACE_URL, NOSTR_WORKSPACE_URL, VEREIN_PROXY_BASE) at a dead
+     * port, so a request that still reaches one of these hosts comes from client code that
+     * ignores its configuration. The ONE place that decides what counts as production —
+     * the SichtungTest latch and its control both read it through `isProductionHost()`.
+     */
+    public const PRODUCTION_DOMAIN = 'einundzwanzig.space';
+
+    /**
+     * Production hosts the latch deliberately tolerates, each with its reason. Empty: every
+     * production request measured so far was traced to a configurable origin and closed there.
+     *
+     * @var array<string, string> host => justification
+     */
+    public const PRODUCTION_HOST_EXEMPTIONS = [];
+
+    public static function isProductionHost(string $host): bool
+    {
+        $hostname = strtolower((string) preg_replace('/:\d+$/', '', $host));
+
+        if (array_key_exists($hostname, self::PRODUCTION_HOST_EXEMPTIONS)) {
+            return false;
+        }
+
+        return $hostname === self::PRODUCTION_DOMAIN || str_ends_with($hostname, '.'.self::PRODUCTION_DOMAIN);
+    }
+
+    /**
      * @see the class docblock for the reason behind each individual hook.
      */
     private const INIT_SCRIPT = <<<'JS'
-        window.__sichtung = { consoleErrors: [], pageErrors: [], netzwerkFehler: [] };
+        window.__sichtung = { consoleErrors: [], pageErrors: [], netzwerkFehler: [], fremdAnfragen: [] };
 
         const sichtungCap = (list, entry) => {
             if (list.length < 50) list.push(entry);
+        };
+
+        // Every request that leaves the page's own origin, recorded at CALL time — before the
+        // network is touched. A status-based record cannot see a request that failed (CORS,
+        // refused, aborted) or that succeeded, and both still reached the host. Four doors:
+        // fetch, XHR, WebSocket (the relays) and every other resource (img/script/css) via
+        // resource timing.
+        const sichtungFremd = (url, art) => {
+            let parsed;
+            try {
+                parsed = new URL(String(url instanceof Request ? url.url : url), location.href);
+            } catch {
+                return;
+            }
+            if (parsed.origin !== location.origin) {
+                sichtungCap(window.__sichtung.fremdAnfragen, { url: parsed.href.slice(0, 300), host: parsed.host, art });
+            }
         };
 
         const origError = console.error;
@@ -42,12 +87,21 @@ final class Sichtung
 
         // Capture phase (third argument `true`): the ONLY way window.error also catches
         // resource errors (<img>/<script>/<link> failing to load) — those do not bubble.
+        // For element errors the raising element is recorded too: `target.src` alone cannot
+        // tell an unreachable image from an `<img src="">` (both report a URL — the empty
+        // attribute resolves to the page URL), `getAttribute('src')` can.
         window.addEventListener('error', (e) => {
             const target = e.target && e.target !== window ? e.target : null;
-            sichtungCap(window.__sichtung.pageErrors, {
+            const entry = {
                 art: 'error',
                 nachricht: (e.message || (target && (target.src || target.href)) || String(e.error || e) || '').slice(0, 300),
-            });
+            };
+            if (target && target.tagName) {
+                entry.element = target.tagName.toLowerCase();
+                entry.srcAttribut = target.getAttribute('src');
+                entry.html = (target.outerHTML || '').slice(0, 300);
+            }
+            sichtungCap(window.__sichtung.pageErrors, entry);
         }, true);
 
         window.addEventListener('unhandledrejection', (e) => {
@@ -61,6 +115,7 @@ final class Sichtung
         const origFetch = window.fetch;
         if (origFetch) {
             window.fetch = function (...args) {
+                sichtungFremd(args[0], 'fetch');
                 return origFetch.apply(window, args).then((response) => {
                     if (response.status >= 400) {
                         sichtungCap(window.__sichtung.netzwerkFehler, { url: response.url, status: response.status, art: 'fetch' });
@@ -70,11 +125,33 @@ final class Sichtung
             };
         }
 
+        const OrigWebSocket = window.WebSocket;
+        if (OrigWebSocket) {
+            window.WebSocket = new Proxy(OrigWebSocket, {
+                construct(target, args, newTarget) {
+                    sichtungFremd(args[0], 'websocket');
+                    return Reflect.construct(target, args, newTarget);
+                },
+            });
+        }
+
+        if (window.PerformanceObserver) {
+            new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    // fetch/XHR are already recorded at call time above.
+                    if (entry.initiatorType !== 'fetch' && entry.initiatorType !== 'xmlhttprequest') {
+                        sichtungFremd(entry.name, 'resource:' + entry.initiatorType);
+                    }
+                }
+            }).observe({ type: 'resource', buffered: true });
+        }
+
         const OrigXHR = window.XMLHttpRequest;
         if (OrigXHR) {
             const origOpen = OrigXHR.prototype.open;
             OrigXHR.prototype.open = function (method, url, ...rest) {
                 this.__sichtungUrl = url;
+                sichtungFremd(url, 'xhr');
                 this.addEventListener('load', function () {
                     if (this.status >= 400) {
                         sichtungCap(window.__sichtung.netzwerkFehler, { url: this.__sichtungUrl, status: this.status, art: 'xhr' });
@@ -138,12 +215,12 @@ final class Sichtung
     }
 
     /**
-     * @return array{consoleErrors: list<array{art: string, nachricht: string}>, pageErrors: list<array{art: string, nachricht: string}>, netzwerkFehler: list<array{url: string, status: int, art: string}>}
+     * @return array{consoleErrors: list<array{art: string, nachricht: string}>, pageErrors: list<array{art: string, nachricht: string, element?: string, srcAttribut?: string|null, html?: string}>, netzwerkFehler: list<array{url: string, status: int, art: string}>, fremdAnfragen: list<array{url: string, host: string, art: string}>}
      */
     public static function measure(object $webpage): array
     {
-        /** @var array{consoleErrors: list<array{art: string, nachricht: string}>, pageErrors: list<array{art: string, nachricht: string}>, netzwerkFehler: list<array{url: string, status: int, art: string}>} $result */
-        $result = $webpage->page()->evaluate('() => window.__sichtung || { consoleErrors: [], pageErrors: [], netzwerkFehler: [] }');
+        /** @var array{consoleErrors: list<array{art: string, nachricht: string}>, pageErrors: list<array{art: string, nachricht: string, element?: string, srcAttribut?: string|null, html?: string}>, netzwerkFehler: list<array{url: string, status: int, art: string}>, fremdAnfragen: list<array{url: string, host: string, art: string}>} $result */
+        $result = $webpage->page()->evaluate('() => window.__sichtung || { consoleErrors: [], pageErrors: [], netzwerkFehler: [], fremdAnfragen: [] }');
 
         return $result;
     }
