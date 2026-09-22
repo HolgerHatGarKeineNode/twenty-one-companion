@@ -42,7 +42,7 @@ opcache_wipe_zustand() {  # $1 = Pfad zu LaravelEnvironment.kt
   awk '
     /^[ \t]*fun initialize\(\) \{/ { match($0, /^[ \t]*/); ein = substr($0, 1, RLENGTH); in_init = 1 }
     in_init && $0 == (ein "}") { in_init = 0 }
-    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ { anker++ }
+    /^[ \t]*val didExtract = / { anker++ }
     /OPTIMIZE-opcache-wipe/ { wipes++; if (in_init) kalt++ }
     END { printf "%d %d %d\n", anker+0, wipes+0, kalt+0 }
   ' "$1"
@@ -70,6 +70,36 @@ patch_opcache_wipe() {  # $1 = Pfad zu LaravelEnvironment.kt
   # weiter `[+]`. Genau die Klasse "gruenes Licht auf einem Defekt", gegen die der
   # Rest dieser Datei gebaut ist, eine Ebene hoeher.
   #
+  # ANKER ERNEUT NACHGEZOGEN am 2026-09-22 (NativePHP 4.5.1) — dieselbe Drift ein
+  # zweites Mal, nur hat die Lage-Kontrolle sie diesmal GEFANGEN statt sie
+  # durchzuwinken. 4.5.1 setzt das Extraktionsergebnis im Kaltstart-Pfad aus zwei
+  # Quellen zusammen (LaravelEnvironment.kt :197-199):
+  #     val didBundle  = extractLaravelBundleUnlocked()
+  #     val didPending = applyPendingUpdatesUnlocked()
+  #     val didExtract = didBundle || didPending
+  # Der 4.3.1-Anker `val didExtract = extractLaravelBundle[Unlocked]()` traf im
+  # 4.5.1-Template danach GENAU EINE Zeile, und die liegt wieder in
+  # `initializeForBackground()`, wieder mit NULL Aufrufern (gegengeprueft ueber
+  # Template UND generiertes Projekt; Positivkontrolle `fun initialize()`:
+  # Definition plus zwei Aufrufstellen in MainActivity.kt).
+  #
+  # KEINE Zeilennummern in diesem Block — hier stand bis zur Pruefung am
+  # 2026-09-22 ein ":887", und die Gegenmessung fand dieselbe Zeile bei :881.
+  # Beide Zahlen stimmten, sie zaehlten nur verschieden gepatchte Baeume: die
+  # frueheren Patches dieses Skripts fuegen oberhalb Zeilen ein. Eine Zahl, die
+  # vom Patch-Zustand des Baums abhaengt, belegt hier nichts — der zitierte
+  # Quelltext und der Funktionsname tun es, und beide sind per grep pruefbar.
+  # Den Kaltstart-Pfad traf er gar nicht mehr, und der Lauf fiel mit
+  # "der Wipe landet ausserhalb von fun initialize()" rot aus.
+  #
+  # Verankert ist seitdem nur noch die ERGEBNISZEILE `val didExtract = ` am
+  # Zeilenanfang (fuehrende Leerzeichen erlaubt, ein `// val didExtract = …` in
+  # einem Kommentar dadurch nicht — im generierten Projekt steht genau so einer).
+  # Sie steht an jeder ausgefuehrten Extraktionsstelle, unabhaengig davon, woraus
+  # das Ergebnis zusammengesetzt wird. `private fun extractLaravelBundle()`
+  # (4.5.1 :223) traegt keine solche Zeile und braucht auch keinen Wipe: null
+  # Aufrufer, gemessen wie oben.
+  #
   # Deshalb wird nicht die ANWESENHEIT des Markers geprueft, sondern seine LAGE:
   # mindestens eine Wipe-Zeile muss innerhalb von `fun initialize()` stehen, und
   # jede Extraktionsstelle muss eine tragen (sonst waere es ein Halbstand). Die
@@ -92,7 +122,7 @@ patch_opcache_wipe() {  # $1 = Pfad zu LaravelEnvironment.kt
     { grep -v 'OPTIMIZE-opcache-wipe' "$f" || true; } > "$f.tmp" && mv "$f.tmp" "$f"
   fi
   awk '
-    /val didExtract = extractLaravelBundle(Unlocked)?\(\)/ {
+    /^[ \t]*val didExtract = / {
       print
       match($0, /^[ \t]*/)
       print substr($0, 1, RLENGTH) "if (didExtract) runCatching { Runtime.getRuntime().exec(arrayOf(\"rm\", \"-rf\", File(context.filesDir, \"opcache\").absolutePath)).waitFor() } // OPTIMIZE-opcache-wipe: kein stale Bytecode bei Updates"
@@ -101,7 +131,7 @@ patch_opcache_wipe() {  # $1 = Pfad zu LaravelEnvironment.kt
   ' "$f" > "$f.tmp" && mv "$f.tmp" "$f"
   read -r anker wipes kalt <<<"$(opcache_wipe_zustand "$f")"
   if [ "$anker" -eq 0 ]; then
-    fehler="keine Extraktionsstelle gefunden (val didExtract = extractLaravelBundle[Unlocked]())"
+    fehler="keine Extraktionsstelle gefunden (Zeile 'val didExtract = ')"
   elif [ "$kalt" -eq 0 ]; then
     fehler="der Wipe landet ausserhalb von fun initialize() — der Kaltstart-Pfad bliebe ungedeckt"
   elif [ "$wipes" -ne "$anker" ]; then

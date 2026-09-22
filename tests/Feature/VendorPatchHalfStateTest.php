@@ -190,14 +190,22 @@ function hpRun(string $tree): Process
  * because that patch does not ask WHETHER its marker is in the file but WHERE.
  *
  * `initialize()` is the cold boot path — MainActivity calls it twice.
- * `initializeForBackground()` has zero callers in 4.3.1 and in the generated
- * project; it is in here because it carries the second extraction site, and
- * because it is exactly where the 3.3.7 anchor ended up after the 4.x rewrite.
+ * `initializeForBackground()` has zero callers in 4.3.1, in 4.5.1 (re-measured
+ * 2026-09-22 over the vendor template and the generated project) and in the
+ * generated project; it is in here because it carries the second extraction site,
+ * and because it is exactly where both the 3.3.7 and the 4.3.1 anchor ended up
+ * after the rewrites that drifted them.
  *
- * @param  bool  $kaltstartAnker  false models the next upstream rename of the
- *                                cold boot extractor — the case in which the
- *                                patch must fail instead of quietly settling for
- *                                the background path again
+ * @param  bool  $kaltstartAnker  false renames the RESULT variable of the cold
+ *                                boot extraction, the one drift the anchor cannot
+ *                                bridge — the case in which the patch must fail
+ *                                instead of quietly settling for the background
+ *                                path again. Until 2026-09-22 this branch renamed
+ *                                the CALLED FUNCTION instead, which the anchor now
+ *                                survives on purpose: 4.5.1 replaced the call on
+ *                                that line with `didBundle || didPending`, and a
+ *                                patch that breaks on the right-hand side breaks
+ *                                on every upstream that touches it.
  * @param  string  $wipe  'beide' | 'keiner' | 'hintergrund' | 'kaltstart'
  */
 function hpEnvExtraktion(bool $kaltstartAnker = true, string $wipe = 'beide'): string
@@ -205,7 +213,7 @@ function hpEnvExtraktion(bool $kaltstartAnker = true, string $wipe = 'beide'): s
     $wipeZeile = 'if (didExtract) runCatching { } // OPTIMIZE-opcache-wipe';
     $kalt = $kaltstartAnker
         ? 'val didExtract = extractLaravelBundleUnlocked()'
-        : 'val didExtract = extractBundleFromAssets()';
+        : 'val extracted = extractLaravelBundleUnlocked()';
 
     $zeilen = [
         '    fun initialize() {',
@@ -447,6 +455,14 @@ it('applies both halves of the opcache patch when both anchors are there', funct
 | kept printing `[+]`. With `validate_timestamps=0` and the file cache in filesDir
 | (survives app updates), that is bytecode of the previous version meeting the new
 | bundle — the one case the patch exists for.
+|
+| It happened a second time in 4.5.1 (2026-09-22): the cold boot path now composes
+| its result from two sources — `val didExtract = didBundle || didPending` — so the
+| 4.3.1 anchor `val didExtract = extractLaravelBundle[Unlocked]()` again matched
+| only inside `initializeForBackground()`, still callerless. This time the position
+| check caught it and the run went red. The anchor is therefore the result line
+| `val didExtract = ` alone; what stands on its right-hand side is upstream's
+| business.
 |
 | The measurement is therefore positional, and so are these tests: presence of the
 | marker proves nothing.

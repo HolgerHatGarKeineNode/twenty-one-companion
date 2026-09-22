@@ -16,7 +16,8 @@ declare(strict_types=1);
  * (pathPrefix="/") must not appear.
  *
  * generateDeepLinkFilters() and the deepLinkPathData() it calls touch no $this-> state
- * besides each other (verified against nativephp/mobile 4.4.0), so an anonymous class
+ * besides each other (verified against nativephp/mobile 4.4.0, re-verified against 4.5.1
+ * on 2026-09-22), so an anonymous class
  * composing the trait is enough here — no Laravel bootstrap needed. Measured at ~60ms
  * against the real vendor file, against ~1-2s for the Laravel-booting config read in
  * scripts/release.sh's pruefe_pfad_prefixe().
@@ -63,10 +64,21 @@ declare(strict_types=1);
  */
 
 namespace Native\Mobile\Concerns {
-    // Stand-ins so composing RunsAndroid does not require its two sibling traits
-    // (PreparesBuild, WatchesAndroid) to exist — this probe never calls anything that
-    // needs them, and requiring the whole vendor package just to reach one pure method
-    // would defeat the point of a cheap check.
+    // Stand-ins so composing RunsAndroid does not require its sibling traits to exist —
+    // this probe never calls anything that needs them, and requiring the whole vendor
+    // package just to reach one pure method would defeat the point of a cheap check.
+    //
+    // The list is written out rather than derived from the target's `use …;` line ON
+    // PURPOSE: auto-stubbing whatever a future RunsAndroid composes would silently stub
+    // a trait that generateDeepLinkFilters() actually needs, which is fail-open. A
+    // missing name fails loudly instead ("Trait … not found", exit 1) and a human checks
+    // whether the two methods still touch no $this-> state besides each other.
+    // Measured 2026-09-22 (nativephp/mobile 4.5.1): RunsAndroid composes
+    // DeclaresReleaseAudience on top of the two from 4.4.0; generateDeepLinkFilters()
+    // and deepLinkPathData() call only each other and $this->warn() (Command, not a
+    // trait — and unreachable on the probe path, it fires only when every configured
+    // path was rejected).
+    trait DeclaresReleaseAudience {}
     trait PreparesBuild {}
     trait WatchesAndroid {}
 }
