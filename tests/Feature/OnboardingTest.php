@@ -213,6 +213,19 @@ it('redirects onboarded users away from the onboarding', function () {
     $this->get(route('onboarding'))->assertRedirect(route('home'));
 });
 
+it('redirects onboarded users with a plain HTTP redirect even when the request counts as a Livewire one', function () {
+    // Device sighting v1.13.0: /onboarding answered 200 with an empty page and threw
+    // `Cannot read properties of undefined (reading 'invokeOnRedirect')`. Livewire turns
+    // `$this->redirect()` in mount() into an HTTP redirect only when it does not see
+    // `X-Livewire`; otherwise the redirect rides along as an effect of the initial
+    // snapshot, and Livewire 4.4.6's JS handles initial effects without a request object.
+    withoutPortalToken();
+
+    $this->withHeaders(['X-Livewire' => '1'])
+        ->get(route('onboarding'))
+        ->assertRedirect(route('home'));
+});
+
 it('holt die Benachrichtigungs-Frage bei Bestandsnutzern nach', function () {
     withoutPortalToken();
 

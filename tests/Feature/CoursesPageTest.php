@@ -114,6 +114,23 @@ it('shows the course detail with events, description and lecturer', function () 
         ->assertSee(route('group.bereich.referenten.show', 3));
 });
 
+it('answers 200 for a course whose dates carry no venue, as the live portal sends them', function (string $path) {
+    // Device sighting v1.13.0: courses 6, 36 and 38 answered 500 with
+    // `CannotCreateData … Parameters missing: venue_id`. The portal names the place
+    // of a course date as `location` + `city` now; the fixture has that shape.
+    completeOnboarding();
+    withoutPortalToken();
+    MockClient::global([
+        GetCourseRequest::class => MockResponse::make(courseDetailFixture()),
+    ]);
+
+    expect(courseDetailFixture()['events'][0])->not->toHaveKey('venue_id');
+
+    $this->followingRedirects()->get($path)
+        ->assertOk()
+        ->assertSee('Volkshochschule · Regensburg');
+})->with(['/bereich/kurse/5', '/courses/5']);
+
 it('shows a friendly fallback for unknown courses', function () {
     withoutPortalToken();
     MockClient::global([

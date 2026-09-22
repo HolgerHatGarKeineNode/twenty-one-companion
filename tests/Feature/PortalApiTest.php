@@ -340,7 +340,7 @@ it('sends the withDetails flag for cities and venues and maps the flag url', fun
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('withDetails') === '1');
 });
 
-it('maps the course detail including events with venue and city', function () {
+it('maps the course detail including events with location and city, without a venue', function () {
     withoutPortalToken();
     MockClient::global([GetCourseRequest::class => MockResponse::make(courseDetailFixture())]);
 
@@ -357,6 +357,21 @@ it('maps the course detail including events with venue and city', function () {
         (string) $response->getPendingRequest()->getUri(),
         '/api/courses/5',
     ));
+});
+
+it('still labels a course event that carries a nested venue', function () {
+    $event = CourseEventData::from(courseEventFixture() + ['location' => 'ignored']);
+
+    expect($event->venue_id)->toBe(3)
+        ->and($event->locationLabel())->toBe('Volkshochschule');
+});
+
+it('labels a course event from location or city alone and leaves it empty without either', function () {
+    $base = courseDetailFixture()['events'][0];
+
+    expect(CourseEventData::from(['location' => '  '] + $base)->locationLabel())->toBe('Regensburg')
+        ->and(CourseEventData::from(['city' => null] + $base)->locationLabel())->toBe('Volkshochschule')
+        ->and(CourseEventData::from(['location' => null, 'city' => null] + $base)->locationLabel())->toBeNull();
 });
 
 it('returns null for an unknown course without flagging missing data', function () {

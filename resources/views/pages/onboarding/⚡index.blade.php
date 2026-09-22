@@ -3,6 +3,8 @@
 use App\Services\AppPreferences;
 use App\Services\CountryOptions;
 use Einundzwanzig\Push\Push;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -51,9 +53,13 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
             }
 
             // Über die Start-Weiche (/): entscheidet client-seitig Chat vs. Meetups.
-            $this->redirect(route('home'));
-
-            return;
+            //
+            // A plain HTTP redirect, not `$this->redirect()`: Livewire converts the latter
+            // into a 302 only when the request carries no `X-Livewire`; otherwise it ships
+            // as an effect of the initial snapshot, which Livewire 4.4.6's JS processes
+            // without a request object — `invokeOnRedirect` of undefined, and the page
+            // stays blank (device sighting v1.13.0).
+            throw new HttpResponseException(new RedirectResponse(route('home')));
         }
 
         // Resume mitten im Pager nach App-Neustart (Phase 3.6/3.7) + bereits
@@ -173,7 +179,14 @@ new #[Layout('layouts::mobile', ['title' => 'Willkommen', 'chrome' => false])] c
         // and it is the only surface that shows a fresh user BOTH the public areas and what
         // an account would add. Landing on a filtered list of meetups answered a question
         // nobody had asked yet.
-        $this->redirectRoute('group.start', navigate: true);
+        //
+        // A full load and not `navigate: true`: this page runs the host layout, whose head
+        // carries none of the island's boot globals (`__nostrSpace`, `__nostrPortal`,
+        // `__nostrI18n`, …). The bundle has already evaluated here and froze its module
+        // constants from what was missing; a `wire:navigate` hand-off kept those and let
+        // Livewire's head merge append every island script twice (device sighting v1.13.0).
+        // The language chosen a few steps back also only reaches `<html lang>` this way.
+        $this->redirectRoute('group.start');
     }
 
     /** Nächster Schritt, an der letzten Seite gedeckelt. */

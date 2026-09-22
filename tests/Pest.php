@@ -395,6 +395,11 @@ function detailedCourseFixture(array $overrides = []): array
 /**
  * Kurs-Detail aus GET /api/courses/{id}.
  *
+ * The event has the shape the live portal sends (checked 2026-09-22): no
+ * `venue_id`, no `venue`, but free-text `location`, `city_id`, `city` and the
+ * `osm_*` fields. An earlier fixture carried a venue and hid the 500 that
+ * every real course with a date produced.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
@@ -416,19 +421,22 @@ function courseDetailFixture(array $overrides = []): array
             [
                 'id' => 9,
                 'course_id' => 5,
-                'venue_id' => 3,
+                'city_id' => 80,
+                'location' => 'Volkshochschule',
+                'osm_type' => null,
+                'osm_id' => null,
+                'osm_name' => null,
+                'osm_address' => null,
+                'osm_lat' => null,
+                'osm_lon' => null,
                 'from' => '2026-07-01T18:00:00.000000Z',
                 'to' => '2026-07-01T20:00:00.000000Z',
                 'link' => 'https://example.com/kurs-anmeldung',
-                'venue' => [
-                    'id' => 3,
-                    'name' => 'Volkshochschule',
-                    'city' => [
-                        'id' => 80,
-                        'name' => 'Regensburg',
-                        'country_id' => 1,
-                        'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
-                    ],
+                'city' => [
+                    'id' => 80,
+                    'name' => 'Regensburg',
+                    'country_id' => 1,
+                    'country' => ['id' => 1, 'name' => 'Germany', 'code' => 'de'],
                 ],
             ],
         ],
