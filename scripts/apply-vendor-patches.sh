@@ -435,6 +435,149 @@ patch_gradle_strip() {  # $1 = Pfad zu app/build.gradle.kts
   echo "    [+] keepDebugSymbols entfernt (native Bibliotheken werden gestrippt)"
 }
 
+signier_schemata_zustand() {  # $1 = Pfad zu app/build.gradle.kts
+  # Zustand der drei Signaturflags als FUENF Zahlen:
+  #   <Anker> <V1=true> <V2=true> <V3=true> <alle V1..V3-Zuweisungen im Block>
+  # Gezaehlt wird ausschliesslich INNERHALB von create("release") { … } — ueber die
+  # Klammertiefe, nicht ueber die ganze Datei. Eine Zuweisung in einem anderen
+  # signingConfig (debug, ein kuenftiges upstream-Template) belegt hier nichts.
+  # Die fuenfte Zahl faengt den Fall ab, dass upstream selbst ein
+  # `enableV3Signing = false` dazustellt: es zaehlt dann in `alle`, aber nicht in
+  # `v3`, und die Gleichheit alle==3 faellt. Ohne sie staende unsere Zeile oben im
+  # Block und die fremde weiter unten — in Kotlin gewinnt die letzte Zuweisung,
+  # und der Patch waere still wirkungslos.
+  awk '
+    /^[ \t]*create\("release"\)[ \t]*\{/ { anker++; drin = 1; tiefe = 1; next }
+    drin {
+      auf = gsub(/\{/, "{"); zu = gsub(/\}/, "}")
+      tiefe += auf - zu
+      if ($0 ~ /^[ \t]*enableV[123]Signing[ \t]*=/) { alle++ }
+      if ($0 ~ /^[ \t]*enableV1Signing[ \t]*=[ \t]*true([^a-zA-Z0-9_]|$)/) { v1++ }
+      if ($0 ~ /^[ \t]*enableV2Signing[ \t]*=[ \t]*true([^a-zA-Z0-9_]|$)/) { v2++ }
+      if ($0 ~ /^[ \t]*enableV3Signing[ \t]*=[ \t]*true([^a-zA-Z0-9_]|$)/) { v3++ }
+      if (tiefe <= 0) { drin = 0 }
+      next
+    }
+    END { printf "%d %d %d %d %d\n", anker+0, v1+0, v2+0, v3+0, alle+0 }
+  ' "$1"
+}
+
+patch_gradle_signing() {  # $1 = Pfad zu app/build.gradle.kts
+  local f="$1" anker v1 v2 v3 alle fehler="" rc=0
+  # Das Release-APK trug bis v1.12.1 NUR das v2-Schema. Gemessen mit
+  # `apksigner verify --verbose dist/v1.12.1/twenty-one-companion-v1.12.1.apk`:
+  #   Verified using v1 scheme (JAR signing): false
+  #   Verified using v2 scheme (APK Signature Scheme v2): true
+  #   Verified using v3 scheme (APK Signature Scheme v3): false
+  # Dasselbe Bild in v1.9.5, v1.10.0, v1.11.0 und v1.12.0. Der signingConfigs-Block
+  # des NativePHP-Templates setzt keine enableV*Signing-Flags, also entscheiden die
+  # AGP-Defaults — und die sind bei minSdk 33 v2 allein.
+  #
+  # ANLASS, und der ist ausdruecklich NICHT bewiesen: zapstore-Nutzer melden beim
+  # Installieren "Cryptographic identity proof failed … Could not read APK signing
+  # certificate for C1 proof verification". Dass "nur v2" die Ursache ist, ist eine
+  # Hypothese — AOSP verlangt fuer targetSdk >= 30 ohnehin v2 als Minimum, ein
+  # v2-APK ist also nicht per se unlesbar. Was hier gebaut wird, ist deshalb keine
+  # Reparatur, sondern eine billige Haertung: zapstores eigenes APK ist v3-signiert,
+  # Android probiert v3 vor v2, und alle drei Schemata kosten nichts ausser ein paar
+  # Kilobyte.
+  #
+  # IDENTITAETSNEUTRAL, und das ist die Bedingung, unter der das gefahrlos ist:
+  # derselbe Keystore, dasselbe Zertifikat, derselbe SHA-256
+  # 44411e20a1b43d0f66cf99e1238a33e7e8fd9248f0d0d258f5e0727cfabf0b7c. Bestehende
+  # Installationen aktualisieren weiter, der NIP-C1-Nachweis und der
+  # apk_certificate_hash in jedem veroeffentlichten Nostr-Event bleiben gueltig.
+  # Gemessen wird genau das im Riegel pruefe_signaturschemata() in scripts/release.sh.
+  #
+  # WARUM DIE FLAGS IN DEN create("release")-BLOCK GEHOEREN UND NICHT DANEBEN:
+  # enableV1Signing/enableV2Signing/enableV3Signing sind Properties des
+  # SigningConfig selbst, nicht des BuildTypes. Gegengeprueft im gepinnten AGP
+  # (gradle/libs.versions.toml: agp = "8.13.2") am DSL-Interface im Gradle-Cache:
+  #   javap -cp . com.android.build.api.dsl.ApkSigningConfig
+  #     public abstract java.lang.Boolean getEnableV1Signing();
+  #     public abstract void setEnableV1Signing(java.lang.Boolean);
+  #     … ebenso EnableV2Signing, EnableV3Signing, EnableV4Signing
+  # (aus gradle-api-8.13.2.jar, com/android/build/api/dsl/ApkSigningConfig.class).
+  # Die Properties existieren also in DIESER Version — eine Kotlin-DSL-Property, die
+  # es nicht gibt, laesst Gradle in der Konfigurationsphase sterben, und das faellt
+  # sonst erst im 20-Minuten-Build auf. Die Alternative "daneben", also ein
+  # `signingConfigs.getByName("release").apply { … }` weiter unten, braeuchte einen
+  # zweiten Anker und liefe der bestehenden `if (keystoreFileObj.exists())`-Logik
+  # hinterher. Direkt hinter die oeffnende Klammer ist die kleinste Stelle, die
+  # genau einmal existiert.
+  #
+  # v4 bleibt bewusst aus: es ist eine SEPARATE .idsig-Datei neben dem APK, nur fuer
+  # ADB-Incremental-Installs, und weder GitHub-Release noch zapstore transportieren sie.
+  read -r anker v1 v2 v3 alle <<<"$(signier_schemata_zustand "$f")"
+  if [ "$anker" -eq 1 ] && [ "$v1" -eq 1 ] && [ "$v2" -eq 1 ] && [ "$v3" -eq 1 ] && [ "$alle" -eq 3 ]; then
+    echo "    [=] Signaturschemata v1/v2/v3 bereits erzwungen"
+    return 0
+  fi
+  cp "$f" "$f.vor-patch"
+  # Reste einer frueheren Skriptfassung entfernen, bevor neu eingesetzt wird — sonst
+  # stuenden nach einer Anpassung dieses Blocks zwei Saetze Flags in der Datei und
+  # `alle` laege bei 6. Entfernt werden NUR Zeilen mit unserem Marker; ein Flag, das
+  # upstream selbst setzt, bleibt stehen und laesst die Pruefung unten rot werden.
+  #
+  # DESHALB TRAEGT JEDE EINGEFUEGTE ZEILE DEN MARKER, auch die Kommentarzeile. Der
+  # erste Entwurf hatte einen dreizeiligen Kommentarkopf, in dem nur die ERSTE Zeile
+  # den Marker trug; `grep -v` haette die beiden anderen als Waisen stehen lassen,
+  # und jede weitere Anpassung haette ein weiteres Paar hinterlassen. Ein Kommentar
+  # ohne Marker ist hier also kein Schoenheitsfehler, sondern Muell, den niemand
+  # wieder einsammelt. Die Begruendung steht ohnehin hier und nicht dort.
+  if grep -q 'APK-SIGNSCHEMES' "$f"; then
+    { grep -v 'APK-SIGNSCHEMES' "$f" || true; } > "$f.tmp" && mv "$f.tmp" "$f"
+  fi
+  # Der Anker muss GENAU EINMAL treffen. awk setzt nur an der ersten Fundstelle ein;
+  # gaebe es eine zweite release-signingConfig (upstream fuehrt eine Variante ein),
+  # landeten die Flags still in der falschen, und die Idempotenz-Abfrage oben meldete
+  # ab dem naechsten Lauf `[=]`. Deshalb zaehlt derselbe awk-Pass die Treffer.
+  awk '
+    /^[ \t]*create\("release"\)[ \t]*\{/ {
+      treffer++
+      if (treffer == 1) {
+        print
+        match($0, /^[ \t]*/)
+        ein = substr($0, 1, RLENGTH) "    "
+        print ein "// APK-SIGNSCHEMES: alle drei erzwingen — AGP-Default ist bei minSdk 33 v2 allein. Grund: scripts/apply-vendor-patches.sh"
+        print ein "enableV1Signing = true // APK-SIGNSCHEMES"
+        print ein "enableV2Signing = true // APK-SIGNSCHEMES"
+        print ein "enableV3Signing = true // APK-SIGNSCHEMES"
+        next
+      }
+    }
+    { print }
+    END { exit (treffer == 1 ? 0 : 3) }
+  ' "$f" > "$f.tmp" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    rm -f "$f.tmp"
+    mv "$f.vor-patch" "$f"
+    echo "FEHLER: Signaturschemata-Patch griff nicht ($f) — die release-signingConfig" >&2
+    echo "        matcht nicht genau einmal (Anker gedriftet, NativePHP-Update?)." >&2
+    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+    exit 1
+  fi
+  mv "$f.tmp" "$f"
+  read -r anker v1 v2 v3 alle <<<"$(signier_schemata_zustand "$f")"
+  if [ "$anker" -ne 1 ]; then
+    fehler="create(\"release\") matcht $anker mal statt genau einmal"
+  elif [ "$v1" -ne 1 ] || [ "$v2" -ne 1 ] || [ "$v3" -ne 1 ]; then
+    fehler="v1=$v1 v2=$v2 v3=$v3 statt je genau einmal — Halbstand"
+  elif [ "$alle" -ne 3 ]; then
+    fehler="$alle enableV1..V3-Zuweisungen im Block statt 3 — eine fremde Zuweisung ueberschreibt unsere"
+  fi
+  if [ -n "$fehler" ]; then
+    mv "$f.vor-patch" "$f"
+    echo "FEHLER: Signaturschemata-Patch griff nicht ($f) — $fehler." >&2
+    echo "        Ohne die Flags signiert AGP bei minSdk 33 nur mit v2. Gemessen wird" >&2
+    echo "        das am fertigen APK: ./scripts/release.sh --pruefe-signatur <apk>." >&2
+    echo "        Datei auf den Vendor-Stand zurueckgesetzt — kein Halbstand." >&2
+    exit 1
+  fi
+  rm -f "$f.vor-patch"
+  echo "    [+] Signaturschemata v1/v2/v3 erzwungen"
+}
+
 pruefe_deeplink_scoping() {  # $1 = Pfad zu RunsAndroid.php
   local f="$1" fehler="" ausgabe rc=0 nonce quittung
   # KEIN Patch mehr, sondern eine PRUEFUNG — und genau deshalb steht sie hier.
@@ -565,6 +708,7 @@ for entry in "${TARGETS[@]}"; do
     [ -f "$base/$REL_WEBVIEW" ] && patch_filechooser_webview "$base/$REL_WEBVIEW"
     [ -f "$base/$REL_ICONBG" ] && patch_iconbg "$base/$REL_ICONBG"
     [ -f "$base/$REL_GRADLE" ] && patch_gradle_strip "$base/$REL_GRADLE"
+    [ -f "$base/$REL_GRADLE" ] && patch_gradle_signing "$base/$REL_GRADLE"
     any=1
   else
     echo "  $label: übersprungen (nicht vorhanden)"

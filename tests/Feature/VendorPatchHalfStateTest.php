@@ -71,7 +71,7 @@ function hpDefaults(): array
         HP_MAIN => "// FILE_CHOOSER_REQUEST_CODE\n",
         HP_WEBVIEW => "// FILE_CHOOSER_REQUEST_CODE\n// onShowFileChooser\n",
         HP_ICON => '<solid android:color="#000000"/>'."\n",
-        HP_GRADLE => "// OPTIMIZE-STRIP\n",
+        HP_GRADLE => "// OPTIMIZE-STRIP\n".hpSigningConfig()."\n",
         // Not patched any more, only verified: since 4.4.0 the package scopes the
         // App-Link paths itself, and since 2026-09-11 the verify step calls
         // generateDeepLinkFilters() via reflection rather than grepping for markers
@@ -362,6 +362,10 @@ function hpGradle(int $anchors = 1): string
             KTS
         : '';
 
+    // The signing config is already patched here: this fixture measures the strip
+    // patch, and the signing patch runs over the same file right after it.
+    $signing = hpSigningConfig();
+
     return <<<KTS
         android {
             packaging {
@@ -370,10 +374,74 @@ function hpGradle(int $anchors = 1): string
                     keepDebugSymbols.add("**/*.so")
                 }
             }
+        {$signing}
         {$second}
         }
 
         KTS;
+}
+
+/**
+ * The `signingConfigs { create("release") { … } }` block `patch_gradle_signing` works
+ * on. Kept close to the real NativePHP template, including the nested `if { }` — the
+ * state reader tracks brace depth to stay inside the release config, and a fixture
+ * without nesting would never exercise that.
+ *
+ * `$flags` picks the state of the release config: 'gesetzt' is the patched state,
+ * 'keiner' the state to be patched, 'alt' the residue of an earlier version of this
+ * patch (marker comment plus two of three flags), and 'fremd' an upstream
+ * `enableV3Signing = false` in the block — our line would land ABOVE it and lose,
+ * because in Kotlin the last assignment wins.
+ *
+ * @param  string  $flags  'gesetzt' | 'keiner' | 'alt' | 'fremd'
+ * @param  int  $bloecke  how many release configs the file carries; the anchor must
+ *                        match exactly once
+ * @param  bool  $fremderBlock  add a second, non-release signing config that carries
+ *                              the flags — it must not satisfy the check
+ */
+function hpSigningConfig(string $flags = 'gesetzt', int $bloecke = 1, bool $fremderBlock = false): string
+{
+    $zeilen = ['    signingConfigs {'];
+
+    if ($fremderBlock) {
+        $zeilen[] = '        create("debug") {';
+        $zeilen[] = '            enableV1Signing = true';
+        $zeilen[] = '            enableV2Signing = true';
+        $zeilen[] = '            enableV3Signing = true';
+        $zeilen[] = '        }';
+    }
+
+    for ($i = 0; $i < $bloecke; $i++) {
+        $zeilen[] = '        create("release") {';
+
+        if ($flags === 'gesetzt') {
+            $zeilen[] = '            enableV1Signing = true // APK-SIGNSCHEMES';
+            $zeilen[] = '            enableV2Signing = true // APK-SIGNSCHEMES';
+            $zeilen[] = '            enableV3Signing = true // APK-SIGNSCHEMES';
+        } elseif ($flags === 'alt') {
+            $zeilen[] = '            // APK-SIGNSCHEMES: aeltere Fassung dieses Patches';
+            $zeilen[] = '            enableV1Signing = true // APK-SIGNSCHEMES';
+            $zeilen[] = '            enableV2Signing = true // APK-SIGNSCHEMES';
+        } elseif ($flags === 'fremd') {
+            $zeilen[] = '            enableV3Signing = false';
+        }
+
+        $zeilen[] = '            storeFile = file("release.jks")';
+        $zeilen[] = '            if (storeFile != null) {';
+        $zeilen[] = '                storeType = "PKCS12"';
+        $zeilen[] = '            }';
+        $zeilen[] = '        }';
+    }
+
+    $zeilen[] = '    }';
+
+    return implode("\n", $zeilen);
+}
+
+/** A gradle file whose only open question is the signing config. */
+function hpGradleSigning(string $flags = 'keiner', int $bloecke = 1, bool $fremderBlock = false): string
+{
+    return "// OPTIMIZE-STRIP\n".hpSigningConfig($flags, $bloecke, $fremderBlock)."\n";
 }
 
 /** `patch_iconbg` runs `sed` without /g — a second white value would survive it. */
@@ -695,6 +763,144 @@ it('turns the icon background black when there is one white value', function ():
 
 /*
 |--------------------------------------------------------------------------
+| patch_gradle_signing — the flags have to sit IN the release config
+|--------------------------------------------------------------------------
+|
+| Every release APK up to v1.12.1 was signed with the v2 scheme alone, because the
+| NativePHP template sets no `enableV*Signing` flags and AGP's defaults at minSdk 33
+| are v2 only. The patch adds all three.
+|
+| Like phase 3b this measurement is POSITIONAL: the flags are properties of the
+| release SigningConfig, so a line anywhere else in the file proves nothing. And
+| unlike phase 3b it also has to survive an upstream that sets one of them itself —
+| in Kotlin the last assignment wins, so a foreign `enableV3Signing = false` BELOW
+| our line would silently undo the patch while every marker was in place.
+*/
+
+it('sets all three signing schemes inside the release config', function (): void {
+    $fixture = hpGradleSigning();
+    hpSandbox($this->tree, [HP_GRADLE => $fixture]);
+
+    $process = hpRun($this->tree);
+    $patched = File::get($this->tree.'/'.HP_GRADLE);
+
+    $anker = hpZeileMit($patched, 'create("release") {');
+    $v1 = hpZeileMit($patched, 'enableV1Signing = true');
+    $store = hpZeileMit($patched, 'storeFile = file(');
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->toContain('[+] Signaturschemata v1/v2/v3 erzwungen')
+        // Inside the release block, not merely somewhere in the file.
+        ->and($v1)->toBeGreaterThan($anker)
+        ->and($v1)->toBeLessThan($store)
+        ->and(hpZeileMit($patched, 'enableV2Signing = true'))->toBe($v1 + 1)
+        ->and(hpZeileMit($patched, 'enableV3Signing = true'))->toBe($v1 + 2)
+        // Exactly once each — a second set would be dead weight and could carry a
+        // different value after the next edit of this patch.
+        ->and(substr_count($patched, 'enableV1Signing'))->toBe(1)
+        ->and(substr_count($patched, 'enableV2Signing'))->toBe(1)
+        ->and(substr_count($patched, 'enableV3Signing'))->toBe(1);
+
+    // EVERY line the patch adds has to carry the marker, comment lines included:
+    // the re-patch path strips the old block with `grep -v 'APK-SIGNSCHEMES'`, so an
+    // unmarked line survives as an orphan and every later edit leaves another one.
+    // Asserted against the diff rather than against a count, because a count is
+    // satisfied by the wrong lines.
+    expect(array_values(array_diff(explode("\n", $patched), explode("\n", $fixture))))
+        ->toHaveCount(4)
+        ->each->toContain('APK-SIGNSCHEMES');
+});
+
+it('reports the signing patch as already applied on a second run', function (): void {
+    hpSandbox($this->tree, [HP_GRADLE => hpGradleSigning()]);
+
+    expect(hpRun($this->tree)->getExitCode())->toBe(0);
+
+    $second = hpRun($this->tree);
+
+    expect($second->getExitCode())->toBe(0)
+        ->and($second->getOutput())->toContain('[=] Signaturschemata v1/v2/v3 bereits erzwungen')
+        ->and($second->getOutput())->not->toContain('[+] Signaturschemata')
+        ->and(substr_count(File::get($this->tree.'/'.HP_GRADLE), 'enableV1Signing'))->toBe(1);
+});
+
+it('replaces the residue of an earlier version of the patch instead of stacking on it', function (): void {
+    // Every inserted line carries the marker, comment included, so the strip step
+    // removes the whole old block. A comment line without one would survive as an
+    // orphan, and every later edit of this patch would leave another.
+    hpSandbox($this->tree, [HP_GRADLE => hpGradleSigning(flags: 'alt')]);
+
+    $process = hpRun($this->tree);
+    $patched = File::get($this->tree.'/'.HP_GRADLE);
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->toContain('[+] Signaturschemata v1/v2/v3 erzwungen')
+        ->and(substr_count($patched, 'enableV1Signing'))->toBe(1)
+        ->and(substr_count($patched, 'enableV2Signing'))->toBe(1)
+        ->and(substr_count($patched, 'enableV3Signing'))->toBe(1)
+        ->and($patched)->not->toContain('aeltere Fassung dieses Patches')
+        // Marker lines: three flags plus exactly one comment, nothing orphaned.
+        ->and(substr_count($patched, 'APK-SIGNSCHEMES'))->toBe(4);
+});
+
+it('does not accept signing flags that sit in a different signing config', function (): void {
+    // A `create("debug")` block carrying all three would satisfy a file-wide grep and
+    // leave the release APK v2-signed — the exact shape of the phase 3b defect.
+    hpSandbox($this->tree, [HP_GRADLE => hpGradleSigning(fremderBlock: true)]);
+
+    $process = hpRun($this->tree);
+    $patched = File::get($this->tree.'/'.HP_GRADLE);
+
+    $anker = hpZeileMit($patched, 'create("release") {');
+
+    expect($process->getExitCode())->toBe(0)
+        ->and($process->getOutput())->toContain('[+] Signaturschemata v1/v2/v3 erzwungen')
+        ->and(hpZeileMit($patched, 'enableV1Signing = true // APK-SIGNSCHEMES'))->toBeGreaterThan($anker)
+        ->and(substr_count($patched, 'enableV1Signing'))->toBe(2);
+});
+
+it('refuses a gradle file whose release config does not match exactly once', function (int $bloecke, string $lage): void {
+    $file = hpGradleSigning(bloecke: $bloecke);
+    hpSandbox($this->tree, [HP_GRADLE => $file]);
+
+    $first = hpRun($this->tree);
+
+    expect($first->getExitCode())->toBe(1)
+        ->and($first->getErrorOutput())->toContain('matcht nicht genau einmal')
+        ->and($first->getOutput())->not->toContain('Fertig.')
+        ->and(File::get($this->tree.'/'.HP_GRADLE))->toBe($file, $lage);
+
+    // And no residue may make the idempotency check report `[=]` next time.
+    $second = hpRun($this->tree);
+
+    expect($second->getExitCode())->toBe(1)
+        ->and($second->getOutput())->not->toContain('[=] Signaturschemata v1/v2/v3 bereits erzwungen')
+        ->and(File::get($this->tree.'/'.HP_GRADLE))->toBe($file);
+})->with([
+    'anchor gone, upstream renamed the config' => [0, 'no release config at all'],
+    'two release configs' => [2, 'awk would patch only the first'],
+]);
+
+it('rolls back when a foreign assignment would override the patched flags', function (): void {
+    $file = hpGradleSigning(flags: 'fremd');
+    hpSandbox($this->tree, [HP_GRADLE => $file]);
+
+    $first = hpRun($this->tree);
+
+    expect($first->getExitCode())->toBe(1)
+        ->and($first->getErrorOutput())->toContain('eine fremde Zuweisung ueberschreibt unsere')
+        ->and($first->getErrorOutput())->toContain('kein Halbstand')
+        ->and(File::get($this->tree.'/'.HP_GRADLE))->toBe($file);
+
+    $second = hpRun($this->tree);
+
+    expect($second->getExitCode())->toBe(1)
+        ->and($second->getOutput())->not->toContain('[=] Signaturschemata v1/v2/v3 bereits erzwungen')
+        ->and(File::get($this->tree.'/'.HP_GRADLE))->toBe($file);
+});
+
+/*
+|--------------------------------------------------------------------------
 | Control for the fixtures themselves
 |--------------------------------------------------------------------------
 */
@@ -706,9 +912,9 @@ it('reports every intervention as already applied when no fixture is overridden'
 
     expect($process->getExitCode())->toBe(0)
         ->and($process->getOutput())->toContain('Fertig.')
-        // Seven interventions per target, and only the build target exists here,
+        // Eight interventions per target, and only the build target exists here,
         // plus the deeplink verify step — which reports `[=]` as well, so an
         // idempotent run really is all-`[=]`.
-        ->and(substr_count($process->getOutput(), '    [='))->toBe(8)
+        ->and(substr_count($process->getOutput(), '    [='))->toBe(9)
         ->and($process->getOutput())->not->toContain('[+]');
 });

@@ -167,6 +167,187 @@ pruefe_pfad_prefixe() {  # $1 = APK oder xmltree-Dump
     return 1
 }
 
+# ── Signatur-Riegel: welche APK-Signaturschemata traegt das Artefakt? ─────────
+#
+# Gemessen wird am ARTEFAKT, nicht am exit code — dieselbe Regel wie beim
+# Bundle- und beim Manifest-Riegel.
+#
+# Bis v1.12.1 trug jedes Release-APK NUR das v2-Schema:
+#   $ apksigner verify --verbose dist/v1.12.1/twenty-one-companion-v1.12.1.apk
+#   Verified using v1 scheme (JAR signing): false
+#   Verified using v2 scheme (APK Signature Scheme v2): true
+#   Verified using v3 scheme (APK Signature Scheme v3): false
+# Dasselbe in v1.9.5, v1.10.0, v1.11.0, v1.12.0. Ursache: der signingConfigs-Block
+# des NativePHP-Templates setzt keine enableV*Signing-Flags, also entscheiden die
+# AGP-Defaults, und die sind bei minSdk 33 v2 allein. Gesetzt werden die Flags
+# seit 2026-09-22 von patch_gradle_signing() in scripts/apply-vendor-patches.sh;
+# dieser Riegel prueft, ob sie im fertigen APK auch angekommen sind.
+#
+# DER ERWARTETE ZERTIFIKATS-HASH STEHT HIER HARTKODIERT, und das ist Absicht:
+# 44411e20…0b7c ist der SHA-256 des Maintainer-Zertifikats. Er steht als
+# `apk_certificate_hash` in jedem veroeffentlichten Nostr-Event (zapstore) und im
+# NIP-C1-Nachweis; Android bindet jede bestehende Installation an genau dieses
+# Zertifikat. Ein anderer Hash bedeutet ein anderes Zertifikat und damit: kein
+# Update mehr fuer irgendeinen Bestandsnutzer, ein ungueltiger C1-Proof, eine
+# Neuinstallation als einziger Weg. Der Wert darf deshalb NICHT aus dem Keystore
+# oder aus dem APK selbst abgeleitet werden — eine Pruefung, die ihren Sollwert
+# aus dem Pruefling zieht, sagt nichts. Er darf nur dann geaendert werden, wenn
+# ein Zertifikatswechsel BEWUSST beschlossen und angekuendigt ist.
+#
+# Einzeln aufrufbar, damit die Kontrolle in tests/Feature/ReleaseSignatureGuardTest.php
+# den Riegel ohne APK-Build fahren kann:
+#   ./scripts/release.sh --pruefe-signatur <apk-oder-apksigner-ausgabe>
+# <datei> ist entweder ein .apk (dann wird apksigner gebraucht) oder ein bereits
+# erzeugter `apksigner verify --verbose --print-certs`-Text.
+APK_ZERT_SHA256="44411e20a1b43d0f66cf99e1238a33e7e8fd9248f0d0d258f5e0727cfabf0b7c"
+
+finde_apksigner() {  # schreibt den Pfad nach stdout, 1 = nicht gefunden
+    # Wortgleich zu finde_aapt2(): explizit gesetztes APKSIGNER gewinnt und wird
+    # nicht heimlich uebergangen, danach PATH, dann die SDK-Wurzeln, dort immer die
+    # hoechste Build-Tools-Version. Nie eine Version hartkodiert — der SDK-Manager
+    # raeumt alte Verzeichnisse weg, und ein toter fester Pfad machte den Riegel
+    # still wirkungslos.
+    if [ -n "${APKSIGNER:-}" ]; then
+        [ -x "$APKSIGNER" ] || return 1
+        echo "$APKSIGNER"
+        return 0
+    fi
+    if command -v apksigner >/dev/null 2>&1; then
+        command -v apksigner
+        return 0
+    fi
+    local sdk kandidat
+    for sdk in "${ANDROID_HOME:-}" "${ANDROID_SDK_ROOT:-}" "$HOME/Android/Sdk"; do
+        [ -n "$sdk" ] && [ -d "$sdk/build-tools" ] || continue
+        kandidat=$(find "$sdk/build-tools" -mindepth 2 -maxdepth 2 -name apksigner -type f 2>/dev/null | sort -V | tail -n1)
+        [ -n "$kandidat" ] && { echo "$kandidat"; return 0; }
+    done
+    return 1
+}
+
+signatur_bericht() {  # $1 = APK oder apksigner-Ausgabe, $2 = min-sdk (leer = aus dem APK)
+    local ziel="$1" minsdk="${2:-}" werkzeug args=()
+    if [ ! -f "$ziel" ]; then
+        echo "❌ Signatur-Quelle nicht gefunden: $ziel" >&2
+        return 1
+    fi
+    case "$ziel" in
+        *.apk)
+            if ! werkzeug=$(finde_apksigner); then
+                echo "❌ apksigner nicht gefunden — die APK-Signatur ist nicht lesbar." >&2
+                echo "   Gesucht in: \$APKSIGNER, PATH, \$ANDROID_HOME, \$ANDROID_SDK_ROOT," >&2
+                echo "   \$HOME/Android/Sdk/build-tools/*/apksigner." >&2
+                echo "   Der Lauf bricht ab, statt die Pruefung zu ueberspringen: ein" >&2
+                echo "   Riegel, der still nichts tut, ist genau der Fehler von v1.9.4." >&2
+                echo "   Pfad notfalls direkt setzen: APKSIGNER=/pfad/zu/apksigner $0 …" >&2
+                return 1
+            fi
+            args=(verify --verbose --print-certs)
+            [ -n "$minsdk" ] && args+=(--min-sdk-version "$minsdk")
+            # 2>&1: apksigner schreibt unter neueren JDKs Warnungen nach stderr
+            # ("restricted method … loadLibrary") und im Fehlerfall seine ERROR-Zeilen.
+            # Beides soll sichtbar bleiben; gelesen wird zeilengenau, Warnungen stoeren
+            # dabei nicht.
+            "$werkzeug" "${args[@]}" "$ziel" 2>&1
+            ;;
+        *)
+            cat "$ziel"
+            ;;
+    esac
+}
+
+pruefe_signaturschemata() {  # $1 = APK oder apksigner-Ausgabe
+    local ziel="$1" bericht apksigner_fehler="" rc=0 fehlend="" schema digests
+
+    # --min-sdk-version 21, und das ist KEIN Detail: apksigner verifiziert nur die
+    # Schemata, die der angegebene SDK-Bereich BRAUCHT, und meldet alle anderen als
+    # `false` — auch wenn sie im APK stehen. Gemessen am 2026-09-22 an einem APK, das
+    # nachweislich v1+v2+v3 traegt (META-INF/T.SF, T.RSA, MANIFEST.MF im Zip):
+    #   --min-sdk-version 21 → v1 true  · v2 true  · v3 true
+    #   --min-sdk-version 23 → v1 true  · v2 true  · v3 true
+    #   --min-sdk-version 24 → v1 FALSE · v2 true  · v3 true
+    #   --min-sdk-version 28 → v1 FALSE · v2 FALSE · v3 true
+    #   ohne Angabe (33 aus dem Manifest) → v1 FALSE · v2 FALSE · v3 true
+    # Ohne den Schalter haette dieser Riegel also JEDES kuenftige Release abgelehnt,
+    # obwohl alle drei Schemata drin sind — ein Riegel, der die richtige Antwort gibt,
+    # weil er die falsche Frage stellt. 21 ist der Wert, unter dem apksigner alle drei
+    # wirklich prueft; die App selbst bleibt bei minSdk 33.
+    bericht=$(signatur_bericht "$ziel" 21) || rc=$?
+
+    if [ "$rc" -ne 0 ]; then
+        # apksigner verweigert bei --min-sdk-version 21 die Verifikation GANZ, sobald
+        # v1 fehlt ("DOES NOT VERIFY / ERROR: Missing META-INF/MANIFEST.MF") — dann gibt
+        # es keine Schema-Zeilen zum Auswerten. Der Befund kommt deshalb aus einem
+        # zweiten Lauf ohne den Schalter: dort zaehlt apksigner die Schemata einzeln
+        # auf, und genau das ist die Ausgabe, die den Anlass dieser Aenderung belegt.
+        apksigner_fehler="$bericht"
+        bericht=$(signatur_bericht "$ziel") || true
+    fi
+
+    # Erst ueberhaupt ein lesbarer Bericht? Ein leerer oder fremder Text darf nicht als
+    # "alle Schemata fehlen" durchgehen, sondern als "nicht verifizierbar" — sonst liest
+    # sich ein kaputter Aufruf wie ein Befund. Fail-closed in beiden Faellen, aber mit
+    # unterschiedlicher Ursache.
+    if ! printf '%s\n' "$bericht" | grep -qx 'Verifies'; then
+        echo "❌ Kein lesbarer apksigner-Bericht aus ${ziel} — nicht verifizierbar." >&2
+        echo "   Erwartet wird die Ausgabe von 'apksigner verify --verbose --print-certs'." >&2
+        if [ -n "$apksigner_fehler" ]; then
+            printf '%s\n' "$apksigner_fehler" | grep -vE '^WARNING: ' | sed 's/^/   /' >&2
+        fi
+        return 1
+    fi
+
+    # Zeilengenau (grep -qxF), nicht als Teilstring: 'v3' kaeme sonst auch in
+    # 'Verified using v3.1 scheme' und 'v3.2' vor, und die stehen in jedem Bericht.
+    # v4 wird bewusst NICHT verlangt — das ist eine separate .idsig-Datei neben dem
+    # APK, nur fuer ADB-Incremental-Installs; weder GitHub-Release noch zapstore
+    # transportieren sie.
+    grep -qxF 'Verified using v1 scheme (JAR signing): true' <<<"$bericht" || fehlend="$fehlend v1"
+    grep -qxF 'Verified using v2 scheme (APK Signature Scheme v2): true' <<<"$bericht" || fehlend="$fehlend v2"
+    grep -qxF 'Verified using v3 scheme (APK Signature Scheme v3): true' <<<"$bericht" || fehlend="$fehlend v3"
+
+    if [ -n "$fehlend" ]; then
+        echo "❌ Dem APK fehlen Signaturschemata:${fehlend}" >&2
+        for schema in v1 v2 v3; do
+            printf '%s\n' "$bericht" | grep -E "^Verified using ${schema} scheme " | sed 's/^/   /' >&2
+        done
+        if [ -n "$apksigner_fehler" ]; then
+            printf '%s\n' "$apksigner_fehler" | grep -vE '^WARNING: ' | sed 's/^/   /' >&2
+        fi
+        echo "   Erwartet werden v1 (JAR), v2 und v3 — alle drei aus DEMSELBEN Keystore." >&2
+        echo "   Ohne die enableV*Signing-Flags signiert AGP bei minSdk 33 nur mit v2." >&2
+        echo "   Pruefen mit: bash scripts/apply-vendor-patches.sh, dann neu bauen." >&2
+        return 1
+    fi
+
+    # Die Zertifikats-Pruefung ist KEIN Beiwerk zur Schema-Pruefung, sondern ihr
+    # Gegengewicht: drei Schemata aus einem anderen Keystore waeren schlimmer als ein
+    # Schema aus dem richtigen. Gesammelt werden ALLE Zertifikats-Digests des Berichts,
+    # praefix-unabhaengig: apksigner benennt den Signierer je nach verifiziertem Schema
+    # ('V2 Signer: …' im v1.12.1-Bericht, 'V3.0 Signer: …' im Gegenversuch mit allen
+    # drei Schemata, 'Signer #1 …' bei reinem v1). Jeder einzelne muss stimmen.
+    digests=$(printf '%s\n' "$bericht" | grep -oE 'certificate SHA-256 digest: [0-9a-f]{64}' | awk '{ print $NF }' | sort -u)
+    if [ -z "$digests" ]; then
+        echo "❌ Kein Zertifikats-SHA-256 im apksigner-Bericht — nicht verifizierbar." >&2
+        echo "   (Lief apksigner ohne --print-certs?)" >&2
+        return 1
+    fi
+    if [ "$digests" != "$APK_ZERT_SHA256" ]; then
+        echo "❌ Das APK traegt ein ANDERES Signatur-Zertifikat." >&2
+        echo "   erwartet:  ${APK_ZERT_SHA256}" >&2
+        echo "   im APK:    $(printf '%s\n' "$digests" | tr '\n' ' ')" >&2
+        echo "   Das ist ein Ausschlusskriterium, kein Detail: Android bindet jede" >&2
+        echo "   bestehende Installation an das Zertifikat. Ein Wechsel heisst kein" >&2
+        echo "   Update mehr fuer Bestandsnutzer, und der veroeffentlichte" >&2
+        echo "   apk_certificate_hash sowie der NIP-C1-Nachweis werden ungueltig." >&2
+        echo "   Falscher Keystore in .env (ANDROID_KEYSTORE_*)?" >&2
+        return 1
+    fi
+
+    echo "   ✓ Signaturschemata: v1, v2, v3 (Zertifikat ${APK_ZERT_SHA256:0:16}…)"
+    return 0
+}
+
 # ── JDK-Wahl: Gradle braucht hier eine Java-Version zwischen 17 und 24 ────────
 #
 # Bis zum 2026-09-01 stand hier fest der JetBrains-Runtime aus der Android-Studio-
@@ -265,6 +446,15 @@ if [ "${1:-}" = "--pruefe-manifest" ]; then
         exit 2
     fi
     if pruefe_pfad_prefixe "$2"; then exit 0; else exit 1; fi
+fi
+
+# Ebenso einzeln aufrufbar: nur den Signatur-Riegel fahren.
+if [ "${1:-}" = "--pruefe-signatur" ]; then
+    if [ -z "${2:-}" ]; then
+        echo "❌ Aufruf: $0 --pruefe-signatur <apk-oder-apksigner-ausgabe>" >&2
+        exit 2
+    fi
+    if pruefe_signaturschemata "$2"; then exit 0; else exit 1; fi
 fi
 
 # Ebenso einzeln aufrufbar: nur die JDK-Wahl fahren und melden.
@@ -403,6 +593,14 @@ echo "   ✓ keine Dev-Pakete im Bundle"
 
 echo "→ App-Link-Pfade im APK-Manifest pruefen …"
 if ! pruefe_pfad_prefixe "${DIST}/${APK_NAME}"; then
+    exit 1
+fi
+
+echo "→ Signaturschemata im APK pruefen …"
+# VOR Manifest und GPG-Signatur: eine Pruefsumme ueber ein APK, das die falschen
+# Schemata oder das falsche Zertifikat traegt, ist eine Zusicherung auf ein
+# unbrauchbares Artefakt — und die GPG-Signatur macht sie glaubwuerdig.
+if ! pruefe_signaturschemata "${DIST}/${APK_NAME}"; then
     exit 1
 fi
 
