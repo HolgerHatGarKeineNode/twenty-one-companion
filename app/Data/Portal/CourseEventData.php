@@ -26,13 +26,14 @@ final class CourseEventData extends Data
         public CarbonImmutable $to,
         public ?string $link,
         public ?int $venue_id = null,
+        public ?int $city_id = null,
         public ?int $created_by = null,
         public ?CarbonImmutable $created_at = null,
         public ?CarbonImmutable $updated_at = null,
         public ?CourseData $course = null,
         public ?VenueData $venue = null,
         public ?string $location = null,
-        public ?CityData $city = null,
+        public ?CityRefData $city = null,
     ) {}
 
     /**

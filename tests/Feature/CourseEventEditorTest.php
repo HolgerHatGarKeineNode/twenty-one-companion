@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Integrations\Portal\Requests\CreateCourseEventRequest;
+use App\Http\Integrations\Portal\Requests\GetCitiesRequest;
 use App\Http\Integrations\Portal\Requests\GetCoursesRequest;
 use App\Http\Integrations\Portal\Requests\GetMyCourseEventsRequest;
-use App\Http\Integrations\Portal\Requests\GetVenuesRequest;
 use App\Http\Integrations\Portal\Requests\UpdateCourseEventRequest;
 use Livewire\Livewire;
 use Saloon\Http\Faking\MockClient;
@@ -12,18 +12,19 @@ use Saloon\Http\Request;
 
 afterEach(fn () => MockClient::destroyGlobal());
 
-it('creates a course event and assembles the from/to payload', function () {
+it('creates a course event with the payload the portal contract accepts', function () {
     withPortalToken();
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
-        CreateCourseEventRequest::class => MockResponse::make(['id' => 99], 201),
+        CreateCourseEventRequest::class => portalCourseEventContract(creating: true),
     ]);
 
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
+        ->set('form.location', '  Volkshochschule, Raum 2 ')
         ->set('form.date', '2030-01-01')
         ->set('form.from_time', '18:00')
         ->set('form.to_time', '20:00')
@@ -34,11 +35,14 @@ it('creates a course event and assembles the from/to payload', function () {
         ->assertSet('editingId', null);
 
     MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof CreateCourseEventRequest
-        && $request->body()->all()['course_id'] === 5
-        && $request->body()->all()['venue_id'] === 3
-        && $request->body()->all()['from'] === '2030-01-01 18:00'
-        && $request->body()->all()['to'] === '2030-01-01 20:00'
-        && $request->body()->all()['link'] === 'https://example.com/anmeldung');
+        && $request->body()->all() === [
+            'course_id' => 5,
+            'city_id' => 80,
+            'location' => 'Volkshochschule, Raum 2',
+            'from' => '2030-01-01 18:00',
+            'to' => '2030-01-01 20:00',
+            'link' => 'https://example.com/anmeldung',
+        ]);
 });
 
 it('preselects the only own course when creating from the FAB', function () {
@@ -57,7 +61,7 @@ it('preselects the only own course when creating from the FAB', function () {
         ->assertSet('courseLocked', false);
 });
 
-it('requires course, venue, date, times and link before sending', function () {
+it('requires course, city, date, times and link before sending', function () {
     withPortalToken();
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
@@ -71,7 +75,7 @@ it('requires course, venue, date, times and link before sending', function () {
         ->call('save')
         ->assertHasErrors([
             'form.course_id' => 'required',
-            'form.venue_id' => 'required',
+            'form.city_id' => 'required',
             'form.date' => 'required',
             'form.from_time' => 'required',
             'form.to_time' => 'required',
@@ -90,7 +94,7 @@ it('rejects an end time before the start time', function () {
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2030-01-01')
         ->set('form.from_time', '20:00')
         ->set('form.to_time', '18:00')
@@ -111,7 +115,7 @@ it('creates a multi-day course event with a separate end date', function () {
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2030-01-01')
         ->set('form.from_time', '18:00')
         ->set('form.to_date', '2030-01-03')
@@ -137,7 +141,7 @@ it('rejects an end date before the start date', function () {
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2030-01-05')
         ->set('form.from_time', '18:00')
         ->set('form.to_date', '2030-01-03')
@@ -158,7 +162,7 @@ it('rejects a course event in the past when creating', function () {
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2000-01-01')
         ->set('form.from_time', '18:00')
         ->set('form.to_time', '20:00')
@@ -168,21 +172,21 @@ it('rejects a course event in the past when creating', function () {
         ->assertNotDispatched('teaching-changed');
 });
 
-it('searches venues for the picker from two characters', function () {
+it('searches cities for the picker from two characters', function () {
     withPortalToken();
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
-        GetVenuesRequest::class => MockResponse::make([venueFixture(['name' => 'Volkshochschule'])]),
+        GetCitiesRequest::class => MockResponse::make([cityFixture(['name' => 'Regensburg'])]),
     ]);
 
     Livewire::test('course-event-editor')
         ->call('open')
-        ->set('venueQuery', 'Volks')
-        ->assertSee('Volkshochschule');
+        ->set('cityQuery', 'Regens')
+        ->assertSee('Regensburg');
 });
 
-it('adopts a venue created inline via the venue-saved event', function () {
+it('adopts a city created inline via the city-saved event', function () {
     withPortalToken();
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
@@ -191,9 +195,9 @@ it('adopts a venue created inline via the venue-saved event', function () {
 
     Livewire::test('course-event-editor')
         ->call('open')
-        ->dispatch('venue-saved', id: 3, name: 'Volkshochschule')
-        ->assertSet('form.venue_id', 3)
-        ->assertSet('form.venueName', 'Volkshochschule');
+        ->dispatch('city-saved', id: 80, name: 'Regensburg')
+        ->assertSet('form.city_id', 80)
+        ->assertSet('form.cityName', 'Regensburg');
 });
 
 it('loads an own course event for editing and sends an update', function () {
@@ -201,16 +205,17 @@ it('loads an own course event for editing and sends an update', function () {
     withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global([
         GetCoursesRequest::class => MockResponse::make([detailedCourseFixture(['id' => 5])]),
-        GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture(['id' => 9, 'course_id' => 5, 'venue_id' => 3])]]),
-        UpdateCourseEventRequest::class => MockResponse::make(['id' => 9], 200),
+        GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture(['id' => 9, 'course_id' => 5])]]),
+        UpdateCourseEventRequest::class => portalCourseEventContract(creating: false),
     ]);
 
     Livewire::test('course-event-editor')
         ->call('open', 9)
         ->assertSet('editingId', 9)
         ->assertSet('form.course_id', 5)
-        ->assertSet('form.venue_id', 3)
-        ->assertSet('form.venueName', 'Volkshochschule')
+        ->assertSet('form.city_id', 80)
+        ->assertSet('form.cityName', 'Regensburg')
+        ->assertSet('form.location', 'Volkshochschule')
         ->assertSet('form.date', '2026-07-01')
         ->assertSet('courseLocked', true)
         ->set('form.link', 'https://example.com/neu')
@@ -220,7 +225,9 @@ it('loads an own course event for editing and sends an update', function () {
 
     MockClient::global()->assertSent(fn (Request $request): bool => $request instanceof UpdateCourseEventRequest
         && $request->resolveEndpoint() === '/course-events/9'
-        && $request->body()->all()['link'] === 'https://example.com/neu');
+        && $request->body()->all()['link'] === 'https://example.com/neu'
+        && $request->body()->all()['city_id'] === 80
+        && $request->body()->all()['location'] === 'Volkshochschule');
 });
 
 it('keeps the editor open and reports a 403 when editing a foreign course event', function () {
@@ -268,7 +275,7 @@ it('does not send a write without a portal token', function () {
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2030-01-01')
         ->set('form.from_time', '18:00')
         ->set('form.to_time', '20:00')

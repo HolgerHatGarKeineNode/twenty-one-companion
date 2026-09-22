@@ -104,7 +104,7 @@ it('sends course event from/to converted from the user timezone to utc', functio
     Livewire::test('course-event-editor')
         ->call('open')
         ->set('form.course_id', 5)
-        ->call('selectVenue', 3, 'Volkshochschule')
+        ->call('selectCity', 80, 'Regensburg')
         ->set('form.date', '2030-01-01')
         ->set('form.from_time', '18:00')
         ->set('form.to_time', '20:00')

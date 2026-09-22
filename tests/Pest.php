@@ -148,6 +148,8 @@ use App\Services\PortalAuth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Native\Mobile\Facades\SecureStorage;
+use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\PendingRequest;
 
 function completeOnboarding(string $locale = 'de', string $country = ''): void
 {
@@ -627,6 +629,10 @@ function myLecturerFixture(array $overrides = []): array
  * Eigenes Kurs-Event aus GET /api/course-events (CourseEvent mit Kurs-/Venue-
  * Kurzinfo, ohne data-Wrapper).
  *
+ * The shape of the portal's `CourseEventResource` since the venue model is gone
+ * (einundzwanzig-portal 5aba6dc): `city_id`, free-text `location`, the `osm_*` pin, and a
+ * `city` loaded as `city:id,name` — no country, no venue.
+ *
  * @param  array<string, mixed>  $overrides
  * @return array<string, mixed>
  */
@@ -635,7 +641,14 @@ function myCourseEventFixture(array $overrides = []): array
     return array_merge([
         'id' => 9,
         'course_id' => 5,
-        'venue_id' => 3,
+        'city_id' => 80,
+        'location' => 'Volkshochschule',
+        'osm_type' => null,
+        'osm_id' => null,
+        'osm_name' => null,
+        'osm_address' => null,
+        'osm_lat' => null,
+        'osm_lon' => null,
         'from' => '2026-07-01T18:00:00.000000Z',
         'to' => '2026-07-01T20:00:00.000000Z',
         'link' => 'https://example.com/kurs-anmeldung',
@@ -643,8 +656,42 @@ function myCourseEventFixture(array $overrides = []): array
         'created_at' => '2026-01-01T00:00:00.000000Z',
         'updated_at' => '2026-06-01T00:00:00.000000Z',
         'course' => ['id' => 5, 'name' => 'Bitcoin, Blockchain und Geld'],
-        'venue' => ['id' => 3, 'name' => 'Volkshochschule'],
+        'city' => ['id' => 80, 'name' => 'Regensburg'],
     ], $overrides);
+}
+
+/**
+ * A fake of the portal's course-event write contract — `StoreCourseEventRequest` /
+ * `UpdateCourseEventRequest` in einundzwanzig-portal: the accepted fields and, on create,
+ * the required ones. Anything else is not validated there and is dropped silently by
+ * `$request->validated()`, which for `venue_id` meant a create without a city (422) and an
+ * update whose place change went nowhere. The fake is STRICTER than the portal on that
+ * point on purpose: it answers 422 for an unknown field as well, so a payload off the
+ * contract cannot pass as a success here while it would be ignored there.
+ */
+function portalCourseEventContract(bool $creating): Closure
+{
+    return function (PendingRequest $pending) use ($creating): MockResponse {
+        $body = $pending->body()?->all() ?? [];
+        $accepted = ['course_id', 'city_id', 'location', 'osm_type', 'osm_id', 'osm_name', 'osm_address', 'osm_lat', 'osm_lon', 'from', 'to', 'link'];
+        $errors = [];
+
+        foreach (array_diff(array_keys($body), $accepted) as $unknown) {
+            $errors[$unknown] = ["{$unknown} is not a field of the course-event contract."];
+        }
+
+        if ($creating) {
+            foreach (['course_id', 'city_id', 'from', 'to', 'link'] as $required) {
+                if (blank($body[$required] ?? null)) {
+                    $errors[$required] = ["The {$required} field is required."];
+                }
+            }
+        }
+
+        return $errors === []
+            ? MockResponse::make(['id' => 99] + $body, $creating ? 201 : 200)
+            : MockResponse::make(['message' => 'The given data was invalid.', 'errors' => $errors], 422);
+    };
 }
 
 /**

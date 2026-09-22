@@ -2,7 +2,7 @@
 
 use App\Data\Portal\CourseData;
 use App\Data\Portal\CourseEventData;
-use App\Data\Portal\VenueData;
+use App\Data\Portal\CityData;
 use App\Livewire\Concerns\HandlesPortalWriteFeedback;
 use App\Livewire\Forms\CourseEventForm;
 use App\Services\PortalApi;
@@ -21,9 +21,9 @@ use Livewire\Component;
  * Event: ohne Argumente = Anlegen (Kurs frei wählbar), mit `courseId` = Anlegen
  * für einen bestimmten Kurs, mit `eventId` = ein eigenes Kurs-Event bearbeiten.
  *
- * Anders als der Meetup-Termin trägt das Kurs-Event einen echten Veranstaltungs-
- * ort (`venue_id`, per Namen gesucht, mit inline „Ort anlegen") und Start-/
- * Endzeit. Anlegen erfordert serverseitig den Referenten-Status (is_lecturer)
+ * The place is a city searched by name (`city_id`, with an inline „Stadt anlegen") plus
+ * free-text `location` — the portal's contract since it dropped the venue model — and
+ * the date has a start and an end time. Anlegen erfordert serverseitig den Referenten-Status (is_lecturer)
  * bzw. Eigentum (403). Das `ready`-Gate verhindert API-Calls beim globalen
  * Layout-Render — die eigene Kurs-Liste lädt erst beim ersten Öffnen.
  */
@@ -41,8 +41,8 @@ new class extends Component {
     /** Kurs-Auswahl sperren (Bearbeiten oder Anlegen aus einem Kurs-Detail). */
     public bool $courseLocked = false;
 
-    /** Suchbegriff für die Ort-Auswahl (eigenes Feld, nicht Teil der Payload). */
-    public string $venueQuery = '';
+    /** Search term of the city picker (its own field, not part of the payload). */
+    public string $cityQuery = '';
 
     #[On('open-course-event-editor')]
     public function open(?int $eventId = null, ?int $courseId = null): void
@@ -82,7 +82,7 @@ new class extends Component {
         $this->form->reset();
         $this->editingId = null;
         $this->courseLocked = false;
-        $this->venueQuery = '';
+        $this->cityQuery = '';
         $this->resetErrorBag();
     }
 
@@ -104,7 +104,7 @@ new class extends Component {
 
         $this->editingId = $event->id;
         $this->courseLocked = true;
-        $this->form->setEvent($event, $courseName, $event->venue?->name ?? '');
+        $this->form->setEvent($event, $courseName);
     }
 
     /**
@@ -122,52 +122,53 @@ new class extends Component {
     }
 
     /**
-     * Ort-Treffer für die Auswahl (ab 2 Zeichen, debounced).
+     * City hits for the picker (from 2 characters, debounced) — the same search the meetup
+     * editor uses.
      *
-     * @return Collection<int, VenueData>
+     * @return Collection<int, CityData>
      */
     #[Computed]
-    public function venueResults(): Collection
+    public function cityResults(): Collection
     {
-        $query = trim($this->venueQuery);
+        $query = trim($this->cityQuery);
 
         if (mb_strlen($query) < 2) {
             return collect();
         }
 
         return app(PortalApi::class)
-            ->venues($query, withDetails: true)
+            ->cities($query, withDetails: true)
             ->take(8)
             ->values();
     }
 
-    public function selectVenue(int $id, string $name): void
+    public function selectCity(int $id, string $name): void
     {
-        $this->form->venue_id = $id;
-        $this->form->venueName = $name;
-        $this->venueQuery = '';
-        $this->resetErrorBag('form.venue_id');
-        unset($this->venueResults);
+        $this->form->city_id = $id;
+        $this->form->cityName = $name;
+        $this->cityQuery = '';
+        $this->resetErrorBag('form.city_id');
+        unset($this->cityResults);
     }
 
-    public function clearVenue(): void
+    public function clearCity(): void
     {
-        $this->form->venue_id = null;
-        $this->form->venueName = '';
+        $this->form->city_id = null;
+        $this->form->cityName = '';
     }
 
     /**
-     * Einen im Venue-Editor frisch angelegten Ort direkt übernehmen (inline aus
-     * dem Kurs-Event-Flow). Greift nur, wenn noch kein Ort gewählt ist.
+     * Take over a city just created in the city editor (inline from this flow). Only while
+     * no city is chosen yet.
      */
-    #[On('venue-saved')]
-    public function useSavedVenue(int $id, string $name): void
+    #[On('city-saved')]
+    public function useSavedCity(int $id, string $name): void
     {
-        if ($this->form->venue_id !== null) {
+        if ($this->form->city_id !== null) {
             return;
         }
 
-        $this->selectVenue($id, $name);
+        $this->selectCity($id, $name);
     }
 
     public function save(): void
@@ -271,68 +272,71 @@ new class extends Component {
                 @endif
             </div>
 
-            {{-- Ort: gewählter Ort als Chip, sonst Suche. --}}
+            {{-- City: the chosen city as a chip, otherwise the search (same pattern as the
+                 meetup editor). --}}
             <div class="flex flex-col gap-2">
-                <flux:label>{{ __('Ort') }}</flux:label>
+                <flux:label>{{ __('Stadt') }}</flux:label>
 
-                @if ($form->venue_id)
+                @if ($form->city_id)
                     <div class="flex items-center justify-between gap-3 rounded-tile border border-zinc-200 px-4 py-3 dark:border-zinc-800">
                         <span class="flex min-w-0 items-center gap-2">
                             <flux:icon name="map-pin" class="size-5 shrink-0 text-brand-600 dark:text-brand-400"/>
-                            <span class="truncate font-semibold">{{ $form->venueName !== '' ? $form->venueName : __('Ort gewählt') }}</span>
+                            <span class="truncate font-semibold">{{ $form->cityName !== '' ? $form->cityName : __('Stadt gewählt') }}</span>
                         </span>
-                        <flux:button wire:click="clearVenue" type="button" size="xs" variant="ghost" icon="x-mark" :aria-label="__('Ort ändern')" class="cursor-pointer"/>
+                        <flux:button wire:click="clearCity" type="button" size="xs" variant="ghost" icon="x-mark" :aria-label="__('Stadt ändern')" class="cursor-pointer"/>
                     </div>
                 @else
                     <flux:input
-                        wire:model.live.debounce.300ms="venueQuery"
+                        wire:model.live.debounce.300ms="cityQuery"
                         type="search"
                         icon="magnifying-glass"
-                        :placeholder="__('Ort suchen …')"
+                        :placeholder="__('Stadt suchen …')"
                     />
 
-                    @error('form.venue_id')
+                    @error('form.city_id')
                         <flux:text class="text-sm text-red-600 dark:text-red-400">{{ $message }}</flux:text>
                     @enderror
 
-                    @if ($this->venueResults->isNotEmpty())
+                    @if ($this->cityResults->isNotEmpty())
                         <div class="flex flex-col gap-1 rounded-tile border border-zinc-200 p-1 dark:border-zinc-800">
-                            @foreach ($this->venueResults as $venue)
+                            @foreach ($this->cityResults as $city)
                                 <button
                                     type="button"
-                                    wire:click="selectVenue({{ $venue->id }}, @js($venue->name))"
+                                    wire:click="selectCity({{ $city->id }}, @js($city->name))"
                                     x-on:click="$haptic('medium')"
-                                    wire:key="ce-venue-{{ $venue->id }}"
+                                    wire:key="ce-city-{{ $city->id }}"
                                     class="pressable flex items-center gap-2 rounded-md px-3 py-2 text-start active:bg-zinc-100 dark:active:bg-zinc-800"
                                 >
                                     <flux:icon name="map-pin" class="size-4 shrink-0 text-zinc-400"/>
-                                    <span class="truncate text-sm font-medium">{{ $venue->name }}</span>
-                                    @if ($venue->locationLabel())
-                                        <flux:text class="ms-auto shrink-0 text-xs">{{ $venue->locationLabel() }}</flux:text>
-                                    @endif
+                                    <span class="truncate text-sm font-medium">{{ $city->name }}</span>
+                                    <flux:text class="ms-auto shrink-0 text-xs">{{ $city->country->name }}</flux:text>
                                 </button>
                             @endforeach
                         </div>
-                    @elseif (mb_strlen(trim($venueQuery)) >= 2)
-                        {{-- Inline „Ort anlegen": der Venue-Editor öffnet mit dem
-                             Suchbegriff als Namensvorschlag; nach dem Speichern
-                             übernimmt useSavedVenue() den neuen Ort. --}}
+                    @elseif (mb_strlen(trim($cityQuery)) >= 2)
                         <div class="flex flex-col gap-2 rounded-tile border border-zinc-200 p-3 dark:border-zinc-800">
-                            <flux:text class="text-sm">{{ __('Keinen Ort gefunden.') }}</flux:text>
+                            <flux:text class="text-sm">{{ __('Keine Stadt gefunden.') }}</flux:text>
                             <flux:button
                                 type="button"
                                 size="sm"
                                 variant="ghost"
                                 icon="plus"
-                                x-on:click="$haptic('medium'); $flux.modal('create-venue').show(); Livewire.dispatch('open-venue-editor', { name: @js(trim($venueQuery)) })"
+                                x-on:click="$haptic('medium'); $flux.modal('create-city').show(); Livewire.dispatch('open-city-editor', { name: @js(trim($cityQuery)) })"
                                 class="w-fit cursor-pointer"
                             >
-                                {{ __('Ort anlegen') }}
+                                {{ __('Stadt anlegen') }}
                             </flux:button>
                         </div>
                     @endif
                 @endif
             </div>
+
+            {{-- The place in plain words — the portal keeps it as free text. --}}
+            <flux:input
+                wire:model="form.location"
+                :label="__('Ort')"
+                :placeholder="__('z. B. Bitcoin-Bar, Musterstraße 21')"
+            />
 
             {{-- Datum + Start-/Endzeit (native Picker auf dem Gerät). --}}
             <div class="flex flex-col gap-2">

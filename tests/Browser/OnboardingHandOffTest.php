@@ -38,9 +38,7 @@ function startOnboardingAtLastStepInAppMode(): object
 
 function waitForIsland(object $page): void
 {
-    // A guest in the app ends on /nostr-login (see the case below), so that is the page
-    // to wait for; on the old hand-off it never comes and the loop runs out.
-    for ($i = 0; $i < 50 && $page->script('() => location.pathname') !== '/nostr-login'; $i++) {
+    for ($i = 0; $i < 50 && $page->script('() => location.pathname') === '/onboarding'; $i++) {
         usleep(200_000);
     }
 
@@ -87,10 +85,39 @@ it('hands /onboarding off to the island with a full load, so nostrAuth.mobile fo
         ->and($state['mobile'])->toBeTrue('nostrAuth shows the web branch although the host is the app')
         ->and($state['duplicateInlineScripts'])->toBe([]);
 
-    // A guest in the app is sent on to the login page by the island's device gate
-    // (`session.ts applyMobileAuthGate`) — as on every later cold start. The Amber branch
-    // is the one on screen there.
-    expect($state['path'])->toBe('/nostr-login')
+    // A guest stays on Start (Concept C designs it for guests; the device gate acts only on
+    // routes behind `nostr.auth`). The login sheet opened from here offers Amber — the
+    // branch the device showed wrongly.
+    usleep(3_000_000);
+    $page->script("() => window.dispatchEvent(new CustomEvent('open-login-sheet', { detail: { intent: {} } }))");
+    usleep(500_000);
+
+    expect($page->script('() => location.pathname'))->toBe('/start')
         ->and($page->script("() => [...document.querySelectorAll('button')].some((b) => b.offsetParent !== null && b.textContent.includes('Mit Amber anmelden'))"))
-        ->toBeTrue('the login form does not offer Amber');
+        ->toBeTrue('the login sheet does not offer Amber');
+});
+
+it('boots the island as the app already on /onboarding, and keeps it across a wire:navigate', function () {
+    // The host head sets the flag too, so no reader of `isMobile` can freeze as "web" on a
+    // host-first document — whatever way the reader then leaves it. The guest stays on the
+    // host page: the device gate acts only on routes behind `nostr.auth`.
+    $page = startOnboardingAtLastStepInAppMode();
+
+    expect($page->script('() => window.__nostrMobile ?? null'))->toBeTrue('the host head does not set the flag');
+
+    usleep(3_000_000);
+    expect($page->script('() => location.pathname'))->toBe('/onboarding');
+
+    $page->script("() => Livewire.navigate('/start')");
+    for ($i = 0; $i < 50 && $page->script('() => location.pathname') !== '/start'; $i++) {
+        usleep(200_000);
+    }
+    for ($i = 0; $i < 50 && ! $page->script('() => !!document.querySelector(\'[x-data="nostrAuth"]\')?._x_dataStack'); $i++) {
+        usleep(200_000);
+    }
+
+    $state = readHandOffState($page);
+
+    expect($state['sameDocument'])->toBeTrue('this case must measure the SPA path, but the document was replaced')
+        ->and($state['mobile'])->toBeTrue('nostrAuth froze isMobile before the host flag was set');
 });

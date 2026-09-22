@@ -204,9 +204,9 @@ it('unwraps the data wrapper of my-meetups and casts dates and booleans', functi
         ->and($meetup->last_event_at->toDateString())->toBe('2026-06-01');
 });
 
-it('maps my course events including course and venue summaries', function () {
+it('maps my course events including course and city summaries, as the portal sends them now', function () {
     withPortalToken();
-    MockClient::global([GetMyCourseEventsRequest::class => MockResponse::make(['data' => [courseEventFixture()]])]);
+    MockClient::global([GetMyCourseEventsRequest::class => MockResponse::make(['data' => [myCourseEventFixture()]])]);
 
     $events = portalApi()->myCourseEvents(5);
 
@@ -214,7 +214,9 @@ it('maps my course events including course and venue summaries', function () {
     expect($event)->toBeInstanceOf(CourseEventData::class)
         ->and($event->from)->toBeInstanceOf(CarbonImmutable::class)
         ->and($event->course?->name)->toBe('Bitcoin, Blockchain und Geld')
-        ->and($event->venue?->name)->toBe('Volkshochschule');
+        ->and($event->city_id)->toBe(80)
+        ->and($event->venue)->toBeNull()
+        ->and($event->locationLabel())->toBe('Volkshochschule · Regensburg');
 
     MockClient::global()->assertSent(fn (Request $request, Response $response): bool => $response->getPendingRequest()->query()->get('course_id') === 5);
 });
