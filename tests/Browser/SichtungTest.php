@@ -84,6 +84,8 @@ function measureSightingCase(
         'ueberstehend' => [],
         'hauptHoehe' => null,
         'leer' => null,
+        'navHintergrund' => null,
+        'fabRadius' => null,
         'screenshot' => null,
         'fehler' => null,
     ];
@@ -106,6 +108,7 @@ function measureSightingCase(
 
         $measured = Sichtung::measure($webpage);
         $overflow = Sichtung::measureOverflow($webpage);
+        $shell = Sichtung::measureShell($webpage);
 
         $fileName = 'sichtung-'.$pass.'-'.Str::slug($displayName);
         $webpage->page()->screenshot(true, $fileName);
@@ -128,6 +131,8 @@ function measureSightingCase(
         $finding['ueberstehend'] = $overflow['ueberstehend'];
         $finding['hauptHoehe'] = $overflow['hauptHoehe'];
         $finding['leer'] = $overflow['leer'];
+        $finding['navHintergrund'] = $shell['navHintergrund'];
+        $finding['fabRadius'] = $shell['fabRadius'];
     } catch (Throwable $e) {
         $finding['fehler'] = ($finding['fehler'] !== null ? $finding['fehler'].' | ' : '').'Browser: '.$e::class.': '.mb_substr($e->getMessage(), 0, 300);
     }
@@ -233,6 +238,32 @@ test('v1.13.0 sighting: every view, three passes, measured and backed by a scree
 
     expect($productionRequests->all())
         ->toBe([], 'Browser requests reached a production host: '.$productionRequests->implode(' | '));
+
+    // Latch: the shared bottom bar looks the same on every page that renders it. /start is
+    // the reference — it sits on the package layout, whose stylesheet is the theme's home.
+    // Before the fix all six pages of `layouts::mobile` painted the bar `rgb(250,250,250)`
+    // with a 0px search button while /start painted `rgb(15,15,16)` and 20px: that entry
+    // did not carry the package tokens, and an undefined token drops its utility silently.
+    // Compared per pass, because light and dark are different references. Fails closed: a
+    // pass whose /start measured no bar, or a square button, has no reference to hold.
+    foreach (array_keys(SIGHTING_PASSES) as $pass) {
+        $passFindings = collect($findings)->where('durchgang', $pass);
+        $reference = $passFindings->firstWhere('route', 'start');
+
+        expect($reference['navHintergrund'] ?? null)
+            ->not->toBeNull("Pass {$pass}: /start rendered no measurable bottom bar — the shell latch has no reference.")
+            ->and($reference['fabRadius'] ?? '0px')
+            ->not->toBe('0px', "Pass {$pass}: the search button on /start itself is square — the reference is broken.");
+
+        $deviations = $passFindings
+            ->filter(fn (array $finding): bool => $finding['navHintergrund'] !== null
+                && ($finding['navHintergrund'] !== $reference['navHintergrund'] || $finding['fabRadius'] !== $reference['fabRadius']))
+            ->map(fn (array $finding): string => "{$finding['route']}: nav {$finding['navHintergrund']}, button radius {$finding['fabRadius']}")
+            ->values();
+
+        expect($deviations->all())
+            ->toBe([], "Pass {$pass}: the bottom bar differs from /start (nav {$reference['navHintergrund']}, button radius {$reference['fabRadius']}) on: ".$deviations->implode(' | '));
+    }
 
     // The recording keeps at most 50 entries per list (`sichtungCap`). A case at the cap may
     // have dropped a production request, so a full list fails closed instead of passing.

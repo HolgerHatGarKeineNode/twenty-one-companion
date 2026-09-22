@@ -203,6 +203,29 @@ final class Sichtung
         JS;
 
     /**
+     * The shared shell chrome as the browser paints it: the computed background of the bottom
+     * nav (`<x-group::bottom-nav>`, found by its `data-bottom-nav` grid) and the border
+     * radius of its centre search button (`data-palette-open`). Both are `null` on a page
+     * that renders no bar (onboarding, the chat room).
+     *
+     * Why computed values and not class names: the v1.13.0 device sighting found the class
+     * strings byte-identical on every page while the bar was white and square on six of
+     * them — `layouts::mobile` loaded a stylesheet that had never defined the tokens behind
+     * `dark:bg-bg-elevated` and `rounded-fab`, and Tailwind drops such a utility silently.
+     */
+    private const SHELL_MEASURE = <<<'JS'
+        (() => {
+            const nav = document.querySelector('[data-bottom-nav]')?.closest('nav') ?? null;
+            const fab = document.querySelector('[data-palette-open]');
+
+            return {
+                navHintergrund: nav ? getComputedStyle(nav).backgroundColor : null,
+                fabRadius: fab ? getComputedStyle(fab).borderTopLeftRadius : null,
+            };
+        })()
+        JS;
+
+    /**
      * Retrofits the own recording script onto the already-open context and reloads to
      * activate it. Afterwards `window.__sichtung` is present on EVERY further document of
      * this context (including `wire:navigate` transitions).
@@ -221,6 +244,17 @@ final class Sichtung
     {
         /** @var array{consoleErrors: list<array{art: string, nachricht: string}>, pageErrors: list<array{art: string, nachricht: string, element?: string, srcAttribut?: string|null, html?: string}>, netzwerkFehler: list<array{url: string, status: int, art: string}>, fremdAnfragen: list<array{url: string, host: string, art: string}>} $result */
         $result = $webpage->page()->evaluate('() => window.__sichtung || { consoleErrors: [], pageErrors: [], netzwerkFehler: [], fremdAnfragen: [] }');
+
+        return $result;
+    }
+
+    /**
+     * @return array{navHintergrund: string|null, fabRadius: string|null}
+     */
+    public static function measureShell(object $webpage): array
+    {
+        /** @var array{navHintergrund: string|null, fabRadius: string|null} $result */
+        $result = $webpage->script(self::SHELL_MEASURE);
 
         return $result;
     }

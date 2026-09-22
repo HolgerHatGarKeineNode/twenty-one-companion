@@ -1,10 +1,26 @@
-@import '@fontsource/inconsolata/400.css';
-@import '@fontsource/inconsolata/500.css';
-@import '@fontsource/inconsolata/600.css';
-@import '@fontsource/inconsolata/700.css';
-
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
+
+/* The package theme — tokens, `@utility` definitions and the plain rules its partials rely
+   on. Must come AFTER tailwindcss (its `@apply`/`@utility` build on it) and BEFORE this
+   file's own `@theme`, so the app's own token values below still win where both define one.
+
+   Why it stands here since the v1.13.0 device sighting: `layouts::mobile` renders the
+   package's shared shell (`<x-group::bottom-nav>`, `<x-group::command-palette>`) but loaded
+   only this entry, which had the package views in `@source` and none of the package's
+   tokens. Tailwind generates no utility for an undefined token and says nothing, so
+   `dark:bg-bg-elevated` and `rounded-fab` simply fell away: measured on the device and in
+   host Chromium, the bar stood `rgb(250,250,250)` with a square 0px search button on all
+   six pages of this layout, against `rgb(15,15,16)` and 20px on /start. The app had been
+   copying single tokens over one by one (`--color-muted` below is one of them); the import
+   ends that, because a copied token list is always one partial behind.
+
+   NOT the other way round (the layout loading `group.css` as a second entry): two Tailwind
+   bundles in one document are two preflights, two `flux.css` and two token sets, and the
+   cascade order between the two files would start deciding the focus rules that are
+   deliberately duplicated in both entries (see `vite.config.js`). The Inconsolata faces
+   come with the theme as well (400-800), which is why this file no longer imports them. */
+@import '../../vendor/einundzwanzig/group/resources/css/theme.css';
 
 @source '../views';
 /* Unified-Shell (P3): layouts::mobile rendert die geteilte <x-group::bottom-nav>
