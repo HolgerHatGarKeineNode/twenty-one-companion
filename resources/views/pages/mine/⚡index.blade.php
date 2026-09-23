@@ -74,7 +74,7 @@ new #[Layout('layouts::mobile', ['title' => 'Meine Inhalte', 'heading' => 'Meine
 ?>
 
 <x-portal-page>
-    <x-requires-portal :heading="__('Mit Portal verbinden')" :text="__('Verbinde dein Konto, um deine eigenen Meetups, Termine, Orte und Kurse zu verwalten.')">
+    <x-requires-portal :heading="__('Mit Portal verbinden')" :text="__('Verbinde dein Konto, um deine eigenen Meetups, Termine, Städte und Kurse zu verwalten.')">
         <div class="list-stagger flex flex-col gap-3">
             @foreach ($this->sections as $section)
                 <x-list-link-card href="{{ $section['href'] }}" wire:key="mine-{{ $loop->index }}" style="--i: {{ $loop->index }}">

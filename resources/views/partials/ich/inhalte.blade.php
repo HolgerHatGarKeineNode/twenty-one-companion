@@ -5,4 +5,4 @@
      package's shared geometry (`x-group::ich-row`), so a host-injected row cannot look
      different from a package one. --}}
 <x-group::ich-row :href="route('ich.inhalte')" icon="square-2-stack"
-                  :label="__('Meine Inhalte')" :hint="__('Meetups, Termine, Orte und Kurse')" />
+                  :label="__('Meine Inhalte')" :hint="__('Meetups, Termine, Städte und Kurse')" />
