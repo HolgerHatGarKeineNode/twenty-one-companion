@@ -44,17 +44,12 @@ release_notes: ./dist/v1.13.0/zapstore-changelog.md
 icon: ./public/icon.png
 
 images:
-  - ./assets/screenshots/01-splash.webp
-  - ./assets/screenshots/02-language.webp
-  - ./assets/screenshots/03-welcome.webp
-  - ./assets/screenshots/04-region.webp
-  - ./assets/screenshots/05-notifications.webp
-  - ./assets/screenshots/06-spaces.webp
-  - ./assets/screenshots/07-chat.webp
-  - ./assets/screenshots/08-meetups.webp
-  - ./assets/screenshots/09-meetup.webp
-  - ./assets/screenshots/10-events.webp
-  - ./assets/screenshots/11-map.webp
-  - ./assets/screenshots/12-articles.webp
-  - ./assets/screenshots/13-search.webp
-  - ./assets/screenshots/14-wallet.webp
+  - ./assets/screenshots/01-start.webp
+  - ./assets/screenshots/02-inbox.webp
+  - ./assets/screenshots/03-meetups.webp
+  - ./assets/screenshots/04-courses.webp
+  - ./assets/screenshots/05-chat.webp
+  - ./assets/screenshots/06-wallet.webp
+  - ./assets/screenshots/07-profile.webp
+  - ./assets/screenshots/08-verein.webp
+  - ./assets/screenshots/09-map.webp
