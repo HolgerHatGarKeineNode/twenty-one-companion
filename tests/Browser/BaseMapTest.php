@@ -2,20 +2,28 @@
 
 declare(strict_types=1);
 
+use Tests\Browser\Support\LocalMapStyle;
 use Tests\Browser\Support\PortalFixtures;
 use Tests\Browser\Support\Sichtung;
 
 /**
- * The base map (config/maps.php): OpenFreeMap "Dark" as a MapLibre GL layer inside Leaflet.
+ * The base map (config/maps.php): a MapLibre GL layer inside Leaflet.
  *
  * CARTO, the provider before, answered 200 PNGs with a burned-in "API KEY REQUIRED"
  * watermark — a map that loads fine and says the wrong thing. So this measures what is ON
- * the canvas (many distinct dark colours from rendered vector data, not one flat fill),
- * where the requests go, and that the attribution the licence asks for stands bottom-right.
+ * the canvas (many distinct colours from rendered vector data, not one flat fill), that no
+ * request leaves the machine, and that the attribution the style carries stands bottom-right.
+ *
+ * The style is a local one (`LocalMapStyle`, a `data:` URL put in place of
+ * `config('maps.tiles.style')`): the real OpenFreeMap style is a third party over the
+ * network, and a test that needs it is slow, flaky and leaves the machine. WHICH provider the
+ * production config names is held server-side by `MapPageTest`.
  */
+beforeEach(fn () => config(['maps.tiles.style' => LocalMapStyle::serve()]));
+
 afterEach(fn () => PortalFixtures::cleanUp());
 
-it('renders the OpenFreeMap vector base map with its attribution, and nothing breaks', function (int $width) {
+it('renders the vector base map with its attribution, and nothing breaks', function (int $width) {
     PortalFixtures::filled();
 
     $page = visit('/bereich/meetups?ansicht=karte')->inDarkMode();
@@ -59,9 +67,7 @@ it('renders the OpenFreeMap vector base map with its attribution, and nothing br
         ->and(count($colours))->toBeGreaterThan(20, 'the map area is a flat fill — no vector data was drawn')
         ->and($state['attributionVisible'])->toBeTrue()
         ->and($state['attribution'])->toContain('OpenFreeMap')->toContain('© OpenMapTiles')->toContain('OpenStreetMap')
-        ->and($hosts)->toContain('tiles.openfreemap.org')
-        ->and(array_filter($hosts, fn (string $host): bool => str_contains($host, 'cartocdn')))->toBe([])
-        ->and(array_filter($hosts, fn (string $host): bool => Sichtung::isProductionHost($host)))->toBe([])
+        ->and(array_filter($hosts, fn (string $host): bool => Sichtung::isExternalHost($host)))->toBe([])
         ->and($measured['consoleErrors'])->toBe([])
         ->and($measured['pageErrors'])->toBe([])
         ->and($measured['netzwerkFehler'])->toBe([]);

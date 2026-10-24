@@ -147,6 +147,7 @@ it('asks for the portal connection instead of showing an empty page', function (
 it('renders the own dates page over http', function () {
     completeOnboarding();
     withPortalToken();
+    fakePortalProfile();
     MockClient::global([
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [
             myMeetupFixture(['id' => 21, 'is_leader' => true]),

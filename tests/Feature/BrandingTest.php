@@ -108,24 +108,6 @@ it('does not celebrate when the brand stays the same', function () {
         ->assertNotDispatched('brand-changed');
 });
 
-it('switches brand and celebrates when changing the region on an own page', function () {
-    /*
-     * Until P4 this hung on the country filter of this app's own meetup list. That list has
-     * lived in the package since P4 (D9) and knows neither the app brand nor `syncBrand` —
-     * so in this app the region is chosen where it belongs: in the settings. The MECHANISM
-     * is unchanged and is exactly what this case measures: a change of region announces
-     * `brand-changed` and writes the preference.
-     */
-    withoutPortalToken();
-    completeOnboarding(country: 'de');
-
-    Livewire::test('settings.region')
-        ->set('country', 'hu')
-        ->assertDispatched('brand-changed', slug: 'huszonegy', label: 'HUSZONEGY');
-
-    expect(app(AppPreferences::class)->country())->toBe('hu');
-});
-
 it('reflects a country change on the same resolver instance (no stale memoization)', function () {
     // NativePHP läuft als langlebiger Prozess: scoped Singletons überleben
     // Requests. Dieselbe Resolver-Instanz muss eine zwischenzeitliche

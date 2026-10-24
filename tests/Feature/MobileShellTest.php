@@ -119,7 +119,7 @@ it('hides the create FAB for guests', function () {
 
 it('shows the context-sensitive create FAB for connected users', function () {
     withPortalToken();
-    withCachedPortalProfile();
+    fakePortalProfile();
     MockClient::global([
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture(['is_leader' => true])]]),
         // „Meine Kurse" is the same endpoint as the course list, only with `user_id` —
@@ -170,6 +170,8 @@ it('sends the root to Start instead of serving a client-side launch switch', fun
 });
 
 it('resolves /settings to the group settings hub, not the Laravel starter-kit login', function () {
+    fakeQuietPortal();
+
     // The starter-kit `/settings` redirect (auth → Laravel login) was removed because it
     // collided with the package's settings route — the "Nostr identity" card used to land on
     // the Fortify login. `/settings` belongs to the package, and since P2 it forwards to the

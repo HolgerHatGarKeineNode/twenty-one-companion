@@ -161,7 +161,13 @@ test('the loopback latch flags a code default and passes the configured dead por
         ->and(Sichtung::isUnconfiguredLoopback('127.0.0.1:3334', $configured))->toBeTrue()
         ->and(Sichtung::isUnconfiguredLoopback('[::1]:3334', $configured))->toBeTrue()
         ->and(Sichtung::isUnconfiguredLoopback('127.0.0.1:7', $configured))->toBeFalse()
-        ->and(Sichtung::isUnconfiguredLoopback('group.einundzwanzig.space', $configured))->toBeFalse();
+        ->and(Sichtung::isUnconfiguredLoopback('group.einundzwanzig.space', $configured))->toBeFalse()
+        // The wider latch below: ANY host that is not this machine, not only our production.
+        ->and(Sichtung::isExternalHost('tiles.openfreemap.org'))->toBeTrue()
+        ->and(Sichtung::isExternalHost('fonts.googleapis.com'))->toBeTrue()
+        ->and(Sichtung::isExternalHost('127.0.0.1:9'))->toBeFalse()
+        ->and(Sichtung::isExternalHost('localhost:3334'))->toBeFalse()
+        ->and(Sichtung::isExternalHost('[::1]:7'))->toBeFalse();
 })->group('a11y', 'sichtung');
 
 test('v1.13.0 sighting: every view, three passes, measured and backed by a screenshot', function () {
@@ -253,6 +259,20 @@ test('v1.13.0 sighting: every view, three passes, measured and backed by a scree
 
     expect($productionRequests->all())
         ->toBe([], 'Browser requests reached a production host: '.$productionRequests->implode(' | '));
+
+    // Latch: NO browser request leaves this machine — not only ours (`*.einundzwanzig.space`
+    // above) but any third party. Every origin the suite configures is a dead loopback port
+    // (`phpunit.browser.xml`), so a non-loopback host here is a tile server, a CDN or a relay
+    // that the page reached on its own.
+    $externalRequests = collect($findings)
+        ->flatMap(fn (array $finding): array => array_map(
+            fn (array $request): string => "{$finding['route']} [{$finding['durchgang']}]: {$request['art']} {$request['url']}",
+            array_filter($finding['fremdAnfragen'], fn (array $request): bool => Sichtung::isExternalHost($request['host'])),
+        ))
+        ->values();
+
+    expect($externalRequests->all())
+        ->toBe([], 'Browser requests left the machine: '.$externalRequests->implode(' | '));
 
     // Latch: the shared bottom bar looks the same on every page that renders it. /start is
     // the reference — it sits on the package layout, whose stylesheet is the theme's home.

@@ -47,6 +47,21 @@ if [[ ! -x "${PROJEKT}/gradlew" ]]; then
     exit 1
 fi
 
+# JDK-Wahl wie beim Release: Gradle 8.14 + Kotlin 2.0 stirbt unter einem JAVA_HOME
+# ab Java 25 (der Android-Studio-JBR ist 25.0.x) schon in der Konfigurationsphase,
+# nur mit der Versionsnummer als Fehlertext (gemessen 2026-10-24: "25.0.3"). Die
+# Suche steht EINMAL in release.sh (`--pruefe-jdk`); hier wird nur ihr Treffer
+# uebernommen, statt sie ein zweites Mal zu pflegen. Bricht die Suche ab, bricht
+# dieser Lauf mit ihrer Meldung ab.
+JDK_TREFFER="$(bash "${WURZEL}/scripts/release.sh" --pruefe-jdk)"
+JAVA_HOME="$(printf '%s\n' "${JDK_TREFFER}" | sed -n 's/^→ JDK [0-9]*: //p')"
+if [[ -z "${JAVA_HOME}" ]]; then
+    echo "✗ Kein brauchbares JDK gefunden (release.sh --pruefe-jdk): ${JDK_TREFFER}" >&2
+    exit 1
+fi
+export JAVA_HOME
+export PATH="${JAVA_HOME}/bin:${PATH}"
+
 mkdir -p "${PROJEKT}/${PAKET}" "${PROJEKT}/${TESTPAKET}"
 
 # Die Quellen frisch hineinkopieren, damit der Test gegen den Stand im Repo
@@ -58,5 +73,8 @@ cd "${PROJEKT}"
 
 # --offline: die Abhängigkeiten liegen nach dem ersten Build im Gradle-Cache,
 # und ein Prüflauf soll nicht am Netz hängen.
-./gradlew :app:testDebugUnitTest --offline \
+# cleanTestDebugUnitTest: Gradle marks an unchanged test task UP-TO-DATE and does not run it —
+# a second call on unchanged sources would report "BUILD SUCCESSFUL" without a single test
+# having executed (measured 2026-10-24: 1 s instead of 22 s).
+./gradlew :app:cleanTestDebugUnitTest :app:testDebugUnitTest --offline \
     --tests 'com.einundzwanzig.push.*' "$@"

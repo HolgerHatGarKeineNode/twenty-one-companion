@@ -36,6 +36,14 @@ function skipUnlessPortalReachable(): void
 {
     $base = portalBaseUrl();
     $host = parse_url($base, PHP_URL_HOST) ?: '127.0.0.1';
+
+    // The write tests create real records, and "no test leaves the machine" holds for this
+    // category too: it talks to a portal on THIS machine or not at all. A PORTAL_URL that
+    // points anywhere else (the production default of `config/services.php` included) is a
+    // mistake to stop, not a case to skip — skipping would read as "nothing to do".
+    if (! in_array($host, ['127.0.0.1', 'localhost', '::1', '[::1]'], true) && ! str_ends_with($host, '.localhost')) {
+        throw new RuntimeException("Refusing to run the integration suite against {$base}: PORTAL_URL must be a portal on this machine (127.0.0.1 / localhost).");
+    }
     $port = parse_url($base, PHP_URL_PORT) ?: (str_starts_with($base, 'https') ? 443 : 80);
 
     $socket = @fsockopen($host, (int) $port, $errno, $errstr, 1.0);

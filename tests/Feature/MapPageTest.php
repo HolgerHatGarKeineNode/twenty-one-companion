@@ -98,6 +98,7 @@ it('opens on the OWN entries and offers the other scope', function () {
 
 it('falls back to the own entries on an unknown scope', function () {
     withPortalToken();
+    fakeQuietPortal();
 
     Livewire::withQueryParams(['umfang' => 'quatsch'])->test('pages::mine.places')
         ->assertSet('umfang', 'meine');

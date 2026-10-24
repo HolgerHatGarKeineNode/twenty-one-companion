@@ -9,6 +9,7 @@ beforeEach(function () {
     config(['nativephp-internal.running' => true]);
     completeOnboarding();
     withoutPortalToken();
+    fakeQuietPortal();
 });
 
 it('marks the pages behind nostr.auth, and only those', function (string $path, bool $required) {

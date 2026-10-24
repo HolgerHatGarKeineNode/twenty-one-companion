@@ -99,6 +99,10 @@
             "Composer\\Config::disableProcessTimeout",
             "bash scripts/run-browser.sh"
         ],
+        "test:all": [
+            "Composer\\Config::disableProcessTimeout",
+            "bash scripts/run-all-tests.sh"
+        ],
         "test:push-kotlin": [
             "Composer\\Config::disableProcessTimeout",
             "bash scripts/run-push-kotlin.sh"

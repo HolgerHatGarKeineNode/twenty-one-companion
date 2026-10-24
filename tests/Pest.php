@@ -1,6 +1,12 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Saloon\Config as SaloonConfig;
+use Saloon\Enums\PipeOrder;
+use Saloon\Http\Faking\MockClient;
+use Saloon\Http\Faking\MockResponse;
+use Saloon\Http\PendingRequest;
 use Tests\TestCase;
 
 /*
@@ -18,7 +24,12 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     // Standard: Onboarding abgeschlossen, Region „Alle Länder“ — Tests zum
     // Onboarding selbst setzen den Zustand mit resetOnboarding() zurück.
-    ->beforeEach(fn () => completeOnboarding())
+    // ONE closure: a second `->beforeEach()` in the same chain replaces the first (measured:
+    // with two, `completeOnboarding()` never ran and every page redirected to /onboarding).
+    ->beforeEach(function () {
+        preventOutgoingRequests();
+        completeOnboarding();
+    })
     ->in('Feature');
 
 // Manuelle Integrationstests (echte Calls gegen ein lokales Portal-Dev) laufen
@@ -39,6 +50,51 @@ pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(fn () => completeOnboarding())
     ->in('Browser');
+
+/**
+ * No test leaves the machine: a request without a fake throws instead of going out.
+ *
+ * Two HTTP stacks are in play and each has its own switch — `Http::` (Laravel, used by
+ * `PortalAuth` and `PortalNostrHandoff`) and Saloon (every portal read/write through
+ * `PortalConnector`). `Http::fake()` does not reach Saloon and `MockClient` does not
+ * reach `Http::`, so one guard alone would leave the other open. The Saloon switch is
+ * process-wide static state and idempotent; the `Http` one lives on the app's factory, which
+ * is a new instance per test.
+ *
+ * Not applied to `Browser` (Chromium needs a real socket to the embedded server, and its
+ * pages deliberately talk to dead loopback ports — `phpunit.browser.xml`; what a BROWSER
+ * request may reach is held by the latches in `tests/Browser/SichtungTest.php`) and not to
+ * `Integration` (real calls to a portal on this machine by design).
+ */
+function preventOutgoingRequests(): void
+{
+    // A global MockClient is static state of the PROCESS and outlives the test that set it. A
+    // test that sets none then "passed" on its predecessor's mock — and went red, or hit the
+    // production portal, as soon as the order or the worker split changed.
+    MockClient::destroyGlobal();
+
+    Http::preventStrayRequests();
+
+    // Saloon's own `Config::preventStrayRequests()` would do, but it adds another middleware on
+    // EVERY call (once per test = hundreds in the pipeline) and its exception names neither the
+    // request nor the URL — which is exactly what one needs to find the test that forgot a fake.
+    static $guarded = false;
+
+    if (! $guarded) {
+        SaloonConfig::globalMiddleware()->onRequest(static function (PendingRequest $pending): void {
+            if (! $pending->hasMockClient()) {
+                throw new RuntimeException(sprintf(
+                    'Stray Saloon request without a MockClient: %s %s (%s)',
+                    $pending->getMethod()->value,
+                    $pending->getUri(),
+                    $pending->getRequest()::class,
+                ));
+            }
+        }, order: PipeOrder::LAST);
+
+        $guarded = true;
+    }
+}
 
 /**
  * Oeffnet den Pfad so, wie die App tatsaechlich benutzt wird.
@@ -148,8 +204,6 @@ use App\Services\PortalAuth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Native\Mobile\Facades\SecureStorage;
-use Saloon\Http\Faking\MockResponse;
-use Saloon\Http\PendingRequest;
 
 function completeOnboarding(string $locale = 'de', string $country = ''): void
 {
@@ -680,6 +734,30 @@ function userProfileFixture(array $overrides = []): array
         'is_leader' => false,
         'avatar' => null,
     ], $overrides);
+}
+
+/**
+ * The token owner's profile as the portal would answer it. `PortalAuth::profile()` asks
+ * `GET /api/user` on EVERY page render (the layout's `freshProfile()`), the cache is only the
+ * offline fallback — so a test with a token needs the request faked, not just the cache filled.
+ *
+ * @param  array<string, mixed>  $overrides
+ */
+function fakePortalProfile(array $overrides = []): void
+{
+    withCachedPortalProfile($overrides);
+    Http::fake(['*/api/user' => Http::response(userProfileFixture($overrides))]);
+}
+
+/**
+ * A portal that answers every read with an empty success. For tests whose subject is NOT the
+ * portal data (a preference saved, a meta tag on a page) but whose page renders a list that
+ * asks for it — without this the request goes to the real portal, and the stray-request guard
+ * (`preventOutgoingRequests()`) stops it.
+ */
+function fakeQuietPortal(): void
+{
+    MockClient::global(['*' => MockResponse::make([])]);
 }
 
 /**

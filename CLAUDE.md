@@ -168,6 +168,31 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 
 # Project notes
 
+## Test categories and the 10-minute budget
+
+The whole suite — every category together — runs in under 10 minutes (user rule, 2026-10-23).
+`composer test:all` (`scripts/run-all-tests.sh`) runs them serially, prints the table and fails
+past `TEST_BUDGET_SECONDS` (600). Measured 2026-10-24:
+
+| Category | Command | Tests | Wall |
+|---|---|---|---|
+| default (Unit + Feature) | `php artisan test --parallel` | 507 | 8 s |
+| browser (real Chromium) | `composer test:browser` | 74 | ~385 s |
+| integration (portal on this machine) | `composer test:integration` | 13, skipped without a portal | 1 s |
+| push-kotlin (JVM) | `composer test:push-kotlin` | 13 | 22 s warm |
+
+**No test leaves the machine.** `preventOutgoingRequests()` (`tests/Pest.php`, runs in every
+Feature test) stops `Http::` and Saloon requests without a fake — two stacks, two switches, and
+`Http::fake()` does not reach Saloon. Eleven tests were calling the production portal before
+(2026-10-24). A test with a token needs `fakePortalProfile()` (the layout asks `GET /api/user`
+on every render), a test that only renders a list needs `fakeQuietPortal()`. Browser pages talk
+to dead loopback ports (`phpunit.browser.xml`); `SichtungTest` latches that no browser request
+reaches any host but this machine, and the base map is served locally (`LocalMapStyle`, a style
+route on the app itself — a `data:` URL is blocked by the package's `connect-src`). The
+integration category refuses a `PORTAL_URL` that is not on this machine.
+
+**`->beforeEach()` twice in one Pest chain replaces the first.** Put both in one closure.
+
 ## The accessibility harness — four criteria, and they are load-bearing
 
 `tests/Browser/Accessibility/` holds four browser tests. Each one already found real defects here,

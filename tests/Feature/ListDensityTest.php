@@ -19,6 +19,7 @@ it('rejects an invalid density value', function () {
 
 it('saves the chosen density from the profile page', function () {
     withoutPortalToken();
+    fakeQuietPortal();
 
     Livewire::test('settings.region')
         ->set('density', 'compact')

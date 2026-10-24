@@ -134,6 +134,7 @@ it('refreshes the own meetups after a save event', function () {
 it('renders the own meetups page over http', function () {
     completeOnboarding();
     withPortalToken();
+    fakePortalProfile();
     MockClient::global([
         GetMyMeetupsRequest::class => MockResponse::make(['data' => [myMeetupFixture()]]),
     ]);

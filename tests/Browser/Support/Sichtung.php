@@ -105,15 +105,32 @@ final class Sichtung
      */
     public static function isUnconfiguredLoopback(string $host, array $configuredHosts): bool
     {
-        $host = strtolower($host);
-        $hostname = (string) preg_replace('/:\d+$/', '', $host);
-        $loopback = $hostname === 'localhost'
+        return self::isLoopbackHost($host) && ! in_array(strtolower($host), $configuredHosts, true);
+    }
+
+    /**
+     * `host[:port]` of this machine's own loopback (`localhost`, `127.x.x.x`, `[::1]`,
+     * `0.0.0.0`).
+     */
+    public static function isLoopbackHost(string $host): bool
+    {
+        $hostname = (string) preg_replace('/:\d+$/', '', strtolower($host));
+
+        return $hostname === 'localhost'
             || str_ends_with($hostname, '.localhost')
             || preg_match('/^127\.\d+\.\d+\.\d+$/', $hostname) === 1
             || $hostname === '[::1]'
             || $hostname === '0.0.0.0';
+    }
 
-        return $loopback && ! in_array($host, $configuredHosts, true);
+    /**
+     * A host that is not this machine. The suite's rule is that no test leaves the machine:
+     * `isProductionHost()` only names OUR production, this names every other third party too
+     * (a tile server, a font CDN, a relay the data pointed to).
+     */
+    public static function isExternalHost(string $host): bool
+    {
+        return ! self::isLoopbackHost($host);
     }
 
     /**

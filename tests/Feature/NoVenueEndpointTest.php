@@ -32,7 +32,7 @@ it('declares no portal request against a venue endpoint', function () {
 it('sends no request to a venue endpoint from the surfaces that used to', function () {
     completeOnboarding();
     withPortalToken();
-    withCachedPortalProfile(['id' => 7, 'is_lecturer' => true]);
+    fakePortalProfile(['id' => 7, 'is_lecturer' => true]);
     MockClient::global(['*' => MockResponse::make([])]);
 
     Livewire::test('pages::mine.places');

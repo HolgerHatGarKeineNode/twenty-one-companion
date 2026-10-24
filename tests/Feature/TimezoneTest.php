@@ -119,6 +119,7 @@ it('sends course event from/to converted from the user timezone to utc', functio
 
 it('saves a chosen timezone from the profile page', function () {
     withoutPortalToken();
+    fakeQuietPortal();
 
     Livewire::test('settings.region')
         ->set('timezone', 'Europe/Zurich')
