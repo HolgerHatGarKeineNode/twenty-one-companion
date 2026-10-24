@@ -236,7 +236,10 @@ it('opens the cropper with the native photo instead of selecting it directly', f
         GetMapMeetupsRequest::class => MockResponse::make([]),
     ]);
 
-    $path = fakeImagePath('logo.jpg');
+    $dir = sys_get_temp_dir().'/'.uniqid('native-', true).'/Camera';
+    mkdir($dir, 0755, true);
+    $path = $dir.'/logo.jpg';
+    file_put_contents($path, 'fake-binary-image');
 
     // Native Auswahl setzt NICHT direkt imagePath, sondern schickt das Bild als
     // data-URI an das cropperjs-Overlay (mit dem Editor-key zur Korrelation).
@@ -255,9 +258,14 @@ it('opens the cropper for a gallery pick even without an id in the event', funct
     ]);
 
     // Die Galerie liefert MediaSelected OHNE id — der Editor muss trotzdem croppen.
+    $path = fakeImagePath('logo.jpg');
+
     Livewire::test('meetup-editor')
-        ->call('handleMediaSelected', true, [fakeImagePath('logo.jpg')], 1)
+        ->call('handleMediaSelected', true, [$path], 1)
         ->assertDispatched('image-crop-open', key: 'meetup-logo');
+
+    // Outside the plugin's Camera/Gallery folders nothing is deleted.
+    expect($path)->toBeFile();
 });
 
 it('selects the cropped image and warns on an expensive network', function () {

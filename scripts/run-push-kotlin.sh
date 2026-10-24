@@ -47,16 +47,15 @@ if [[ ! -x "${PROJEKT}/gradlew" ]]; then
     exit 1
 fi
 
-# JDK-Wahl wie beim Release: Gradle 8.14 + Kotlin 2.0 stirbt unter einem JAVA_HOME
-# ab Java 25 (der Android-Studio-JBR ist 25.0.x) schon in der Konfigurationsphase,
-# nur mit der Versionsnummer als Fehlertext (gemessen 2026-10-24: "25.0.3"). Die
-# Suche steht EINMAL in release.sh (`--pruefe-jdk`); hier wird nur ihr Treffer
-# uebernommen, statt sie ein zweites Mal zu pflegen. Bricht die Suche ab, bricht
-# dieser Lauf mit ihrer Meldung ab.
+# JDK choice as in the release: Gradle 8.14 + Kotlin 2.0 dies under a JAVA_HOME of
+# Java 25 or later (the Android Studio JBR is 25.0.x) already in the configuration
+# phase, with only the version number as error text (measured 2026-10-24: "25.0.3").
+# The search lives ONCE in release.sh (`--pruefe-jdk`); this script only takes its
+# hit instead of maintaining a second copy. If the search fails, so does this run.
 JDK_TREFFER="$(bash "${WURZEL}/scripts/release.sh" --pruefe-jdk)"
 JAVA_HOME="$(printf '%s\n' "${JDK_TREFFER}" | sed -n 's/^→ JDK [0-9]*: //p')"
 if [[ -z "${JAVA_HOME}" ]]; then
-    echo "✗ Kein brauchbares JDK gefunden (release.sh --pruefe-jdk): ${JDK_TREFFER}" >&2
+    echo "✗ No usable JDK found (release.sh --pruefe-jdk): ${JDK_TREFFER}" >&2
     exit 1
 fi
 export JAVA_HOME

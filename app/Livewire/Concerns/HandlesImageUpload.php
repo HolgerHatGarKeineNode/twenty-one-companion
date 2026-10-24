@@ -170,9 +170,9 @@ trait HandlesImageUpload
 
         $raw = @file_get_contents($path);
 
-        // Since mobile-camera 1.1.0 captures and picks land in persistent app storage
-        // that the plugin never cleans up; the bytes now travel as a data URI.
-        @unlink($path);
+        if ($this->isNativeMediaFile($path)) {
+            @unlink($path);
+        }
 
         if ($raw === false) {
             Flux::toast(text: __('Das Bild konnte nicht geladen werden.'), variant: 'danger');
@@ -186,6 +186,19 @@ trait HandlesImageUpload
             key: $this->imageUploadKey(),
             ratio: $this->imageCropAspectRatio(),
         );
+    }
+
+    /**
+     * Since mobile-camera 1.1.0 captures and picks land in persistent app storage
+     * (`Camera/` resp. `Gallery/`) that the plugin never cleans up; once the bytes
+     * travel as a data URI the original can go. The path arrives through a public
+     * Livewire method, so only files inside those two plugin folders are deleted.
+     */
+    private function isNativeMediaFile(string $path): bool
+    {
+        $real = realpath($path);
+
+        return $real !== false && in_array(basename(dirname($real)), ['Camera', 'Gallery'], true);
     }
 
     /**
