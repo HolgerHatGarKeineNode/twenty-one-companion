@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use Developernauts\NativephpMobileLocales\NativephpMobileLocalesServiceProvider;
 use Einundzwanzig\AmberSigner\AmberSignerServiceProvider;
 use Einundzwanzig\Calendar\CalendarServiceProvider;
 use Einundzwanzig\Push\PushServiceProvider;
@@ -47,7 +46,6 @@ class NativeServiceProvider extends ServiceProvider
             NetworkServiceProvider::class,
             ShareServiceProvider::class,
             SecureStorageServiceProvider::class,
-            NativephpMobileLocalesServiceProvider::class,
             CameraServiceProvider::class,
             CalendarServiceProvider::class,
             AmberSignerServiceProvider::class,

@@ -244,6 +244,8 @@ it('opens the cropper with the native photo instead of selecting it directly', f
         ->call('handlePhotoTaken', $path, 'image/jpeg', 'meetup-logo')
         ->assertSet('imagePath', null)
         ->assertDispatched('image-crop-open', key: 'meetup-logo');
+
+    expect($path)->not->toBeFile();
 });
 
 it('opens the cropper for a gallery pick even without an id in the event', function () {

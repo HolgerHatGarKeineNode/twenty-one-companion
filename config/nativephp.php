@@ -168,6 +168,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Supported Locales
+    |--------------------------------------------------------------------------
+    |
+    | The languages the app offers to the OS: Android's per-app language picker
+    | (locale-config) and iOS CFBundleLocalizations. Mirrors the translations in
+    | lang/. Leaving this empty makes the core compiler (since 4.6.0) delete the
+    | locale-config and drop the app from the language picker.
+    |
+    */
+
+    'supported_locales' => ['de', 'en', 'es', 'hu', 'lv', 'nl', 'pl', 'pt'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Environment Keys to Clean Up
     |--------------------------------------------------------------------------
     |

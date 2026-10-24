@@ -10,7 +10,6 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
-        "developernauts/nativephp-mobile-locales": "^1.0",
         "einundzwanzig/amber-signer": "@dev",
         "einundzwanzig/calendar": "@dev",
         "einundzwanzig/group": "dev-master",

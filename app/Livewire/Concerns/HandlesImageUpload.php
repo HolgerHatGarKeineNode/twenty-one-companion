@@ -170,6 +170,10 @@ trait HandlesImageUpload
 
         $raw = @file_get_contents($path);
 
+        // Since mobile-camera 1.1.0 captures and picks land in persistent app storage
+        // that the plugin never cleans up; the bytes now travel as a data URI.
+        @unlink($path);
+
         if ($raw === false) {
             Flux::toast(text: __('Das Bild konnte nicht geladen werden.'), variant: 'danger');
 
