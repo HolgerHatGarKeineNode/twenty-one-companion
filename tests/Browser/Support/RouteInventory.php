@@ -177,6 +177,7 @@ final class RouteInventory
             'livewire-23a0808b/livewire.min.js.map' => 'Livewire frontend asset (source map of the core JS).',
             'livewire-23a0808b/preview-file/{filename}' => 'Livewire file preview, reachable only via a signed upload token — not a navigable page.',
             'nostr/challenge' => 'JSON API endpoint (returns a login nonce), no HTML.',
+            'nostr/nip05' => 'JSON API endpoint (server-side NIP-05 lookup for the verified badge), no HTML.',
             'portal/nostr-challenge' => 'JSON API endpoint (portal handoff challenge), no HTML.',
             'signed/{payload}' => 'NIP-55 signer deep-link callback (einundzwanzig://signed/…), not a path a human types.',
             'storage/{path}' => 'Storage symlink asset (images/files), no page content.',

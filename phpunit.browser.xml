@@ -53,5 +53,9 @@
              request to a production host). -->
         <env name="NOSTR_SPACE_URL" value="ws://127.0.0.1:7"/>
         <env name="VEREIN_PROXY_BASE" value="http://127.0.0.1:9"/>
+        <!-- NIP-05 lookups go through the app's own server (`/nostr/nip05`, group d84dbc5),
+             which then fetches the handle's domain — a request leaving this machine that the
+             browser-side latch cannot see. Off, as in the group e2e env. -->
+        <env name="GROUP_HANDLE_PROXY" value="false"/>
     </php>
 </phpunit>
