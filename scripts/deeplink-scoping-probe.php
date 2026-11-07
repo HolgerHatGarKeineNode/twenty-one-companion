@@ -78,8 +78,11 @@ namespace Native\Mobile\Concerns {
     // and deepLinkPathData() call only each other and $this->warn() (Command, not a
     // trait — and unreachable on the probe path, it fires only when every configured
     // path was rejected).
+    // Measured 2026-11-07 (nativephp/mobile 4.7.0): RunsAndroid additionally composes
+    // ReportsRunOutcome (only failRun() + $runFailure); neither probed method calls it.
     trait DeclaresReleaseAudience {}
     trait PreparesBuild {}
+    trait ReportsRunOutcome {}
     trait WatchesAndroid {}
 }
 
