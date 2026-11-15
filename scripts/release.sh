@@ -462,6 +462,51 @@ if [ "${1:-}" = "--pruefe-jdk" ]; then
     if waehle_jdk; then exit 0; else exit 1; fi
 fi
 
+# The generated Android project must be the one the installed NativePHP ships.
+#
+# `composer update` replaces vendor/nativephp/mobile, but nothing refreshes
+# nativephp/android: `native:run` and `native:package` keep an existing project, and
+# apply-vendor-patches.sh only re-applies our own patches to it. Measured 2026-11-15:
+# the project had last been generated on 2026-09-11 from NativePHP 4.4.0 and was still
+# in use under 4.7.0 — 45 Kotlin files differed from the template, 14 of them missing
+# entirely, PHP binaries 4.0.0 instead of 4.2.1. v1.13.0 through v1.14.1 shipped that
+# shell, so every native fix in between never reached a device, among them
+# `setWebContentsDebuggingEnabled(true)` in release builds (fixed upstream in 4.8.0).
+# Nothing failed: the build is green either way.
+#
+# The comparison is the Kotlin tree of the template against the generated one. Only
+# MainActivity.kt is exempt, because the build itself rewrites it (measured: it is the
+# single file that differs after `native:package` on a fresh project).
+pruefe_native_unterbau() {  # $1 = template java dir, $2 = generated java dir
+    local vorlage="$1" erzeugt="$2" abweichend
+    if [ ! -d "$vorlage" ]; then
+        echo "❌ NativePHP-Template fehlt: $vorlage" >&2
+        return 1
+    fi
+    if [ ! -d "$erzeugt" ]; then
+        echo "❌ Generiertes Android-Projekt fehlt: $erzeugt" >&2
+        echo "   Erzeugen mit: php artisan native:install android" >&2
+        return 1
+    fi
+    abweichend=$(diff -rq "$vorlage" "$erzeugt" 2>&1 | grep -v '/MainActivity\.kt ' | grep -c -E "^(Only in ${vorlage}|Files )" || true)
+    if [ "$abweichend" -ne 0 ]; then
+        echo "❌ Das generierte Android-Projekt ist nicht der Stand des installierten NativePHP:" >&2
+        echo "   $abweichend Kotlin-Datei(en) fehlen oder weichen vom Template ab." >&2
+        echo "   Ein Release wuerde einen veralteten nativen Unterbau ausliefern." >&2
+        echo "   Auffrischen: nativephp/android wegbewegen, dann" >&2
+        echo "     php artisan native:install android && bash scripts/apply-vendor-patches.sh" >&2
+        return 1
+    fi
+    echo "   ✓ Nativer Unterbau entspricht dem installierten NativePHP-Template"
+}
+
+# Ebenso einzeln aufrufbar: nur den Unterbau-Riegel fahren.
+if [ "${1:-}" = "--pruefe-unterbau" ]; then
+    if pruefe_native_unterbau \
+        "${2:-vendor/nativephp/mobile/resources/androidstudio/app/src/main/java}" \
+        "${3:-nativephp/android/app/src/main/java}"; then exit 0; else exit 1; fi
+fi
+
 # Der --no-dev-Vorlauf unten raeumt pest/phpstan/phpunit aus dem Arbeitsplatz.
 # Ohne diesen trap bliebe ein abgebrochener Lauf mit einem Repo zurueck, in dem
 # keine Tests mehr laufen.
@@ -506,6 +551,12 @@ if [ -z "${SKIP_BUILD:-}" ]; then
     # Muss VOR native:package laufen: patcht die vendor-Templates, damit ein
     # etwaiges Neu-Scaffolding die Optimierungen enthält. Idempotent + fail-fast.
     bash scripts/apply-vendor-patches.sh
+
+    echo "→ Nativen Unterbau gegen das installierte NativePHP pruefen …"
+    # After the patches, so template and generated project carry the same ones.
+    pruefe_native_unterbau \
+        vendor/nativephp/mobile/resources/androidstudio/app/src/main/java \
+        nativephp/android/app/src/main/java || exit 1
 
     # WURZEL des PathDownloader-Problems, eine Ebene tiefer als der Vorlauf unten:
     # native:package kopiert das Projekt nach nativephp/android/laravel/ und faehrt
